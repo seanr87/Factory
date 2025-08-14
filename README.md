@@ -60,3 +60,41 @@ Give every OHDSI network study the same, simple tracking experience: one click t
 8. **Roll out** to remaining studies; share the template/provisioner so other OHDSI groups can adopt.
 
 *Questions or stage changes? Ben is the stage owner—edit once, everything respects the update.*
+
+---
+
+## Amendments (per latest decisions)
+
+### A) Partner Tracker = **Issue-based**, assignable, and automated
+
+* Each Data Partner is a **GitHub Issue** labeled `partner-site`, automatically added to the per‑study Project.
+* **Initial Status:** `Potential` (default) → `Invited` → `Diagnostics Sent` → `Diagnostics Returned` → `Package Executed` → `Results Uploaded` → `Blocked` (if needed).
+* **Intake:** Provision form must list **ALL potential partners**; automation creates one `partner-site` issue per site (no manual issue creation by the operator).
+* **Lead adds partners later:** Use an **Issue Form: “Add Data Partner”**. A small workflow creates the `partner-site` issue, assigns the contact, and adds it to the project. The Factory row is updated with **Partner Sites** (CSV) and **Partner Count**.
+
+### B) Weekly Nudge = default Monday 9am ET, **configurable by Study Lead**
+
+* Default cadence: **Mondays at 9:00 AM America/New\_York**.
+* Config via repo variables: `NUDGE_DAY` (Mon|Tue|...), `NUDGE_HOUR_LOCAL` (0–23). The workflow runs hourly on the chosen day and self‑checks local time to fire **once** at the configured hour (DST‑safe); Study Lead can edit variables in repo **Settings → Variables**.
+* Behavior:
+
+  * Updates/creates a **“Weekly Partner Nudge”** issue tagging the Study Lead with a checklist of stale partner‑site issues.
+  * Posts a short comment on each stale partner‑site issue tagging its **assignee** (generates a GitHub notification).
+
+### C) Provisioner behavior
+
+* The **Provision workflow** in `BIDS_General` creates everything: repo, per‑study project/fields, **stage checklist issues**, **partner‑site issues** (from intake list), Factory item, and permissions. The operator **never** creates issues manually.
+
+### D) Factory fields
+
+* Add **Partner Count** (number) and keep **Partner Sites** (CSV/text) so the portfolio can summarize partner activity.
+
+### E) README adjustments (study template)
+
+* Add a short **“Working with Data Partners”** section:
+
+  1. Use **Issue Form: “Add Data Partner”** to add a site (creates an assignable issue and adds it to the board).
+  2. Status starts at **Potential**; update as you progress (or close when withdrawn).
+  3. Weekly nudge defaults to **Mon 9am ET**. To change, update repo variables **NUDGE\_DAY**/**NUDGE\_HOUR\_LOCAL**.
+  4. Keep the **Protocol** and **ATLAS/Cohort links** in the README up to date.
+* Keep the README **language‑neutral**; include note that a **Strategus** scaffold can be added later once stable.
