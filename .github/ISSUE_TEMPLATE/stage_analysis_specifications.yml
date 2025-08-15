@@ -1,0 +1,19 @@
+name: "Stage: Analysis specifications"
+description: Lock analysis plan and parameters
+title: "Stage: Analysis specifications"
+labels: ["stage:analysis-specifications"]
+body:
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Analysis plan finalized (methods, models, thresholds)"
+        - label: "Outcomes/metrics defined and documented"
+        - label: "Parameters/config committed to repo"
+        - label: "Peer review of specs completed"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "Analysis plan doc; config file paths"

@@ -1,0 +1,28 @@
+name: "Stage: Protocol development"
+description: Checklist to finalize protocol and readiness to recruit/diagnose
+title: "Stage: Protocol development"
+labels: ["stage:protocol-development"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Complete these items; then **close** this issue to advance the Stage.
+        *Lead-site IRB approval is required before network execution.*
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Clinical question, cohort(s), outcomes defined"
+        - label: "Team & roles confirmed (Lead, Analyst, Coordinator)"
+        - label: "Protocol document link added in README"
+        - label: "Lead-site IRB **approved** (link or reference attached)"
+        - label: "Initial list of potential data partners identified"
+        - label: "Target dates set (this stage + next stage)"
+        - label: "Posted brief update to OHDSI community channel (optional)"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      description: Protocol URL, IRB approval link/ref, forum thread, etc.
+      placeholder: "https://...protocol.pdf"

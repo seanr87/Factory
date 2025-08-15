@@ -1,17 +1,17 @@
 # Factory Demo (Personal Account: `seanr87`) — End-to-End Checklist
 
 ## 0) Prereqs (once)
-- [ ] Ensure **GitHub Projects (v2)** is available on your user account.
-- [ ] Create a **fine-grained PAT** with: Repos (R/W), Projects (R/W), Actions (R/W).
+- [x] Ensure **GitHub Projects (v2)** is available on your user account.
+- [x] Create a **fine-grained PAT** with: Repos (R/W), Projects (R/W), Actions (R/W).
 
 ## 1) Create the **Factory** portfolio (user-level Project)
-- [ ] Profile → **Projects** → **New project** → name it **Factory**.
-- [ ] Add fields: **Stage** (single-select), **Lead**, **Lead Site**, **Partner Sites** (text), **Partner Count** (number), **Target Date** (date), **Repo** (text/URL).
-- [ ] Note the **project number** from the URL → you’ll use it as `FACTORY_PROJECT_NUMBER`.
+- [x] Profile → **Projects** → **New project** → name it **Factory**.
+- [x] Add fields: **Stage** (single-select), **Lead**, **Lead Site**, **Partner Sites** (text), **Partner Count** (number), **Target Date** (date), **Repo** (text/URL).
+- [x] Note the **project number** from the URL → you’ll use it as `FACTORY_PROJECT_NUMBER`.
 
 ## 2) Create repos
 - [ ] Create private repo **`study-template`** under `seanr87`.
-  - [ ] Add **labels**: `stage:protocol-development … stage:results-evaluation`, `partner-site`.
+  - [x] Add **labels**: `stage:protocol-development … stage:results-evaluation`, `partner-site`.
   - [ ] Add **issue templates** (9 **stage checklist** issues; “Lead-site IRB approved” lives in **Protocol development**).
   - [ ] Add **Issue Forms**:  
     - `Add Data Partner` (fields: Site, @GitHub (opt), Email (opt), Notes (opt))  

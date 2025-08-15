@@ -1,0 +1,35 @@
+name: "Add Data Partner"
+description: Create a new data partner issue (one per site)
+title: "Data Partner: <enter site name>"
+labels: ["data-partner"]
+body:
+  - type: input
+    id: site
+    attributes:
+      label: Site name
+      placeholder: "e.g., Stanford Medicine"
+    validations:
+      required: true
+  - type: input
+    id: github
+    attributes:
+      label: GitHub handle (assignee, optional)
+      placeholder: "@site-contact"
+  - type: input
+    id: email
+    attributes:
+      label: Contact email (optional)
+      placeholder: "contact@example.org"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optional)
+      placeholder: "Anything helpful for coordination."
+  - type: markdown
+    attributes:
+      value: |
+        After creation, automation will:
+        - Label this issue `data-partner`
+        - Set Site Status = **Potential**
+        - Add it to the study project
+        - Assign @GitHub if provided and welcome-ping them

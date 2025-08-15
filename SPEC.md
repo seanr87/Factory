@@ -2,7 +2,7 @@
 
 ## Background
 
-The JHU “Observational Research Lab” coordinates OHDSI network studies with distributed researchers and data partners. Tracking is inconsistent and manual, making it hard to see progress or prioritize help. We will standardize on GitHub Enterprise (org: **JHU‑Odyssey**) using a **Hybrid** model:
+The JHU “Observational Research Lab” coordinates OHDSI network studies with distributed researchers and data partners. Tracking is inconsistent and manual, making it hard to see progress or prioritize help. We will standardize on GitHub Enterprise (org: **JHU‑OHDSI**) using a **Hybrid** model:
 
 * **Factory**: one org‑level Project (portfolio) with a single item per study.
 * **Per‑study space**: one repository per study plus a small per‑study Project for day‑to‑day work.

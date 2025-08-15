@@ -1,0 +1,18 @@
+name: "Stage: Evidence synthesis"
+description: Aggregate results, meta-analyze, draft tables/figures
+title: "Stage: Evidence synthesis"
+labels: ["stage:evidence-synthesis"]
+body:
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Aggregation/meta-analysis complete"
+        - label: "Primary/secondary tables and figures drafted"
+        - label: "QC pass on tables/figures"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "Scripts; notebooks; figure exports"

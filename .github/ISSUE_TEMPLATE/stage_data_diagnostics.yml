@@ -1,0 +1,23 @@
+name: "Stage: Data diagnostics"
+description: Share diagnostics instructions and collect site returns
+title: "Stage: Data diagnostics"
+labels: ["stage:data-diagnostics"]
+body:
+  - type: markdown
+    attributes:
+      value: "Share diagnostics package/instructions; track site returns and blockers."
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Diagnostics instructions/package prepared and linked"
+        - label: "Invitations sent to potential partners"
+        - label: "Returns tracked (who ran/when)"
+        - label: "Blockers captured per site (if any)"
+        - label: "Viable partner list confirmed"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "Diagnostics doc/package URL; tracking notes"

@@ -1,0 +1,19 @@
+name: "Stage: Phenotype development"
+description: Build concept sets and cohorts
+title: "Stage: Phenotype development"
+labels: ["stage:phenotype-development"]
+body:
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Concept sets drafted and reviewed with clinician(s)"
+        - label: "Cohorts built in ATLAS (or equivalent)"
+        - label: "Versioned cohort definitions checked in"
+        - label: "Cohort definition links added to README"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "ATLAS links; concept set notes"

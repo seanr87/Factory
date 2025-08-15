@@ -1,0 +1,19 @@
+name: "Stage: Network execution"
+description: Distribute package/instructions; partners execute and return results
+title: "Stage: Network execution"
+labels: ["stage:network-execution"]
+body:
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Execution package built/released and linked"
+        - label: "Instructions sent to partners"
+        - label: "Result drop location defined and shared"
+        - label: "Partners confirmed receipt and started execution"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "Release URL; instructions; results folder"

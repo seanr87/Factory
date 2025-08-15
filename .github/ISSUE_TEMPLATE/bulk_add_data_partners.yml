@@ -1,0 +1,23 @@
+name: "Bulk Add Data Partners"
+description: Add multiple data partners (one per line)
+title: "Bulk Add Data Partners"
+labels: []
+body:
+  - type: textarea
+    id: bulk
+    attributes:
+      label: Sites list
+      description: |
+        Enter one site per line. Optional contact & details can follow, comma-separated:
+        `Site Name, @github(optional), email(optional), notes(optional)`
+      placeholder: |
+        Stanford Medicine, @stanford-user, stanford@example.org, Diagnostics contact
+        Emory
+        Johns Hopkins, @jh-user
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        After submission, automation will create one **`data-partner`** issue per line,
+        set Site Status = **Potential**, add to the study project, and assign @github if provided.

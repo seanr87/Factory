@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Factory docs (quick start)
+    url: https://github.com/seanr87/study-template#readme
+    about: How to use the study template, add partners, and advance stages.

@@ -1,0 +1,19 @@
+name: "Stage: Phenotype evaluation"
+description: Validate cohorts with diagnostics/sanity checks
+title: "Stage: Phenotype evaluation"
+labels: ["stage:phenotype-evaluation"]
+body:
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Cohort diagnostics run and reviewed"
+        - label: "Sanity-check counts/characteristics"
+        - label: "Refinements applied (if needed) and rechecked"
+        - label: "Clinical sign-off recorded"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "Diagnostics outputs; sign-off notes"

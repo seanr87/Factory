@@ -1,0 +1,19 @@
+name: "Stage: Results evaluation"
+description: Interpret, communicate, and finalize outputs
+title: "Stage: Results evaluation"
+labels: ["stage:results-evaluation"]
+body:
+  - type: checkboxes
+    id: accept
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: "Interpretation drafted and reviewed"
+        - label: "Community/leadership update shared (forum/call)"
+        - label: "Manuscript/preprint planning started or completed"
+        - label: "Study README/status badges updated"
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & notes
+      placeholder: "Comms links; manuscript repo; final notes"
