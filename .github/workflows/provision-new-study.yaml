@@ -393,22 +393,37 @@ jobs:
           partner_sites="${{ inputs.partner_sites }}"
           partner_count=0
           
-          # Split by comma and process each site
-          IFS=',' read -ra SITES <<< "$partner_sites"
-          for site in "${SITES[@]}"; do
+          # Debug: show what we're parsing
+          echo "Input partner sites: '$partner_sites'"
+          
+          # Convert comma-separated to array using a more reliable method
+          OLDIFS="$IFS"
+          IFS=','
+          read -ra SITES <<< "$partner_sites"
+          IFS="$OLDIFS"
+          
+          echo "Found ${#SITES[@]} sites to process"
+          
+          for i in "${!SITES[@]}"; do
+            site="${SITES[$i]}"
             # Trim whitespace
-            site=$(echo "$site" | xargs)
+            site=$(echo "$site" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             
             if [[ -n "$site" ]]; then
-              echo "Creating partner issue for: $site"
+              echo "Creating partner issue for: '$site'"
               
-              gh issue create \
+              if gh issue create \
                 --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
                 --title "Data Partner: $site" \
                 --label "data-partner" \
-                --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities."
-              
-              ((partner_count++))
+                --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities."; then
+                echo "✅ Successfully created issue for $site"
+                ((partner_count++))
+              else
+                echo "❌ Failed to create issue for $site"
+              fi
+            else
+              echo "⚠️ Skipping empty site at index $i"
             fi
           done
           
