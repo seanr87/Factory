@@ -103,15 +103,46 @@ jobs:
         run: |
           echo "🏗️ Creating repository ${{ steps.slug.outputs.repo_name }}..."
           
-          # Create repo from template
-          gh repo create "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+          # First try to create from template
+          if gh repo create "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
             --template "${{ env.TEMPLATE_REPO }}" \
             --private \
-            --description "OHDSI Network Study: ${{ inputs.study_title }}"
+            --description "OHDSI Network Study: ${{ inputs.study_title }}" 2>/dev/null; then
+            echo "✅ Created repository from template"
+          else
+            echo "⚠️ Template creation failed, creating empty repo and copying files..."
+            
+            # Create empty private repository
+            gh repo create "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+              --private \
+              --description "OHDSI Network Study: ${{ inputs.study_title }}"
+            
+            # Clone both repos to copy template files
+            git clone "https://github.com/${{ env.TEMPLATE_REPO }}.git" template-source
+            git clone "https://github.com/${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}.git" new-repo
+            
+            # Copy template files (exclude .git directory)
+            cp -r template-source/* new-repo/ 2>/dev/null || true
+            cp -r template-source/.github new-repo/ 2>/dev/null || true
+            
+            # Commit and push template files
+            cd new-repo
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .
+            git commit -m "Initial commit from study template" || echo "No files to commit"
+            git push
+            cd ..
+            
+            # Cleanup
+            rm -rf template-source new-repo
+            
+            echo "✅ Created repository and copied template files"
+          fi
           
           repo_url="https://github.com/${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
           echo "repo_url=$repo_url" >> $GITHUB_OUTPUT
-          echo "✅ Created repository: $repo_url"
+          echo "✅ Repository ready: $repo_url"
 
       - name: Create per-study project
         id: create_project
