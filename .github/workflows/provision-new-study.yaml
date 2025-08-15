@@ -564,12 +564,11 @@ jobs:
               
               const itemId = createItemResult.addProjectV2DraftIssue.projectItem.id;
               
-              // Set text fields
+// Set text fields
               const textFields = {
                 "Lead": lead,
                 "Lead Site": leadSite,
                 "Partner Sites": partnerSites,
-                "Target Date": targetDate,
                 "Study Repo": repoUrl
               };
               
@@ -594,6 +593,28 @@ jobs:
                     val: value
                   });
                 }
+              }
+              
+              // Set Target Date (date field)
+              const targetDateField = fields["Target Date"];
+              if (targetDateField && targetDate) {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: Date!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: { date: $val }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: factory.id,
+                  itemId: itemId,
+                  fieldId: targetDateField.id,
+                  val: targetDate
+                });
               }
               
               // Set Partner Count (number field)
