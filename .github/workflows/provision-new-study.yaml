@@ -442,6 +442,9 @@ jobs:
             
             console.log('Adding issues to per-study project...');
             
+            // Wait a moment for all issues to be fully created
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
             try {
               // Get all issues from the repository
               const issues = await github.rest.issues.listForRepo({
@@ -453,26 +456,36 @@ jobs:
               
               console.log(`Found ${issues.data.length} issues to add to project`);
               
+              // Debug: list all issues found
+              for (const issue of issues.data) {
+                console.log(`Found issue #${issue.number}: ${issue.title}`);
+              }
+              
               // Add each issue to the project
               for (const issue of issues.data) {
                 console.log(`Adding issue #${issue.number}: ${issue.title}`);
                 
-                await github.graphql(`
-                  mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemById(input: {
-                      projectId: $projectId,
-                      contentId: $contentId
-                    }) {
-                      item { id }
+                try {
+                  await github.graphql(`
+                    mutation($projectId: ID!, $contentId: ID!) {
+                      addProjectV2ItemById(input: {
+                        projectId: $projectId,
+                        contentId: $contentId
+                      }) {
+                        item { id }
+                      }
                     }
-                  }
-                `, {
-                  projectId: projectId,
-                  contentId: issue.node_id
-                });
+                  `, {
+                    projectId: projectId,
+                    contentId: issue.node_id
+                  });
+                  console.log(`✅ Successfully added issue #${issue.number}`);
+                } catch (error) {
+                  console.log(`❌ Failed to add issue #${issue.number}: ${error.message}`);
+                }
               }
               
-              console.log('✅ Added all issues to per-study project');
+              console.log('✅ Finished adding issues to per-study project');
               
             } catch (error) {
               console.error('Error adding issues to project:', error);
