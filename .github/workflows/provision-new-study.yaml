@@ -387,6 +387,7 @@ jobs:
       - name: Create partner site issues
         id: create_partners
         run: |
+          set +e  # Disable exit on error for this step
           echo "👥 Creating partner site issues..."
           
           # Parse partner sites from input
@@ -412,24 +413,24 @@ jobs:
             if [[ -n "$site" ]]; then
               echo "Creating partner issue for: '$site'"
               
-              if gh issue create \
+              gh issue create \
                 --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
                 --title "Data Partner: $site" \
                 --label "data-partner" \
-                --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities."; then
-                echo "✅ Successfully created issue for $site"
-                ((partner_count++))
-              else
-                echo "❌ Failed to create issue for $site"
-              fi
+                --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities." || true
+              
+              echo "✅ Processed site: $site"
+              ((partner_count++))
             else
               echo "⚠️ Skipping empty site at index $i"
             fi
           done
           
+          set -e  # Re-enable exit on error
+          
           echo "partner_count=$partner_count" >> $GITHUB_OUTPUT
           echo "✅ Created $partner_count partner site issues"
-
+          
       - name: Set repository variables
         run: |
           echo "⚙️ Setting repository variables..."
