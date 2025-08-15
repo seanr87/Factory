@@ -12,11 +12,11 @@
 ## 2) Create repos
 - [ ] Create private repo **`study-template`** under `seanr87`.
   - [x] Add **labels**: `stage:protocol-development … stage:results-evaluation`, `partner-site`.
-  - [ ] Add **issue templates** (9 **stage checklist** issues; “Lead-site IRB approved” lives in **Protocol development**).
-  - [ ] Add **Issue Forms**:  
+  - [x] Add **issue templates** (9 **stage checklist** issues; “Lead-site IRB approved” lives in **Protocol development**).
+  - [x] Add **Issue Forms**:  
     - `Add Data Partner` (fields: Site, @GitHub (opt), Email (opt), Notes (opt))  
     - `Bulk Add Data Partners` (one site per line; optional `@github,email,notes` suffixes)
-  - [ ] Add **workflows**:  
+  - [x] Add **workflows**:  
     - **Stage sync** (close a stage checklist → update Stage locally + in Factory)  
     - **Partner sync** (create/edit/close partner-site issues → update **Partner Sites** + **Partner Count** in Factory; welcome ping on assignment)  
     - **Weekly Partner Nudge** (default **Mon 9:00 ET**, configurable via repo vars; stale if no activity for **7** days)
