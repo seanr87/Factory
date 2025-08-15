@@ -564,7 +564,7 @@ jobs:
               
               const itemId = createItemResult.addProjectV2DraftIssue.projectItem.id;
               
-// Set text fields
+              // Set text fields
               const textFields = {
                 "Lead": lead,
                 "Lead Site": leadSite,
