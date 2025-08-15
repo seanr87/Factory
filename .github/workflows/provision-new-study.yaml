@@ -459,11 +459,13 @@ jobs:
             IFS=',' read -ra ADMINS <<< "${{ inputs.admins }}"
             for admin in "${ADMINS[@]}"; do
               admin=$(echo "$admin" | xargs)
-              if [[ -n "$admin" ]]; then
+              if [[ -n "$admin" && "$admin" != "${{ env.ORG_LOGIN }}" ]]; then
                 echo "Granting admin access to: $admin"
                 gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"$admin" \
                   --method PUT \
-                  --field permission=admin
+                  --field permission=admin || echo "Failed to grant admin access to $admin"
+              else
+                echo "Skipping owner $admin (already has admin access)"
               fi
             done
           fi
@@ -473,11 +475,13 @@ jobs:
             IFS=',' read -ra MAINTAINERS <<< "${{ inputs.maintainers }}"
             for maintainer in "${MAINTAINERS[@]}"; do
               maintainer=$(echo "$maintainer" | xargs)
-              if [[ -n "$maintainer" ]]; then
+              if [[ -n "$maintainer" && "$maintainer" != "${{ env.ORG_LOGIN }}" ]]; then
                 echo "Granting maintain access to: $maintainer"
                 gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"$maintainer" \
                   --method PUT \
-                  --field permission=maintain
+                  --field permission=maintain || echo "Failed to grant maintain access to $maintainer"
+              else
+                echo "Skipping owner $maintainer (already has admin access)"
               fi
             done
           fi
