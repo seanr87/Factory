@@ -226,30 +226,8 @@ jobs:
             console.log('Adding fields to per-study project...');
             
             try {
-              // Create Stage field (single-select)
-              const stageField = await github.graphql(`
-                mutation($projectId: ID!, $name: String!, $dataType: ProjectV2CustomFieldType!) {
-                  createProjectV2Field(input: {
-                    projectId: $projectId,
-                    name: $name,
-                    dataType: $dataType
-                  }) {
-                    projectV2Field {
-                      ... on ProjectV2SingleSelectField {
-                        id
-                        name
-                      }
-                    }
-                  }
-                }
-              `, {
-                projectId: projectId,
-                name: "Stage",
-                dataType: "SINGLE_SELECT"
-              });
-              
-              // Add stage options
-              const stages = [
+              // Create Stage field with options in a single operation
+              const stageOptions = [
                 "Protocol development",
                 "Data diagnostics", 
                 "Phenotype development",
@@ -261,48 +239,36 @@ jobs:
                 "Results evaluation"
               ];
               
-              const stageFieldId = stageField.createProjectV2Field.projectV2Field.id;
-              
-              for (const stage of stages) {
-                await github.graphql(`
-                  mutation($fieldId: ID!, $name: String!) {
-                    createProjectV2FieldOption(input: {
-                      fieldId: $fieldId,
-                      name: $name
-                    }) {
-                      projectV2FieldOption { id }
-                    }
-                  }
-                `, {
-                  fieldId: stageFieldId,
-                  name: stage
-                });
-              }
-              
-              // Create Site Status field for partner tracking
-              const statusField = await github.graphql(`
-                mutation($projectId: ID!, $name: String!, $dataType: ProjectV2CustomFieldType!) {
+              const stageField = await github.graphql(`
+                mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
                   createProjectV2Field(input: {
                     projectId: $projectId,
                     name: $name,
-                    dataType: $dataType
+                    dataType: SINGLE_SELECT,
+                    singleSelectOptions: $options
                   }) {
                     projectV2Field {
                       ... on ProjectV2SingleSelectField {
                         id
                         name
+                        options {
+                          id
+                          name
+                        }
                       }
                     }
                   }
                 }
               `, {
                 projectId: projectId,
-                name: "Site Status",
-                dataType: "SINGLE_SELECT"
+                name: "Stage",
+                options: stageOptions.map(name => ({ name }))
               });
               
-              // Add status options
-              const statuses = [
+              console.log('✅ Created Stage field with options');
+              
+              // Create Site Status field with options in a single operation
+              const statusOptions = [
                 "Potential",
                 "Invited", 
                 "Diagnostics Sent",
@@ -312,25 +278,34 @@ jobs:
                 "Blocked"
               ];
               
-              const statusFieldId = statusField.createProjectV2Field.projectV2Field.id;
-              
-              for (const status of statuses) {
-                await github.graphql(`
-                  mutation($fieldId: ID!, $name: String!) {
-                    createProjectV2FieldOption(input: {
-                      fieldId: $fieldId,
-                      name: $name
-                    }) {
-                      projectV2FieldOption { id }
+              const statusField = await github.graphql(`
+                mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+                  createProjectV2Field(input: {
+                    projectId: $projectId,
+                    name: $name,
+                    dataType: SINGLE_SELECT,
+                    singleSelectOptions: $options
+                  }) {
+                    projectV2Field {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options {
+                          id
+                          name
+                        }
+                      }
                     }
                   }
-                `, {
-                  fieldId: statusFieldId,
-                  name: status
-                });
-              }
+                }
+              `, {
+                projectId: projectId,
+                name: "Site Status",
+                options: statusOptions.map(name => ({ name }))
+              });
               
-              console.log('✅ Created project fields: Stage and Site Status');
+              console.log('✅ Created Site Status field with options');
+              console.log('✅ All project fields created successfully');
               
             } catch (error) {
               console.error('Error creating fields:', error);
