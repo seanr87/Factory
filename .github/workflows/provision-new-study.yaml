@@ -411,8 +411,8 @@ jobs:
             fi
           done
 
-# Count the actual partners created for output
-partner_count=$(echo "$partner_sites" | tr ',' '\n' | wc -l)          
+          # Count the actual partners created for output
+          partner_count=$(echo "$partner_sites" | tr ',' '\n' | wc -l)          
           echo "partner_count=$partner_count" >> $GITHUB_OUTPUT
           echo "✅ Created $partner_count partner site issues"
 
