@@ -262,7 +262,11 @@ jobs:
               `, {
                 projectId: projectId,
                 name: "Stage",
-                options: stageOptions.map(name => ({ name }))
+                options: stageOptions.map(name => ({ 
+                  name,
+                  color: "GRAY",
+                  description: ""
+                  }))
               });
               
               console.log('✅ Created Stage field with options');
@@ -301,7 +305,11 @@ jobs:
               `, {
                 projectId: projectId,
                 name: "Site Status",
-                options: statusOptions.map(name => ({ name }))
+                options: statusOptions.map(name => ({ 
+                  name,
+                  color: "GRAY",
+                  description: ""
+                  }))
               });
               
               console.log('✅ Created Site Status field with options');
