@@ -320,6 +320,39 @@ jobs:
               core.setFailed(`Failed to create project fields: ${error.message}`);
             }
 
+      - name: Create repository labels
+        run: |
+          echo "🏷️ Creating repository labels..."
+          
+          # Create stage labels
+          stages=(
+            "protocol-development"
+            "data-diagnostics"
+            "phenotype-development" 
+            "phenotype-evaluation"
+            "analysis-specifications"
+            "network-execution"
+            "study-diagnostics"
+            "evidence-synthesis"
+            "results-evaluation"
+          )
+          
+          for stage in "${stages[@]}"; do
+            echo "Creating label: stage:$stage"
+            gh label create "stage:$stage" \
+              --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+              --description "Stage: $stage" \
+              --color "0969da" || echo "Label may already exist"
+          done
+          
+          # Create data-partner label
+          gh label create "data-partner" \
+            --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+            --description "Data partner coordination issue" \
+            --color "d73a4a" || echo "Label may already exist"
+          
+          echo "✅ Created repository labels"
+    
       - name: Create stage checklist issues
         run: |
           echo "📋 Creating stage checklist issues..."
