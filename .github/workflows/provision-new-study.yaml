@@ -389,12 +389,13 @@ jobs:
         run: |
           echo "👥 Creating partner site issues..."
           
-          # Parse partner sites from input - handle both comma and comma-space separated
+          # Parse partner sites from input
           partner_sites="${{ inputs.partner_sites }}"
           partner_count=0
           
-          # Replace commas with newlines and process each line
-          echo "$partner_sites" | tr ',' '\n' | while read -r site; do
+          # Split by comma and process each site
+          IFS=',' read -ra SITES <<< "$partner_sites"
+          for site in "${SITES[@]}"; do
             # Trim whitespace
             site=$(echo "$site" | xargs)
             
@@ -410,9 +411,7 @@ jobs:
               ((partner_count++))
             fi
           done
-
-          # Count the actual partners created for output
-          partner_count=$(echo "$partner_sites" | tr ',' '\n' | wc -l)          
+          
           echo "partner_count=$partner_count" >> $GITHUB_OUTPUT
           echo "✅ Created $partner_count partner site issues"
 
