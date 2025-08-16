@@ -1,0 +1,758 @@
+name: Provision New Study (Enhanced)
+
+on:
+  workflow_dispatch:
+    inputs:
+      study_title:
+        description: 'Study title (will become repo name)'
+        required: true
+        type: string
+      lead_username:
+        description: 'Study lead GitHub username (without @)'
+        required: true
+        type: string
+      lead_site:
+        description: 'Lead site/institution'
+        required: true
+        type: string
+      partner_sites:
+        description: 'Partner sites (comma-separated list of ALL potential partners)'
+        required: false
+        type: string
+      target_date:
+        description: 'Target completion date (YYYY-MM-DD)'
+        required: true
+        type: string
+      admins:
+        description: 'Repository admins (comma-separated GitHub usernames)'
+        required: true
+        type: string
+        default: 'seanr87'
+      maintainers:
+        description: 'Repository maintainers (comma-separated GitHub usernames, optional)'
+        required: false
+        type: string
+      study_description:
+        description: 'Brief study description'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+      ORG_LOGIN: ${{ secrets.ORG_LOGIN }}
+      FACTORY_PROJECT_NUMBER: ${{ secrets.FACTORY_PROJECT_NUMBER }}
+      FACTORY_REPO: ${{ secrets.FACTORY_REPO }}
+      TEMPLATE_REPO: ${{ secrets.TEMPLATE_REPO }}
+    
+    steps:
+      - name: Validate inputs and environment
+        run: |
+          echo "🔍 Validating provision inputs..."
+          
+          # Check required secrets
+          required_secrets=("GH_TOKEN" "ORG_LOGIN" "FACTORY_PROJECT_NUMBER" "FACTORY_REPO" "TEMPLATE_REPO")
+          for secret in "${required_secrets[@]}"; do
+            if [[ -z "${!secret}" ]]; then
+              echo "❌ $secret secret is not set"
+              exit 1
+            fi
+          done
+          
+          # Validate date format
+          if ! date -d "${{ inputs.target_date }}" >/dev/null 2>&1; then
+            echo "❌ Invalid target date format. Use YYYY-MM-DD"
+            exit 1
+          fi
+          
+          # Validate username format
+          username="${{ inputs.lead_username }}"
+          if [[ "$username" =~ ^@ ]]; then
+            username="${username#@}"
+          fi
+          
+          echo "✅ All validations passed"
+          echo "Study: ${{ inputs.study_title }}"
+          echo "Lead: @$username @ ${{ inputs.lead_site }}"
+          echo "Target: ${{ inputs.target_date }}"
+          
+          # Export cleaned username
+          echo "CLEAN_USERNAME=$username" >> $GITHUB_ENV
+
+      - name: Check for previous study leads
+        id: previous_leads
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [owner, repo] = factoryRepo.split('/');
+            
+            try {
+              // Get existing Factory issues to extract previous study leads
+              const issues = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                labels: 'study',
+                state: 'all',
+                per_page: 100
+              });
+              
+              const previousLeads = new Set();
+              
+              // Extract leads from issue bodies and titles
+              issues.data.forEach(issue => {
+                // Look for @mentions in issue body
+                const mentions = issue.body?.match(/@[\w-]+/g) || [];
+                mentions.forEach(mention => {
+                  if (mention !== '@github-actions') {
+                    previousLeads.add(mention.substring(1));
+                  }
+                });
+                
+                // Look for assignees
+                issue.assignees?.forEach(assignee => {
+                  previousLeads.add(assignee.login);
+                });
+              });
+              
+              const leadsList = Array.from(previousLeads).sort();
+              console.log('Previous study leads found:', leadsList);
+              
+              core.setOutput('previous_leads', JSON.stringify(leadsList));
+              return leadsList;
+              
+            } catch (error) {
+              console.log('Could not fetch previous leads:', error.message);
+              core.setOutput('previous_leads', '[]');
+              return [];
+            }
+
+      - name: Generate repository slug
+        id: slug
+        run: |
+          title="${{ inputs.study_title }}"
+          slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+          repo_name="study-$slug"
+          
+          echo "Generated repo name: $repo_name"
+          echo "repo_name=$repo_name" >> $GITHUB_OUTPUT
+
+      - name: Create Factory issue first
+        id: factory_issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [owner, repo] = factoryRepo.split('/');
+            const studyTitle = "${{ inputs.study_title }}";
+            const leadUsername = process.env.CLEAN_USERNAME;
+            const leadSite = "${{ inputs.lead_site }}";
+            const targetDate = "${{ inputs.target_date }}";
+            const description = "${{ inputs.study_description }}" || "";
+            const repoName = "${{ steps.slug.outputs.repo_name }}";
+            
+            console.log(`Creating Factory issue for: ${studyTitle}`);
+            
+            const setupChecklist = [
+              "Study repository created from template",
+              "Per-study project created and linked", 
+              "Stage checklist issues created (9 stages)",
+              "Repository permissions configured",
+              "Weekly nudge schedule configured",
+              "Factory automation workflows active",
+              "Study lead has admin access",
+              "Initial data partner issues created"
+            ];
+            
+            const issueBody = `# Study Overview
+            
+**Lead**: @${leadUsername}  
+**Lead Site**: ${leadSite}  
+**Target Date**: ${targetDate}  
+**Repository**: Will be created at \`${process.env.ORG_LOGIN}/${repoName}\`
+
+${description ? `**Description**: ${description}` : ''}
+
+## 📊 Data Partners Status
+*This section will be automatically updated as partners are added and progress through the study lifecycle.*
+
+No data partners configured yet.
+
+## ✅ Factory Setup Checklist
+*This checklist tracks the technical setup required for the study to function within the Factory system.*
+
+${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
+
+## 🔗 Quick Links
+- **Study Repository**: *Will be populated after provisioning*
+- **Study Project Board**: *Will be populated after provisioning*
+- **Factory Project**: [Factory Overview](https://github.com/${owner}/${repo}/projects/${process.env.FACTORY_PROJECT_NUMBER})
+
+---
+*This issue is automatically maintained by Factory automation workflows.*`;
+
+            try {
+              const issue = await github.rest.issues.create({
+                owner,
+                repo,
+                title: `Study: ${studyTitle}`,
+                body: issueBody,
+                labels: ['study', 'provisioning'],
+                assignees: [leadUsername]
+              });
+              
+              console.log(`✅ Created Factory issue #${issue.data.number}`);
+              core.setOutput('issue_number', issue.data.number);
+              core.setOutput('issue_url', issue.data.html_url);
+              
+              return {
+                number: issue.data.number,
+                url: issue.data.html_url,
+                node_id: issue.data.node_id
+              };
+              
+            } catch (error) {
+              console.error('Error creating Factory issue:', error);
+              core.setFailed(`Failed to create Factory issue: ${error.message}`);
+            }
+
+      - name: Create study repository from template
+        id: create_repo
+        run: |
+          echo "🏗️ Creating repository ${{ steps.slug.outputs.repo_name }}..."
+          
+          # First try to create from template
+          if gh repo create "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+            --template "${{ env.TEMPLATE_REPO }}" \
+            --private \
+            --description "OHDSI Network Study: ${{ inputs.study_title }}" 2>/dev/null; then
+            echo "✅ Created repository from template"
+          else
+            echo "⚠️ Template creation failed, creating empty repo and copying files..."
+            
+            # Create empty private repository
+            gh repo create "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+              --private \
+              --description "OHDSI Network Study: ${{ inputs.study_title }}"
+            
+            # Clone both repos to copy template files
+            git clone "https://github.com/${{ env.TEMPLATE_REPO }}.git" template-source
+            git clone "https://github.com/${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}.git" new-repo
+            
+            # Copy template files (exclude .git directory)
+            cp -r template-source/* new-repo/ 2>/dev/null || true
+            cp -r template-source/.github new-repo/ 2>/dev/null || true
+            
+            # Commit and push template files
+            cd new-repo
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .
+            git commit -m "Initial commit from study template" || echo "No files to commit"
+            git push
+            cd ..
+            
+            # Cleanup
+            rm -rf template-source new-repo
+            
+            echo "✅ Created repository and copied template files"
+          fi
+          
+          repo_url="https://github.com/${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          echo "repo_url=$repo_url" >> $GITHUB_OUTPUT
+          echo "✅ Repository ready: $repo_url"
+
+      - name: Create per-study project
+        id: create_project
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const orgLogin = process.env.ORG_LOGIN;
+            const repoName = "${{ steps.slug.outputs.repo_name }}";
+            const studyTitle = "${{ inputs.study_title }}";
+            
+            console.log(`Creating per-study project for ${repoName}`);
+            
+            try {
+              // Create the project
+              const createResult = await github.graphql(`
+                mutation($ownerId: ID!, $title: String!) {
+                  createProjectV2(input: {
+                    ownerId: $ownerId,
+                    title: $title
+                  }) {
+                    projectV2 {
+                      id
+                      number
+                      url
+                    }
+                  }
+                }
+              `, {
+                ownerId: await github.rest.users.getByUsername({username: orgLogin}).then(r => r.data.node_id),
+                title: `Study: ${studyTitle}`
+              });
+              
+              const project = createResult.createProjectV2.projectV2;
+              console.log(`Created project: ${project.url}`);
+              
+              // Link project to repository
+              const repoResult = await github.rest.repos.get({
+                owner: orgLogin,
+                repo: repoName
+              });
+              
+              await github.graphql(`
+                mutation($projectId: ID!, $repoId: ID!) {
+                  linkProjectV2ToRepository(input: {
+                    projectId: $projectId,
+                    repositoryId: $repoId
+                  }) {
+                    repository { id }
+                  }
+                }
+              `, {
+                projectId: project.id,
+                repoId: repoResult.data.node_id
+              });
+              
+              console.log('✅ Linked project to repository');
+              
+              core.setOutput('project_id', project.id);
+              core.setOutput('project_number', project.number);
+              core.setOutput('project_url', project.url);
+              
+              return {
+                id: project.id,
+                number: project.number,
+                url: project.url
+              };
+              
+            } catch (error) {
+              console.error('Error creating project:', error);
+              core.setFailed(`Failed to create project: ${error.message}`);
+            }
+
+      - name: Add project fields with rainbow colors
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const projectId = "${{ steps.create_project.outputs.project_id }}";
+            
+            console.log('Adding colored fields to per-study project...');
+            
+            try {
+              // Create Stage field with rainbow colors
+              const stageOptions = [
+                { name: "Initiation", color: "RED" },
+                { name: "Protocol development", color: "ORANGE" },
+                { name: "Data diagnostics", color: "YELLOW" },
+                { name: "Phenotype development", color: "GREEN" },
+                { name: "Phenotype evaluation", color: "BLUE" },
+                { name: "Analysis specifications", color: "INDIGO" },
+                { name: "Network execution", color: "PURPLE" },
+                { name: "Study diagnostics", color: "PINK" },
+                { name: "Evidence synthesis", color: "GRAY" },
+                { name: "Results evaluation", color: "DARK_GRAY" }
+              ];
+              
+              const stageField = await github.graphql(`
+                mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+                  createProjectV2Field(input: {
+                    projectId: $projectId,
+                    name: $name,
+                    dataType: SINGLE_SELECT,
+                    singleSelectOptions: $options
+                  }) {
+                    projectV2Field {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              `, {
+                projectId: projectId,
+                name: "Stage",
+                options: stageOptions
+              });
+              
+              console.log('✅ Created Stage field with rainbow colors');
+              
+              // Create Site Status field with rainbow colors
+              const statusOptions = [
+                { name: "Potential", color: "RED" },
+                { name: "Invited", color: "ORANGE" },
+                { name: "Committed", color: "YELLOW" },
+                { name: "Diagnostics Sent", color: "GREEN" },
+                { name: "Diagnostics Returned", color: "BLUE" },
+                { name: "Package Executed", color: "INDIGO" },
+                { name: "Results Uploaded", color: "PURPLE" },
+                { name: "Complete", color: "PINK" },
+                { name: "Withdrawn", color: "GRAY" },
+                { name: "Blocked", color: "DARK_GRAY" }
+              ];
+              
+              const statusField = await github.graphql(`
+                mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+                  createProjectV2Field(input: {
+                    projectId: $projectId,
+                    name: $name,
+                    dataType: SINGLE_SELECT,
+                    singleSelectOptions: $options
+                  }) {
+                    projectV2Field {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              `, {
+                projectId: projectId,
+                name: "Site Status",
+                options: statusOptions
+              });
+              
+              console.log('✅ Created Site Status field with rainbow colors');
+              console.log('✅ All colored project fields created successfully');
+              
+            } catch (error) {
+              console.error('Error creating fields:', error);
+              core.setFailed(`Failed to create project fields: ${error.message}`);
+            }
+
+      - name: Create repository labels
+        run: |
+          echo "🏷️ Creating repository labels..."
+          
+          # Create stage labels with rainbow colors
+          stages=(
+            "initiation"
+            "protocol-development"
+            "data-diagnostics"
+            "phenotype-development" 
+            "phenotype-evaluation"
+            "analysis-specifications"
+            "network-execution"
+            "study-diagnostics"
+            "evidence-synthesis"
+            "results-evaluation"
+          )
+          
+          colors=("d73a4a" "fd7e14" "ffc107" "28a745" "007bff" "6f42c1" "e83e8c" "fd79a8" "6c757d" "495057")
+          
+          for i in "${!stages[@]}"; do
+            stage="${stages[$i]}"
+            color="${colors[$i]}"
+            echo "Creating label: stage:$stage with color #$color"
+            gh label create "stage:$stage" \
+              --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+              --description "Stage: $stage" \
+              --color "$color" || echo "Label may already exist"
+          done
+          
+          # Create data-partner label
+          gh label create "data-partner" \
+            --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+            --description "Data partner coordination issue" \
+            --color "d73a4a" || echo "Label may already exist"
+          
+          echo "✅ Created repository labels with rainbow colors"
+
+      - name: Create stage checklist issues
+        run: |
+          echo "📋 Creating stage checklist issues..."
+          
+          # Stage checklist issues
+          stages=(
+            "initiation:Initiation"
+            "protocol-development:Protocol development"
+            "data-diagnostics:Data diagnostics"
+            "phenotype-development:Phenotype development" 
+            "phenotype-evaluation:Phenotype evaluation"
+            "analysis-specifications:Analysis specifications"
+            "network-execution:Network execution"
+            "study-diagnostics:Study diagnostics"
+            "evidence-synthesis:Evidence synthesis"
+            "results-evaluation:Results evaluation"
+          )
+          
+          for stage_info in "${stages[@]}"; do
+            IFS=':' read -r stage_key stage_name <<< "$stage_info"
+            
+            echo "Creating stage issue: $stage_name"
+            
+            gh issue create \
+              --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+              --title "Stage: $stage_name" \
+              --label "stage:$stage_key" \
+              --body "Stage checklist for $stage_name. Complete all acceptance criteria and close this issue to advance to the next stage."
+          done
+          
+          echo "✅ Created 10 stage checklist issues"
+
+      - name: Create partner site issues
+        id: create_partners
+        run: |
+          set +e  # Disable exit on error for this step
+          echo "👥 Creating partner site issues..."
+          
+          # Parse partner sites from input
+          partner_sites="${{ inputs.partner_sites }}"
+          partner_count=0
+          
+          if [[ -n "$partner_sites" ]]; then
+            # Debug: show what we're parsing
+            echo "Input partner sites: '$partner_sites'"
+            
+            # Convert comma-separated to array using a more reliable method
+            OLDIFS="$IFS"
+            IFS=','
+            read -ra SITES <<< "$partner_sites"
+            IFS="$OLDIFS"
+            
+            echo "Found ${#SITES[@]} sites to process"
+            
+            for i in "${!SITES[@]}"; do
+              site="${SITES[$i]}"
+              # Trim whitespace
+              site=$(echo "$site" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+              
+              if [[ -n "$site" ]]; then
+                echo "Creating partner issue for: '$site'"
+                
+                gh issue create \
+                  --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+                  --title "Data Partner: $site" \
+                  --label "data-partner" \
+                  --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities." || true
+                
+                echo "✅ Processed site: $site"
+                ((partner_count++))
+              else
+                echo "⚠️ Skipping empty site at index $i"
+              fi
+            done
+          else
+            echo "No partner sites provided"
+          fi
+          
+          set -e  # Re-enable exit on error
+          
+          echo "partner_count=$partner_count" >> $GITHUB_OUTPUT
+          echo "✅ Created $partner_count partner site issues"
+
+      - name: Set repository variables
+        run: |
+          echo "⚙️ Setting repository variables..."
+          
+          # Set default nudge configuration
+          gh variable set NUDGE_DAY --body "Mon" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          gh variable set NUDGE_HOUR_LOCAL --body "9" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          gh variable set NUDGE_TZ --body "America/New_York" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          gh variable set STALE_DAYS --body "7" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          gh variable set FACTORY_PROJECT_NUMBER --body "${{ env.FACTORY_PROJECT_NUMBER }}" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          
+          # Set study lead
+          gh variable set STUDY_LEAD_GH --body "@${{ env.CLEAN_USERNAME }}" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          
+          echo "✅ Set repository variables"
+
+      - name: Grant repository permissions
+        run: |
+          echo "🔑 Setting repository permissions..."
+          
+          # Grant admin access
+          if [[ -n "${{ inputs.admins }}" ]]; then
+            IFS=',' read -ra ADMINS <<< "${{ inputs.admins }}"
+            for admin in "${ADMINS[@]}"; do
+              admin=$(echo "$admin" | xargs)
+              if [[ -n "$admin" && "$admin" != "${{ env.ORG_LOGIN }}" ]]; then
+                echo "Granting admin access to: $admin"
+                gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"$admin" \
+                  --method PUT \
+                  --field permission=admin || echo "Failed to grant admin access to $admin"
+              else
+                echo "Skipping owner $admin (already has admin access)"
+              fi
+            done
+          fi
+          
+          # Grant maintainer access
+          if [[ -n "${{ inputs.maintainers }}" ]]; then
+            IFS=',' read -ra MAINTAINERS <<< "${{ inputs.maintainers }}"
+            for maintainer in "${MAINTAINERS[@]}"; do
+              maintainer=$(echo "$maintainer" | xargs)
+              if [[ -n "$maintainer" && "$maintainer" != "${{ env.ORG_LOGIN }}" ]]; then
+                echo "Granting maintain access to: $maintainer"
+                gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"$maintainer" \
+                  --method PUT \
+                  --field permission=maintain || echo "Failed to grant maintain access to $maintainer"
+              else
+                echo "Skipping owner $maintainer (already has admin access)"
+              fi
+            done
+          fi
+          
+          echo "✅ Set repository permissions"
+
+      - name: Update Factory issue with repository links
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [owner, repo] = factoryRepo.split('/');
+            const issueNumber = ${{ steps.factory_issue.outputs.issue_number }};
+            const repoUrl = "${{ steps.create_repo.outputs.repo_url }}";
+            
+            // Update the Factory issue body with actual repository links
+            const issue = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber
+            });
+            
+            let updatedBody = issue.data.body;
+            updatedBody = updatedBody.replace(
+              /\*Will be populated after provisioning\*/g,
+              `[${repoUrl}](${repoUrl})`
+            );
+            
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body: updatedBody
+            });
+            
+            console.log('✅ Updated Factory issue with repository links');
+
+      - name: Add Factory issue to Factory project with proper status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryNumber = parseInt(process.env.FACTORY_PROJECT_NUMBER, 10);
+            const orgLogin = process.env.ORG_LOGIN;
+            const factoryIssueNodeId = "${{ steps.factory_issue.outputs.node_id }}";
+            
+            console.log('Adding Factory issue to Factory project...');
+            
+            try {
+              // Query Factory project
+              const query = `
+                query($login: String!, $num: Int!) {
+                  user(login: $login) {
+                    projectV2(number: $num) {
+                      id
+                      fields(first: 50) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const result = await github.graphql(query, {
+                login: orgLogin,
+                num: factoryNumber
+              });
+              
+              const project = result.user.projectV2;
+              if (!project) {
+                core.setFailed(`Factory project ${factoryNumber} not found`);
+                return;
+              }
+              
+              // Add issue to project
+              const addResult = await github.graphql(`
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId,
+                    contentId: $contentId
+                  }) {
+                    item { id }
+                  }
+                }
+              `, {
+                projectId: project.id,
+                contentId: factoryIssueNodeId
+              });
+              
+              const itemId = addResult.addProjectV2ItemById.item.id;
+              
+              // Set Status to "Initiation" and Stage to "Initiation"
+              const fields = Object.fromEntries(project.fields.nodes.map(f => [f.name, f]));
+              
+              for (const [fieldName, targetValue] of [["Status", "Initiation"], ["Stage", "Initiation"]]) {
+                const field = fields[fieldName];
+                if (field && field.options) {
+                  const option = field.options.find(o => o.name === targetValue);
+                  if (option) {
+                    await github.graphql(`
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: { singleSelectOptionId: $optId }
+                        }) {
+                          projectV2Item { id }
+                        }
+                      }
+                    `, {
+                      projectId: project.id,
+                      itemId: itemId,
+                      fieldId: field.id,
+                      optId: option.id
+                    });
+                  }
+                }
+              }
+              
+              console.log('✅ Added Factory issue to project with Initiation status');
+              
+            } catch (error) {
+              console.error('Error adding to Factory project:', error);
+              core.setFailed(`Failed to add to Factory project: ${error.message}`);
+            }
+
+      - name: Final provision summary
+        run: |
+          echo "## 🎉 Enhanced Study Provision Complete!"
+          echo ""
+          echo "**Factory Issue**: ${{ steps.factory_issue.outputs.issue_url }}"
+          echo "**Study Repository**: ${{ steps.create_repo.outputs.repo_url }}"
+          echo "**Study Lead**: @${{ env.CLEAN_USERNAME }}"
+          echo "**Status**: Initiation → Todo (ready for Protocol development)"
+          echo ""
+          echo "### Next Steps:"
+          echo "1. Visit the Factory issue to track overall progress"
+          echo "2. Complete the Factory setup checklist items"
+          echo "3. Begin Protocol development in the study repository"
+          echo "4. Add data partners as needed"
+          echo ""
+          echo "The study is now tracked in the Factory portfolio!"

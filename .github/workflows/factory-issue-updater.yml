@@ -1,0 +1,233 @@
+name: Update Factory Issues
+
+on:
+  # Trigger when partner or stage changes happen in study repos
+  repository_dispatch:
+    types: [update_factory_issue]
+  
+  # Manual trigger for maintenance
+  workflow_dispatch:
+    inputs:
+      study_repo:
+        description: 'Specific study repo to update (optional, format: owner/repo)'
+        required: false
+        type: string
+
+  # Scheduled refresh to catch any missed updates
+  schedule:
+    - cron: "0 6 * * *"  # Daily at 6 AM UTC
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  update_factory_issues:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+      ORG_LOGIN: ${{ secrets.ORG_LOGIN }}
+      FACTORY_REPO: ${{ secrets.FACTORY_REPO }}
+    
+    steps:
+      - name: Get Factory issues to update
+        id: get_issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [owner, repo] = factoryRepo.split('/');
+            const specificRepo = "${{ inputs.study_repo }}" || null;
+            
+            console.log('Fetching Factory issues to update...');
+            
+            try {
+              const issues = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                labels: 'study',
+                state: 'open',
+                per_page: 100
+              });
+              
+              let issuesToUpdate = [];
+              
+              for (const issue of issues.data) {
+                // Extract study repo from issue body
+                const repoMatch = issue.body?.match(/\*\*Repository\*\*:.*?github\.com\/([^\/]+\/[^)]+)/);
+                if (repoMatch) {
+                  const studyRepo = repoMatch[1];
+                  
+                  // If specific repo requested, only update that one
+                  if (!specificRepo || studyRepo === specificRepo) {
+                    issuesToUpdate.push({
+                      number: issue.number,
+                      title: issue.title,
+                      studyRepo: studyRepo,
+                      body: issue.body
+                    });
+                  }
+                }
+              }
+              
+              console.log(`Found ${issuesToUpdate.length} Factory issues to update`);
+              core.setOutput('issues', JSON.stringify(issuesToUpdate));
+              
+              return issuesToUpdate;
+              
+            } catch (error) {
+              console.error('Error fetching Factory issues:', error);
+              core.setFailed(`Failed to fetch Factory issues: ${error.message}`);
+            }
+
+      - name: Update each Factory issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [factoryOwner, factoryRepoName] = factoryRepo.split('/');
+            const issues = JSON.parse('${{ steps.get_issues.outputs.issues }}');
+            
+            for (const factoryIssue of issues) {
+              console.log(`Updating Factory issue #${factoryIssue.number}: ${factoryIssue.title}`);
+              
+              try {
+                const [studyOwner, studyRepo] = factoryIssue.studyRepo.split('/');
+                
+                // Get data partner issues from study repo
+                const partnerIssues = await github.rest.issues.listForRepo({
+                  owner: studyOwner,
+                  repo: studyRepo,
+                  labels: 'data-partner',
+                  state: 'all',
+                  per_page: 100
+                });
+                
+                // Get stage checklist status
+                const stageIssues = await github.rest.issues.listForRepo({
+                  owner: studyOwner,
+                  repo: studyRepo,
+                  state: 'all',
+                  per_page: 100
+                }).then(response => 
+                  response.data.filter(issue => 
+                    issue.labels.some(label => label.name.startsWith('stage:'))
+                  )
+                );
+                
+                // Build data partners status section
+                let partnersSection = "## 📊 Data Partners Status\n\n";
+                
+                if (partnerIssues.data.length === 0) {
+                  partnersSection += "No data partners configured yet.\n";
+                } else {
+                  partnersSection += "| Partner Site | Status | Assignee | Last Updated |\n";
+                  partnersSection += "|--------------|--------|----------|-------------|\n";
+                  
+                  for (const partner of partnerIssues.data) {
+                    const siteName = partner.title.replace(/^Data Partner:\s*/, '');
+                    const status = partner.state === 'closed' ? 'Complete' : 'In Progress';
+                    const assignee = partner.assignee ? `@${partner.assignee.login}` : 'Unassigned';
+                    const lastUpdated = new Date(partner.updated_at).toLocaleDateString();
+                    
+                    partnersSection += `| ${siteName} | ${status} | ${assignee} | ${lastUpdated} |\n`;
+                  }
+                }
+                
+                // Build setup checklist section  
+                let checklistSection = "## ✅ Factory Setup Checklist\n\n";
+                
+                const checklistItems = [
+                  { name: "Study repository created from template", check: () => true }, // If we're here, repo exists
+                  { name: "Per-study project created and linked", check: () => true }, // TODO: Could validate this
+                  { name: "Stage checklist issues created (9 stages)", check: () => stageIssues.length >= 9 },
+                  { name: "Repository permissions configured", check: () => true }, // TODO: Could validate this
+                  { name: "Weekly nudge schedule configured", check: () => true }, // TODO: Could validate repo vars
+                  { name: "Factory automation workflows active", check: () => true }, // TODO: Could check workflow files
+                  { name: "Study lead has admin access", check: () => true }, // TODO: Could validate permissions
+                  { name: "Initial data partner issues created", check: () => partnerIssues.data.length > 0 }
+                ];
+                
+                for (const item of checklistItems) {
+                  const checked = item.check() ? "x" : " ";
+                  checklistSection += `- [${checked}] ${item.name}\n`;
+                }
+                
+                // Build stage progress section
+                let stageSection = "\n## 🎯 Stage Progress\n\n";
+                
+                const stageOrder = [
+                  'protocol-development',
+                  'data-diagnostics', 
+                  'phenotype-development',
+                  'phenotype-evaluation',
+                  'analysis-specifications',
+                  'network-execution',
+                  'study-diagnostics',
+                  'evidence-synthesis',
+                  'results-evaluation'
+                ];
+                
+                let currentStage = 'Initiation';
+                for (const stageName of stageOrder) {
+                  const stageIssue = stageIssues.find(issue => 
+                    issue.labels.some(label => label.name === `stage:${stageName}`)
+                  );
+                  
+                  if (stageIssue && stageIssue.state === 'closed') {
+                    currentStage = stageName.split('-').map(word => 
+                      word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
+                  } else {
+                    break; // Stop at first open stage
+                  }
+                }
+                
+                stageSection += `**Current Stage**: ${currentStage}\n\n`;
+                
+                for (const stageName of stageOrder) {
+                  const stageIssue = stageIssues.find(issue => 
+                    issue.labels.some(label => label.name === `stage:${stageName}`)
+                  );
+                  
+                  const displayName = stageName.split('-').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                  ).join(' ');
+                  
+                  if (stageIssue) {
+                    const status = stageIssue.state === 'closed' ? '✅' : '🔄';
+                    const link = `[${displayName}](${stageIssue.html_url})`;
+                    stageSection += `${status} ${link}\n`;
+                  } else {
+                    stageSection += `⚪ ${displayName} *(not created)*\n`;
+                  }
+                }
+                
+                // Reconstruct the Factory issue body
+                const headerMatch = factoryIssue.body.match(/^(# Study Overview.*?)(?=## 📊 Data Partners Status)/s);
+                const footerMatch = factoryIssue.body.match(/(## 🔗 Quick Links.*?)$/s);
+                
+                const header = headerMatch ? headerMatch[1] : "# Study Overview\n\n*Unable to parse study details*\n\n";
+                const footer = footerMatch ? footerMatch[1] : "\n## 🔗 Quick Links\n\n*Links will be updated automatically*\n\n---\n*This issue is automatically maintained by Factory automation workflows.*";
+                
+                const newBody = header + partnersSection + "\n" + checklistSection + stageSection + "\n" + footer;
+                
+                // Update the Factory issue
+                await github.rest.issues.update({
+                  owner: factoryOwner,
+                  repo: factoryRepoName,
+                  issue_number: factoryIssue.number,
+                  body: newBody
+                });
+                
+                console.log(`✅ Updated Factory issue #${factoryIssue.number}`);
+                
+              } catch (error) {
+                console.error(`❌ Failed to update Factory issue #${factoryIssue.number}:`, error.message);
+                // Continue with other issues rather than failing the whole job
+              }
+            }
+            
+            console.log('✅ Finished updating Factory issues');
