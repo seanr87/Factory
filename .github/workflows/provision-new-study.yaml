@@ -431,7 +431,7 @@ jobs:
           echo "partner_count=$partner_count" >> $GITHUB_OUTPUT
           echo "✅ Created $partner_count partner site issues"
           
-      - name: Add issues to per-study project
+      - name: Add issues to per-study project with proper status
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.GH_TOKEN }}
@@ -440,12 +440,64 @@ jobs:
             const orgLogin = process.env.ORG_LOGIN;
             const repoName = "${{ steps.slug.outputs.repo_name }}";
             
-            console.log('Adding issues to per-study project...');
+            console.log('Adding issues to per-study project with proper status...');
             
             // Wait a moment for all issues to be fully created
             await new Promise(resolve => setTimeout(resolve, 2000));
             
             try {
+              // Get project fields including Status field
+              const projectQuery = `
+                query($projectId: ID!) {
+                  node(id: $projectId) {
+                    ... on ProjectV2 {
+                      fields(first: 50) {
+                        nodes {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const projectResult = await github.graphql(projectQuery, {
+                projectId: projectId
+              });
+              
+              const fields = Object.fromEntries(
+                projectResult.node.fields.nodes.map(f => [f.name, f])
+              );
+              
+              const statusField = fields["Status"];
+              let todoOptionId = null;
+              let inProgressOptionId = null;
+              
+              if (statusField && statusField.options) {
+                todoOptionId = statusField.options.find(o => 
+                  o.name.toLowerCase().includes('todo') || 
+                  o.name.toLowerCase().includes('to do')
+                )?.id;
+                
+                inProgressOptionId = statusField.options.find(o => 
+                  o.name.toLowerCase().includes('progress') ||
+                  o.name.toLowerCase().includes('in progress')
+                )?.id;
+                
+                console.log(`Found Status field options: Todo=${todoOptionId}, InProgress=${inProgressOptionId}`);
+              }
+              
               // Get all issues from the repository
               const issues = await github.rest.issues.listForRepo({
                 owner: orgLogin,
@@ -456,17 +508,13 @@ jobs:
               
               console.log(`Found ${issues.data.length} issues to add to project`);
               
-              // Debug: list all issues found
-              for (const issue of issues.data) {
-                console.log(`Found issue #${issue.number}: ${issue.title}`);
-              }
-              
-              // Add each issue to the project
+              // Add each issue to the project with appropriate status
               for (const issue of issues.data) {
                 console.log(`Adding issue #${issue.number}: ${issue.title}`);
                 
                 try {
-                  await github.graphql(`
+                  // Add issue to project
+                  const addResult = await github.graphql(`
                     mutation($projectId: ID!, $contentId: ID!) {
                       addProjectV2ItemById(input: {
                         projectId: $projectId,
@@ -479,13 +527,60 @@ jobs:
                     projectId: projectId,
                     contentId: issue.node_id
                   });
-                  console.log(`✅ Successfully added issue #${issue.number}`);
+                  
+                  const itemId = addResult.addProjectV2ItemById.item.id;
+                  console.log(`✅ Added issue #${issue.number} to project`);
+                  
+                  // Set status based on issue type
+                  if (statusField && statusField.options) {
+                    let targetStatusId = null;
+                    
+                    // Check if this is the first stage (Protocol development)
+                    const isProtocolDevelopment = issue.labels.some(label => 
+                      label.name === 'stage:protocol-development'
+                    );
+                    
+                    if (isProtocolDevelopment && inProgressOptionId) {
+                      targetStatusId = inProgressOptionId;
+                      console.log(`Setting Protocol development stage to In Progress`);
+                    } else if (issue.labels.some(label => label.name.startsWith('stage:')) && todoOptionId) {
+                      targetStatusId = todoOptionId;
+                      console.log(`Setting stage issue to Todo`);
+                    } else if (issue.labels.some(label => label.name === 'data-partner') && todoOptionId) {
+                      targetStatusId = todoOptionId;
+                      console.log(`Setting partner issue to Todo`);
+                    }
+                    
+                    // Apply the status if we determined one
+                    if (targetStatusId) {
+                      await github.graphql(`
+                        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
+                          updateProjectV2ItemFieldValue(input: {
+                            projectId: $projectId,
+                            itemId: $itemId,
+                            fieldId: $fieldId,
+                            value: { singleSelectOptionId: $optId }
+                          }) {
+                            projectV2Item { id }
+                          }
+                        }
+                      `, {
+                        projectId: projectId,
+                        itemId: itemId,
+                        fieldId: statusField.id,
+                        optId: targetStatusId
+                      });
+                      
+                      console.log(`✅ Set status for issue #${issue.number}`);
+                    }
+                  }
+                  
                 } catch (error) {
-                  console.log(`❌ Failed to add issue #${issue.number}: ${error.message}`);
+                  console.log(`❌ Failed to add/configure issue #${issue.number}: ${error.message}`);
                 }
               }
               
-              console.log('✅ Finished adding issues to per-study project');
+              console.log('✅ Finished adding issues to per-study project with status');
               
             } catch (error) {
               console.error('Error adding issues to project:', error);
