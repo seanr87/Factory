@@ -157,6 +157,8 @@ jobs:
             const leadSite = "${{ inputs.lead_site }}";
             const targetDate = "${{ inputs.target_date }}";
             const repoName = "${{ steps.slug.outputs.repo_name }}";
+            const partnerSites = "${{ inputs.partner_sites }}" || "";
+
             
             console.log(`Creating Factory issue for: ${studyTitle}`);
             
