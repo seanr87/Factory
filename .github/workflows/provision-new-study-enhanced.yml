@@ -195,47 +195,59 @@ jobs:
             try {
               let issue;
               
-              try {
-                // Try to create with assignee first
-                issue = await github.rest.issues.create({
-                  owner,
-                  repo,
-                  title: `Study: ${studyTitle}`,
-                  body: issueBody,
-                  labels: ['study', 'provisioning'],
-                  assignees: [leadUsername]
-                });
-                
-                console.log(`✅ Created Factory issue #${issue.data.number} with assignee`);
-                
-              } catch (assignError) {
-                if (assignError.message.includes('cannot be assigned')) {
-                  console.log(`⚠️ Could not assign ${leadUsername}, creating issue without assignee`);
-                  
-                  // Create without assignee
+              // Validate leadUsername before attempting assignment
+              const isValidUsername = leadUsername && 
+                                    leadUsername !== 'n/a' && 
+                                    leadUsername !== '' && 
+                                    !leadUsername.toLowerCase().includes('tbd') &&
+                                    !leadUsername.toLowerCase().includes('unknown');
+              
+              if (isValidUsername) {
+                try {
+                  // Try to create with assignee first
                   issue = await github.rest.issues.create({
                     owner,
                     repo,
                     title: `Study: ${studyTitle}`,
                     body: issueBody,
-                    labels: ['study', 'provisioning']
+                    labels: ['study', 'provisioning'],
+                    assignees: [leadUsername]
                   });
                   
-                  console.log(`✅ Created Factory issue #${issue.data.number} without assignee`);
-                } else {
-                  throw assignError;
+                  console.log(`✅ Created Factory issue #${issue.data.number} with assignee @${leadUsername}`);
+                  
+                } catch (assignError) {
+                  if (assignError.message.includes('cannot be assigned') || assignError.status === 422) {
+                    console.log(`⚠️ Could not assign ${leadUsername}, creating issue without assignee`);
+                    
+                    // Create without assignee
+                    issue = await github.rest.issues.create({
+                      owner,
+                      repo,
+                      title: `Study: ${studyTitle}`,
+                      body: issueBody,
+                      labels: ['study', 'provisioning']
+                    });
+                    
+                    console.log(`✅ Created Factory issue #${issue.data.number} without assignee`);
+                  } else {
+                    throw assignError;
+                  }
                 }
+              } else {
+                console.log(`⚠️ Invalid username '${leadUsername}', creating issue without assignee`);
+                
+                // Create without assignee
+                issue = await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: `Study: ${studyTitle}`,
+                  body: issueBody,
+                  labels: ['study', 'provisioning']
+                });
+                
+                console.log(`✅ Created Factory issue #${issue.data.number} without assignee`);
               }
-              
-              core.setOutput('issue_number', issue.data.number);
-              core.setOutput('issue_url', issue.data.html_url);
-              core.setOutput('node_id', issue.data.node_id);
-              
-              return {
-                number: issue.data.number,
-                url: issue.data.html_url,
-                node_id: issue.data.node_id
-              };
               
             } catch (error) {
               console.error('Error creating Factory issue:', error);
