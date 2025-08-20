@@ -199,16 +199,40 @@ jobs:
             ].join('\n');
 
             try {
-              const issue = await github.rest.issues.create({
-                owner,
-                repo,
-                title: `Study: ${studyTitle}`,
-                body: issueBody,
-                labels: ['study', 'provisioning'],
-                assignees: [leadUsername]
-              });
+              let issue;
               
-              console.log(`✅ Created Factory issue #${issue.data.number}`);
+              try {
+                // Try to create with assignee first
+                issue = await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: `Study: ${studyTitle}`,
+                  body: issueBody,
+                  labels: ['study', 'provisioning'],
+                  assignees: [leadUsername]
+                });
+                
+                console.log(`✅ Created Factory issue #${issue.data.number} with assignee`);
+                
+              } catch (assignError) {
+                if (assignError.message.includes('cannot be assigned')) {
+                  console.log(`⚠️ Could not assign ${leadUsername}, creating issue without assignee`);
+                  
+                  // Create without assignee
+                  issue = await github.rest.issues.create({
+                    owner,
+                    repo,
+                    title: `Study: ${studyTitle}`,
+                    body: issueBody,
+                    labels: ['study', 'provisioning']
+                  });
+                  
+                  console.log(`✅ Created Factory issue #${issue.data.number} without assignee`);
+                } else {
+                  throw assignError;
+                }
+              }
+              
               core.setOutput('issue_number', issue.data.number);
               core.setOutput('issue_url', issue.data.html_url);
               core.setOutput('node_id', issue.data.node_id);
@@ -784,7 +808,7 @@ jobs:
           fi
           
           echo "✅ Set repository permissions"
-          
+
       - name: Create/Update Factory item
         uses: actions/github-script@v7
         with:
