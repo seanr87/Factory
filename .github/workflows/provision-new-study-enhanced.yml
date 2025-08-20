@@ -28,12 +28,7 @@ on:
         required: true
         type: string
       admins:
-        description: 'Repository admins (comma-separated GitHub usernames)'
-        required: true
-        type: string
-        default: 'seanr87'
-      maintainers:
-        description: 'Repository maintainers (comma-separated GitHub usernames, optional)'
+        description: 'Additional repository admins (comma-separated GitHub usernames, optional)'
         required: false
         type: string
       partner_contacts_csv:
@@ -762,42 +757,34 @@ jobs:
 
       - name: Grant repository permissions
         run: |
-          echo "🔐 Setting repository permissions..."
+          echo "🔑 Setting repository permissions..."
           
-          # Grant admin access
+          # Grant admin access to study lead (automatically)
+          echo "Granting admin access to study lead: ${{ env.CLEAN_USERNAME }}"
+          gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"${{ env.CLEAN_USERNAME }}" \
+            --method PUT \
+            --field permission=admin || echo "Failed to grant admin access to study lead"
+          
+          # Grant admin access to additional admins (if provided)
           if [[ -n "${{ inputs.admins }}" ]]; then
             IFS=',' read -ra ADMINS <<< "${{ inputs.admins }}"
             for admin in "${ADMINS[@]}"; do
               admin=$(echo "$admin" | xargs)
-              if [[ -n "$admin" && "$admin" != "${{ env.ORG_LOGIN }}" ]]; then
-                echo "Granting admin access to: $admin"
+              if [[ -n "$admin" && "$admin" != "${{ env.ORG_LOGIN }}" && "$admin" != "${{ env.CLEAN_USERNAME }}" ]]; then
+                echo "Granting admin access to additional admin: $admin"
                 gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"$admin" \
                   --method PUT \
                   --field permission=admin || echo "Failed to grant admin access to $admin"
               else
-                echo "Skipping owner $admin (already has admin access)"
+                echo "Skipping $admin (owner or duplicate)"
               fi
             done
-          fi
-          
-          # Grant maintainer access
-          if [[ -n "${{ inputs.maintainers }}" ]]; then
-            IFS=',' read -ra MAINTAINERS <<< "${{ inputs.maintainers }}"
-            for maintainer in "${MAINTAINERS[@]}"; do
-              maintainer=$(echo "$maintainer" | xargs)
-              if [[ -n "$maintainer" && "$maintainer" != "${{ env.ORG_LOGIN }}" ]]; then
-                echo "Granting maintain access to: $maintainer"
-                gh api repos/"${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"/collaborators/"$maintainer" \
-                  --method PUT \
-                  --field permission=maintain || echo "Failed to grant maintain access to $maintainer"
-              else
-                echo "Skipping owner $maintainer (already has admin access)"
-              fi
-            done
+          else
+            echo "No additional admins specified"
           fi
           
           echo "✅ Set repository permissions"
-
+          
       - name: Create/Update Factory item
         uses: actions/github-script@v7
         with:
