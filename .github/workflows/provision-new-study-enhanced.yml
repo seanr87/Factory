@@ -408,18 +408,18 @@ jobs:
             console.log('Adding colored fields to per-study project...');
             
             try {
-              // Create Stage field with rainbow colors
+              // Create Stage field with rainbow colors (using valid GitHub colors)
               const stageOptions = [
-                { name: "Initiation", color: "RED" },
-                { name: "Protocol development", color: "ORANGE" },
-                { name: "Data diagnostics", color: "YELLOW" },
-                { name: "Phenotype development", color: "GREEN" },
-                { name: "Phenotype evaluation", color: "BLUE" },
-                { name: "Analysis specifications", color: "INDIGO" },
-                { name: "Network execution", color: "PURPLE" },
-                { name: "Study diagnostics", color: "PINK" },
-                { name: "Evidence synthesis", color: "GRAY" },
-                { name: "Results evaluation", color: "DARK_GRAY" }
+                { name: "Initiation", color: "RED", description: "Study setup and initiation" },
+                { name: "Protocol development", color: "ORANGE", description: "Developing study protocol" },
+                { name: "Data diagnostics", color: "YELLOW", description: "Initial data quality checks" },
+                { name: "Phenotype development", color: "GREEN", description: "Building phenotype definitions" },
+                { name: "Phenotype evaluation", color: "BLUE", description: "Validating phenotypes" },
+                { name: "Analysis specifications", color: "PURPLE", description: "Finalizing analysis plan" },
+                { name: "Network execution", color: "PINK", description: "Running across network" },
+                { name: "Study diagnostics", color: "GRAY", description: "Post-execution diagnostics" },
+                { name: "Evidence synthesis", color: "RED", description: "Synthesizing results" },
+                { name: "Results evaluation", color: "ORANGE", description: "Final evaluation and reporting" }
               ];
               
               const stageField = await github.graphql(`
@@ -446,18 +446,18 @@ jobs:
               
               console.log('✅ Created Stage field with rainbow colors');
               
-              // Create Site Status field with rainbow colors
+              // Create Site Status field with rainbow colors (using valid GitHub colors)
               const statusOptions = [
-                { name: "Potential", color: "RED" },
-                { name: "Invited", color: "ORANGE" },
-                { name: "Committed", color: "YELLOW" },
-                { name: "Diagnostics Sent", color: "GREEN" },
-                { name: "Diagnostics Returned", color: "BLUE" },
-                { name: "Package Executed", color: "INDIGO" },
-                { name: "Results Uploaded", color: "PURPLE" },
-                { name: "Complete", color: "PINK" },
-                { name: "Withdrawn", color: "GRAY" },
-                { name: "Blocked", color: "DARK_GRAY" }
+                { name: "Potential", color: "RED", description: "Potential data partner" },
+                { name: "Invited", color: "ORANGE", description: "Invitation sent" },
+                { name: "Committed", color: "YELLOW", description: "Committed to participate" },
+                { name: "Diagnostics Sent", color: "GREEN", description: "Diagnostics package sent" },
+                { name: "Diagnostics Returned", color: "BLUE", description: "Diagnostics completed" },
+                { name: "Package Executed", color: "PURPLE", description: "Study package executed" },
+                { name: "Results Uploaded", color: "PINK", description: "Results submitted" },
+                { name: "Complete", color: "GRAY", description: "All tasks completed" },
+                { name: "Withdrawn", color: "RED", description: "Withdrawn from study" },
+                { name: "Blocked", color: "ORANGE", description: "Blocked or on hold" }
               ];
               
               const statusField = await github.graphql(`
