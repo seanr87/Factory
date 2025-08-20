@@ -159,7 +159,6 @@ jobs:
             const repoName = "${{ steps.slug.outputs.repo_name }}";
             const partnerSites = "${{ inputs.partner_sites }}" || "";
 
-            
             console.log(`Creating Factory issue for: ${studyTitle}`);
             
             const setupChecklist = [
@@ -248,8 +247,6 @@ jobs:
                 
                 console.log(`✅ Created Factory issue #${issue.data.number} without assignee`);
               }
-            
-              }
               
               core.setOutput('issue_number', issue.data.number);
               core.setOutput('issue_url', issue.data.html_url);
@@ -260,7 +257,7 @@ jobs:
                 url: issue.data.html_url,
                 node_id: issue.data.node_id
               };
-                            
+              
             } catch (error) {
               console.error('Error creating Factory issue:', error);
               core.setFailed(`Failed to create Factory issue: ${error.message}`);
