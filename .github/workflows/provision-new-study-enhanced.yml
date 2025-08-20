@@ -172,27 +172,19 @@ jobs:
             ];
             
             const issueBody = [
-              "# Study Overview",
-              "",
-              `**Lead**: @${leadUsername}`,
-              `**Lead Site**: ${leadSite}`,
-              `**Target Date**: ${targetDate}`,
-              `**Repository**: Will be created at \`${process.env.ORG_LOGIN}/${repoName}\``,
-              "",
               "## 📊 Data Partners Status",
               "*This section will be automatically updated as partners are added and progress through the study lifecycle.*",
               "",
-              "No data partners configured yet.",
+              partnerSites ? `**Initial Partners**: ${partnerSites}` : "No data partners configured yet.",
               "",
-              "## ✅ Factory Setup Checklist", 
-              "*This checklist tracks the technical setup required for the study to function within the Factory system.*",
+              "## ✅ Setup Checklist",
+              "*Manual tasks for the Factory operator to complete after running this workflow.*",
               "",
-              ...setupChecklist.map(item => `- [ ] ${item}`),
-              "",
-              "## 🔗 Quick Links",
-              "- **Study Repository**: *Will be populated after provisioning*",
-              "- **Study Project Board**: *Will be populated after provisioning*",
-              `- **Factory Project**: [Factory Overview](https://github.com/${owner}/${repo}/projects/${process.env.FACTORY_PROJECT_NUMBER})`,
+              "- [ ] Configure Factory project views and groupings",
+              "- [ ] Set up project insights and charts", 
+              "- [ ] Verify study repository access permissions",
+              "- [ ] Configure any custom automation rules",
+              "- [ ] Add study to organizational tracking systems",
               "",
               "---",
               "*This issue is automatically maintained by Factory automation workflows.*"
@@ -294,6 +286,72 @@ jobs:
           echo "repo_url=$repo_url" >> $GITHUB_OUTPUT
           echo "✅ Repository ready: $repo_url"
 
+      - name: Update study repository README
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const orgLogin = process.env.ORG_LOGIN;
+            const repoName = "${{ steps.slug.outputs.repo_name }}";
+            const studyTitle = "${{ inputs.study_title }}";
+            const studyLead = "${{ inputs.lead }}";
+            const leadUsername = process.env.CLEAN_USERNAME;
+            const targetDate = "${{ inputs.target_date }}";
+            
+            console.log('Updating README with study details...');
+            
+            try {
+              // Get current README content
+              const readme = await github.rest.repos.getContent({
+                owner: orgLogin,
+                repo: repoName,
+                path: 'README.md'
+              });
+              
+              let content = Buffer.from(readme.data.content, 'base64').toString();
+              
+              // Calculate study start date (today) in the required format
+              const today = new Date();
+              const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                             'July', 'August', 'September', 'October', 'November', 'December'];
+              const startDate = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+              
+              // Format target date
+              const targetDateObj = new Date(targetDate);
+              const endDate = `${months[targetDateObj.getMonth()]} ${targetDateObj.getDate()}, ${targetDateObj.getFullYear()}`;
+              
+              // Replace placeholders in README
+              const replacements = {
+                '[Study title]': studyTitle,
+                'Study lead: **-**': `Study lead: **${studyLead}**`,
+                'Study lead forums tag: **[[Lead tag]](https://forums.ohdsi.org/u/[Lead tag])**': `Study lead forums tag: **[${leadUsername}](https://forums.ohdsi.org/u/${leadUsername})**`,
+                'Study start date: **-**': `Study start date: **${startDate}**`,
+                'Study end date: **-**': `Study end date: **${endDate}**`,
+                '[Description (single paragraph)]': `${studyTitle} - OHDSI network study. Please update this description with study objectives and methodology.`
+              };
+              
+              for (const [placeholder, replacement] of Object.entries(replacements)) {
+                content = content.replace(placeholder, replacement);
+              }
+              
+              // Update the README file
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: orgLogin,
+                repo: repoName,
+                path: 'README.md',
+                message: 'Update README with study details from Factory provisioning',
+                content: Buffer.from(content).toString('base64'),
+                sha: readme.data.sha
+              });
+              
+              console.log('✅ Updated README with study details');
+              
+            } catch (error) {
+              console.error('Error updating README:', error);
+              // Don't fail the whole workflow if README update fails
+              console.log('⚠️ Failed to update README, continuing...');
+            }
+      
       - name: Update Factory issue with repository links
         uses: actions/github-script@v7
         with:
@@ -711,17 +769,23 @@ jobs:
                   if (statusField && statusField.options) {
                     let targetStatusId = null;
                     
-                    // Check if this is the first stage (Protocol development)
+                    // Check stage type and set appropriate status
+                    const isInitiation = issue.labels.some(label => 
+                      label.name === 'stage:initiation'
+                    );
                     const isProtocolDevelopment = issue.labels.some(label => 
                       label.name === 'stage:protocol-development'
                     );
                     
-                    if (isProtocolDevelopment && inProgressOptionId) {
+                    if (isInitiation && inProgressOptionId) {
                       targetStatusId = inProgressOptionId;
-                      console.log(`Setting Protocol development stage to In Progress`);
+                      console.log(`Setting Initiation stage to In Progress`);
+                    } else if (isProtocolDevelopment && todoOptionId) {
+                      targetStatusId = todoOptionId;
+                      console.log(`Setting Protocol development stage to Todo`);
                     } else if (issue.labels.some(label => label.name.startsWith('stage:')) && todoOptionId) {
                       targetStatusId = todoOptionId;
-                      console.log(`Setting stage issue to Todo`);
+                      console.log(`Setting other stage issue to Todo`);
                     } else if (issue.labels.some(label => label.name === 'data-partner') && todoOptionId) {
                       targetStatusId = todoOptionId;
                       console.log(`Setting partner issue to Todo`);
@@ -1000,6 +1064,12 @@ jobs:
             const factoryNumber = parseInt(process.env.FACTORY_PROJECT_NUMBER, 10);
             const orgLogin = process.env.ORG_LOGIN;
             const factoryIssueNodeId = "${{ steps.factory_issue.outputs.node_id }}";
+            const leadUsername = process.env.CLEAN_USERNAME;
+            const leadSite = "${{ inputs.lead_site }}";
+            const targetDate = "${{ inputs.target_date }}";
+            const repoUrl = "${{ steps.create_repo.outputs.repo_url }}";
+            const partnerCount = parseInt("${{ steps.create_partners.outputs.partner_count }}", 10) || 0;
+            const partnerSites = "${{ inputs.partner_sites }}" || "";
             
             console.log('Adding Factory issue to Factory project...');
             
@@ -1012,6 +1082,10 @@ jobs:
                       id
                       fields(first: 50) {
                         nodes {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
                           ... on ProjectV2SingleSelectField {
                             id
                             name
@@ -1054,14 +1128,27 @@ jobs:
               });
               
               const itemId = addResult.addProjectV2ItemById.item.id;
-              
-              // Set Status to "Initiation" and Stage to "Initiation"
               const fields = Object.fromEntries(project.fields.nodes.map(f => [f.name, f]));
               
-              for (const [fieldName, targetValue] of [["Status", "Initiation"], ["Stage", "Initiation"]]) {
-                const field = fields[fieldName];
-                if (field && field.options) {
-                  const option = field.options.find(o => o.name === targetValue);
+              // Set all the field values
+              const fieldUpdates = [
+                { fieldName: "Status", value: "Initiation" },
+                { fieldName: "Stage", value: "Initiation" },
+                { fieldName: "Lead", value: `@${leadUsername}` },
+                { fieldName: "Lead Site", value: leadSite },
+                { fieldName: "Target Date", value: targetDate },
+                { fieldName: "Study Repo", value: repoUrl },
+                { fieldName: "Partner Sites", value: partnerSites },
+                { fieldName: "Partner Count", value: partnerCount }
+              ];
+              
+              for (const update of fieldUpdates) {
+                const field = fields[update.fieldName];
+                if (!field) continue;
+                
+                if (field.options) {
+                  // Single select field
+                  const option = field.options.find(o => o.name === update.value);
                   if (option) {
                     await github.graphql(`
                       mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
@@ -1081,16 +1168,72 @@ jobs:
                       optId: option.id
                     });
                   }
+                } else if (update.fieldName === "Partner Count") {
+                  // Number field
+                  await github.graphql(`
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: Float!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId,
+                        itemId: $itemId,
+                        fieldId: $fieldId,
+                        value: { number: $val }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  `, {
+                    projectId: project.id,
+                    itemId: itemId,
+                    fieldId: field.id,
+                    val: update.value
+                  });
+                } else if (update.fieldName === "Target Date") {
+                  // Date field
+                  await github.graphql(`
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: Date!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId,
+                        itemId: $itemId,
+                        fieldId: $fieldId,
+                        value: { date: $val }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  `, {
+                    projectId: project.id,
+                    itemId: itemId,
+                    fieldId: field.id,
+                    val: update.value
+                  });
+                } else {
+                  // Text field
+                  await github.graphql(`
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId,
+                        itemId: $itemId,
+                        fieldId: $fieldId,
+                        value: { text: $val }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  `, {
+                    projectId: project.id,
+                    itemId: itemId,
+                    fieldId: field.id,
+                    val: update.value.toString()
+                  });
                 }
               }
               
-              console.log('✅ Added Factory issue to project with Initiation status');
+              console.log('✅ Added Factory issue to project with all fields populated');
               
             } catch (error) {
               console.error('Error adding to Factory project:', error);
               core.setFailed(`Failed to add to Factory project: ${error.message}`);
-            }
-              
+            }        
             
       - name: Final provision summary
         run: |
