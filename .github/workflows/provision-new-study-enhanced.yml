@@ -1,10 +1,14 @@
-name: Provision New Study (Enhanced)
+name: Provision New Study
 
 on:
   workflow_dispatch:
     inputs:
       study_title:
         description: 'Study title (will become repo name)'
+        required: true
+        type: string
+      lead:
+        description: 'Study lead name'
         required: true
         type: string
       lead_username:
@@ -17,7 +21,7 @@ on:
         type: string
       partner_sites:
         description: 'Partner sites (comma-separated list of ALL potential partners)'
-        required: false
+        required: true
         type: string
       target_date:
         description: 'Target completion date (YYYY-MM-DD)'
@@ -32,8 +36,8 @@ on:
         description: 'Repository maintainers (comma-separated GitHub usernames, optional)'
         required: false
         type: string
-      study_description:
-        description: 'Brief study description'
+      partner_contacts_csv:
+        description: 'Partner contacts (optional, one per line: "Site Name,@github,email,notes")'
         required: false
         type: string
 
@@ -50,7 +54,7 @@ jobs:
       FACTORY_PROJECT_NUMBER: ${{ secrets.FACTORY_PROJECT_NUMBER }}
       FACTORY_REPO: ${{ secrets.FACTORY_REPO }}
       TEMPLATE_REPO: ${{ secrets.TEMPLATE_REPO }}
-    
+      
     steps:
       - name: Validate inputs and environment
         run: |
@@ -84,7 +88,7 @@ jobs:
           
           # Export cleaned username
           echo "CLEAN_USERNAME=$username" >> $GITHUB_ENV
-
+      
       - name: Check for previous study leads
         id: previous_leads
         uses: actions/github-script@v7
@@ -133,10 +137,11 @@ jobs:
               core.setOutput('previous_leads', '[]');
               return [];
             }
-
+      
       - name: Generate repository slug
         id: slug
         run: |
+          # Convert title to kebab-case for repo name
           title="${{ inputs.study_title }}"
           slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
           repo_name="study-$slug"
@@ -156,7 +161,6 @@ jobs:
             const leadUsername = process.env.CLEAN_USERNAME;
             const leadSite = "${{ inputs.lead_site }}";
             const targetDate = "${{ inputs.target_date }}";
-            const description = "${{ inputs.study_description }}" || "";
             const repoName = "${{ steps.slug.outputs.repo_name }}";
             
             console.log(`Creating Factory issue for: ${studyTitle}`);
@@ -172,32 +176,32 @@ jobs:
               "Initial data partner issues created"
             ];
             
-            const issueBody = `# Study Overview
-            
-**Lead**: @${leadUsername}  
-**Lead Site**: ${leadSite}  
-**Target Date**: ${targetDate}  
-**Repository**: Will be created at \`${process.env.ORG_LOGIN}/${repoName}\`
-
-${description ? `**Description**: ${description}` : ''}
-
-## 📊 Data Partners Status
-*This section will be automatically updated as partners are added and progress through the study lifecycle.*
-
-No data partners configured yet.
-
-## ✅ Factory Setup Checklist
-*This checklist tracks the technical setup required for the study to function within the Factory system.*
-
-${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
-
-## 🔗 Quick Links
-- **Study Repository**: *Will be populated after provisioning*
-- **Study Project Board**: *Will be populated after provisioning*
-- **Factory Project**: [Factory Overview](https://github.com/${owner}/${repo}/projects/${process.env.FACTORY_PROJECT_NUMBER})
-
----
-*This issue is automatically maintained by Factory automation workflows.*`;
+            const issueBody = [
+              "# Study Overview",
+              "",
+              `**Lead**: @${leadUsername}`,
+              `**Lead Site**: ${leadSite}`,
+              `**Target Date**: ${targetDate}`,
+              `**Repository**: Will be created at \`${process.env.ORG_LOGIN}/${repoName}\``,
+              "",
+              "## 📊 Data Partners Status",
+              "*This section will be automatically updated as partners are added and progress through the study lifecycle.*",
+              "",
+              "No data partners configured yet.",
+              "",
+              "## ✅ Factory Setup Checklist", 
+              "*This checklist tracks the technical setup required for the study to function within the Factory system.*",
+              "",
+              ...setupChecklist.map(item => `- [ ] ${item}`),
+              "",
+              "## 🔗 Quick Links",
+              "- **Study Repository**: *Will be populated after provisioning*",
+              "- **Study Project Board**: *Will be populated after provisioning*",
+              `- **Factory Project**: [Factory Overview](https://github.com/${owner}/${repo}/projects/${process.env.FACTORY_PROJECT_NUMBER})`,
+              "",
+              "---",
+              "*This issue is automatically maintained by Factory automation workflows.*"
+            ].join('\n');
 
             try {
               const issue = await github.rest.issues.create({
@@ -212,6 +216,7 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
               console.log(`✅ Created Factory issue #${issue.data.number}`);
               core.setOutput('issue_number', issue.data.number);
               core.setOutput('issue_url', issue.data.html_url);
+              core.setOutput('node_id', issue.data.node_id);
               
               return {
                 number: issue.data.number,
@@ -269,6 +274,38 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
           repo_url="https://github.com/${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
           echo "repo_url=$repo_url" >> $GITHUB_OUTPUT
           echo "✅ Repository ready: $repo_url"
+
+      - name: Update Factory issue with repository links
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [owner, repo] = factoryRepo.split('/');
+            const issueNumber = ${{ steps.factory_issue.outputs.issue_number }};
+            const repoUrl = "${{ steps.create_repo.outputs.repo_url }}";
+            
+            // Update the Factory issue body with actual repository links
+            const issue = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber
+            });
+            
+            let updatedBody = issue.data.body;
+            updatedBody = updatedBody.replace(
+              /\*Will be populated after provisioning\*/g,
+              `[${repoUrl}](${repoUrl})`
+            );
+            
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body: updatedBody
+            });
+            
+            console.log('✅ Updated Factory issue with repository links');
 
       - name: Create per-study project
         id: create_project
@@ -471,12 +508,12 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
             --color "d73a4a" || echo "Label may already exist"
           
           echo "✅ Created repository labels with rainbow colors"
-
+    
       - name: Create stage checklist issues
         run: |
           echo "📋 Creating stage checklist issues..."
           
-          # Stage checklist issues
+          # Stage checklist issues with Initiation added
           stages=(
             "initiation:Initiation"
             "protocol-development:Protocol development"
@@ -514,47 +551,199 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
           partner_sites="${{ inputs.partner_sites }}"
           partner_count=0
           
-          if [[ -n "$partner_sites" ]]; then
-            # Debug: show what we're parsing
-            echo "Input partner sites: '$partner_sites'"
+          # Debug: show what we're parsing
+          echo "Input partner sites: '$partner_sites'"
+          
+          # Convert comma-separated to array using a more reliable method
+          OLDIFS="$IFS"
+          IFS=','
+          read -ra SITES <<< "$partner_sites"
+          IFS="$OLDIFS"
+          
+          echo "Found ${#SITES[@]} sites to process"
+          
+          for i in "${!SITES[@]}"; do
+            site="${SITES[$i]}"
+            # Trim whitespace
+            site=$(echo "$site" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             
-            # Convert comma-separated to array using a more reliable method
-            OLDIFS="$IFS"
-            IFS=','
-            read -ra SITES <<< "$partner_sites"
-            IFS="$OLDIFS"
-            
-            echo "Found ${#SITES[@]} sites to process"
-            
-            for i in "${!SITES[@]}"; do
-              site="${SITES[$i]}"
-              # Trim whitespace
-              site=$(echo "$site" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [[ -n "$site" ]]; then
+              echo "Creating partner issue for: '$site'"
               
-              if [[ -n "$site" ]]; then
-                echo "Creating partner issue for: '$site'"
-                
-                gh issue create \
-                  --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
-                  --title "Data Partner: $site" \
-                  --label "data-partner" \
-                  --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities." || true
-                
-                echo "✅ Processed site: $site"
-                ((partner_count++))
-              else
-                echo "⚠️ Skipping empty site at index $i"
-              fi
-            done
-          else
-            echo "No partner sites provided"
-          fi
+              gh issue create \
+                --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}" \
+                --title "Data Partner: $site" \
+                --label "data-partner" \
+                --body "Data partner coordination for $site. Use this issue to track progress, assign contacts, and manage site-specific activities." || true
+              
+              echo "✅ Processed site: $site"
+              ((partner_count++))
+            else
+              echo "⚠️ Skipping empty site at index $i"
+            fi
+          done
           
           set -e  # Re-enable exit on error
           
           echo "partner_count=$partner_count" >> $GITHUB_OUTPUT
           echo "✅ Created $partner_count partner site issues"
-
+          
+      - name: Add issues to per-study project with proper status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const projectId = "${{ steps.create_project.outputs.project_id }}";
+            const orgLogin = process.env.ORG_LOGIN;
+            const repoName = "${{ steps.slug.outputs.repo_name }}";
+            
+            console.log('Adding issues to per-study project with proper status...');
+            
+            // Wait a moment for all issues to be fully created
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            try {
+              // Get project fields including Status field
+              const projectQuery = `
+                query($projectId: ID!) {
+                  node(id: $projectId) {
+                    ... on ProjectV2 {
+                      fields(first: 50) {
+                        nodes {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const projectResult = await github.graphql(projectQuery, {
+                projectId: projectId
+              });
+              
+              const fields = Object.fromEntries(
+                projectResult.node.fields.nodes.map(f => [f.name, f])
+              );
+              
+              const statusField = fields["Status"];
+              let todoOptionId = null;
+              let inProgressOptionId = null;
+              
+              if (statusField && statusField.options) {
+                todoOptionId = statusField.options.find(o => 
+                  o.name.toLowerCase().includes('todo') || 
+                  o.name.toLowerCase().includes('to do')
+                )?.id;
+                
+                inProgressOptionId = statusField.options.find(o => 
+                  o.name.toLowerCase().includes('progress') ||
+                  o.name.toLowerCase().includes('in progress')
+                )?.id;
+                
+                console.log(`Found Status field options: Todo=${todoOptionId}, InProgress=${inProgressOptionId}`);
+              }
+              
+              // Get all issues from the repository
+              const issues = await github.rest.issues.listForRepo({
+                owner: orgLogin,
+                repo: repoName,
+                state: 'open',
+                per_page: 100
+              });
+              
+              console.log(`Found ${issues.data.length} issues to add to project`);
+              
+              // Add each issue to the project with appropriate status
+              for (const issue of issues.data) {
+                console.log(`Adding issue #${issue.number}: ${issue.title}`);
+                
+                try {
+                  // Add issue to project
+                  const addResult = await github.graphql(`
+                    mutation($projectId: ID!, $contentId: ID!) {
+                      addProjectV2ItemById(input: {
+                        projectId: $projectId,
+                        contentId: $contentId
+                      }) {
+                        item { id }
+                      }
+                    }
+                  `, {
+                    projectId: projectId,
+                    contentId: issue.node_id
+                  });
+                  
+                  const itemId = addResult.addProjectV2ItemById.item.id;
+                  console.log(`✅ Added issue #${issue.number} to project`);
+                  
+                  // Set status based on issue type
+                  if (statusField && statusField.options) {
+                    let targetStatusId = null;
+                    
+                    // Check if this is the first stage (Protocol development)
+                    const isProtocolDevelopment = issue.labels.some(label => 
+                      label.name === 'stage:protocol-development'
+                    );
+                    
+                    if (isProtocolDevelopment && inProgressOptionId) {
+                      targetStatusId = inProgressOptionId;
+                      console.log(`Setting Protocol development stage to In Progress`);
+                    } else if (issue.labels.some(label => label.name.startsWith('stage:')) && todoOptionId) {
+                      targetStatusId = todoOptionId;
+                      console.log(`Setting stage issue to Todo`);
+                    } else if (issue.labels.some(label => label.name === 'data-partner') && todoOptionId) {
+                      targetStatusId = todoOptionId;
+                      console.log(`Setting partner issue to Todo`);
+                    }
+                    
+                    // Apply the status if we determined one
+                    if (targetStatusId) {
+                      await github.graphql(`
+                        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
+                          updateProjectV2ItemFieldValue(input: {
+                            projectId: $projectId,
+                            itemId: $itemId,
+                            fieldId: $fieldId,
+                            value: { singleSelectOptionId: $optId }
+                          }) {
+                            projectV2Item { id }
+                          }
+                        }
+                      `, {
+                        projectId: projectId,
+                        itemId: itemId,
+                        fieldId: statusField.id,
+                        optId: targetStatusId
+                      });
+                      
+                      console.log(`✅ Set status for issue #${issue.number}`);
+                    }
+                  }
+                  
+                } catch (error) {
+                  console.log(`❌ Failed to add/configure issue #${issue.number}: ${error.message}`);
+                }
+              }
+              
+              console.log('✅ Finished adding issues to per-study project with status');
+              
+            } catch (error) {
+              console.error('Error adding issues to project:', error);
+              core.setFailed(`Failed to add issues to project: ${error.message}`);
+            }
+          
       - name: Set repository variables
         run: |
           echo "⚙️ Setting repository variables..."
@@ -566,14 +755,14 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
           gh variable set STALE_DAYS --body "7" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
           gh variable set FACTORY_PROJECT_NUMBER --body "${{ env.FACTORY_PROJECT_NUMBER }}" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
           
-          # Set study lead
+          # Set study lead using cleaned username
           gh variable set STUDY_LEAD_GH --body "@${{ env.CLEAN_USERNAME }}" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
           
           echo "✅ Set repository variables"
 
       - name: Grant repository permissions
         run: |
-          echo "🔑 Setting repository permissions..."
+          echo "🔐 Setting repository permissions..."
           
           # Grant admin access
           if [[ -n "${{ inputs.admins }}" ]]; then
@@ -609,37 +798,188 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
           
           echo "✅ Set repository permissions"
 
-      - name: Update Factory issue with repository links
+      - name: Create/Update Factory item
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.GH_TOKEN }}
           script: |
-            const factoryRepo = process.env.FACTORY_REPO;
-            const [owner, repo] = factoryRepo.split('/');
-            const issueNumber = ${{ steps.factory_issue.outputs.issue_number }};
+            const factoryNumber = parseInt(process.env.FACTORY_PROJECT_NUMBER, 10);
+            const orgLogin = process.env.ORG_LOGIN;
+            const repoName = "${{ steps.slug.outputs.repo_name }}";
             const repoUrl = "${{ steps.create_repo.outputs.repo_url }}";
+            const studyTitle = "${{ inputs.study_title }}";
+            const lead = "${{ inputs.lead }}";
+            const leadSite = "${{ inputs.lead_site }}";
+            const partnerSites = "${{ inputs.partner_sites }}";
+            const partnerCount = parseInt("${{ steps.create_partners.outputs.partner_count }}", 10);
+            const targetDate = "${{ inputs.target_date }}";
             
-            // Update the Factory issue body with actual repository links
-            const issue = await github.rest.issues.get({
-              owner,
-              repo,
-              issue_number: issueNumber
-            });
+            console.log(`Creating Factory item for ${studyTitle}`);
             
-            let updatedBody = issue.data.body;
-            updatedBody = updatedBody.replace(
-              /\*Will be populated after provisioning\*/g,
-              `[${repoUrl}](${repoUrl})`
-            );
-            
-            await github.rest.issues.update({
-              owner,
-              repo,
-              issue_number: issueNumber,
-              body: updatedBody
-            });
-            
-            console.log('✅ Updated Factory issue with repository links');
+            try {
+              // Query Factory project to get field IDs
+              const factoryQuery = `
+                query($login: String!, $num: Int!) {
+                  user(login: $login) {
+                    projectV2(number: $num) {
+                      id
+                      fields(first: 50) {
+                        nodes {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const factoryResult = await github.graphql(factoryQuery, {
+                login: orgLogin,
+                num: factoryNumber
+              });
+              
+              const factory = factoryResult.user.projectV2;
+              if (!factory) {
+                core.setFailed(`Factory project ${factoryNumber} not found for user ${orgLogin}`);
+                return;
+              }
+              
+              const fields = Object.fromEntries(factory.fields.nodes.map(f => [f.name, f]));
+              
+              // Create Factory item
+              const createItemResult = await github.graphql(`
+                mutation($projectId: ID!, $title: String!) {
+                  addProjectV2DraftIssue(input: {
+                    projectId: $projectId,
+                    title: $title
+                  }) {
+                    projectItem { id }
+                  }
+                }
+              `, {
+                projectId: factory.id,
+                title: studyTitle
+              });
+              
+              const itemId = createItemResult.addProjectV2DraftIssue.projectItem.id;
+              
+              // Set text fields
+              const textFields = {
+                "Lead": lead,
+                "Lead Site": leadSite,
+                "Partner Sites": partnerSites,
+                "Study Repo": repoUrl
+              };
+              
+              for (const [fieldName, value] of Object.entries(textFields)) {
+                const field = fields[fieldName];
+                if (field && value) {
+                  await github.graphql(`
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId,
+                        itemId: $itemId,
+                        fieldId: $fieldId,
+                        value: { text: $val }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  `, {
+                    projectId: factory.id,
+                    itemId: itemId,
+                    fieldId: field.id,
+                    val: value
+                  });
+                }
+              }
+              
+              // Set Target Date (date field)
+              const targetDateField = fields["Target Date"];
+              if (targetDateField && targetDate) {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: Date!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: { date: $val }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: factory.id,
+                  itemId: itemId,
+                  fieldId: targetDateField.id,
+                  val: targetDate
+                });
+              }
+              
+              // Set Partner Count (number field)
+              const partnerCountField = fields["Partner Count"];
+              if (partnerCountField) {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: Float!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: { number: $val }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: factory.id,
+                  itemId: itemId,
+                  fieldId: partnerCountField.id,
+                  val: partnerCount
+                });
+              }
+              
+              // Set Stage to "Protocol development"
+              const stageField = fields["Stage"];
+              if (stageField && stageField.options) {
+                const protocolOption = stageField.options.find(o => o.name === "Protocol development");
+                if (protocolOption) {
+                  await github.graphql(`
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId,
+                        itemId: $itemId,
+                        fieldId: $fieldId,
+                        value: { singleSelectOptionId: $optId }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  `, {
+                    projectId: factory.id,
+                    itemId: itemId,
+                    fieldId: stageField.id,
+                    optId: protocolOption.id
+                  });
+                }
+              }
+              
+              console.log('✅ Created and populated Factory item');
+              
+            } catch (error) {
+              console.error('Error creating Factory item:', error);
+              core.setFailed(`Failed to create Factory item: ${error.message}`);
+            }
 
       - name: Add Factory issue to Factory project with proper status
         uses: actions/github-script@v7
@@ -739,7 +1079,8 @@ ${setupChecklist.map(item => `- [ ] ${item}`).join('\n')}
               console.error('Error adding to Factory project:', error);
               core.setFailed(`Failed to add to Factory project: ${error.message}`);
             }
-
+              
+            
       - name: Final provision summary
         run: |
           echo "## 🎉 Enhanced Study Provision Complete!"
