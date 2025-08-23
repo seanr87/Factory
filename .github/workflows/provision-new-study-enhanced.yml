@@ -46,8 +46,8 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
       ORG_LOGIN: ${{ secrets.ORG_LOGIN }}
-      FACTORY_PROJECT_NUMBER: ${{ secrets.FACTORY_PROJECT_NUMBER }}
-      FACTORY_REPO: ${{ secrets.FACTORY_REPO }}
+      FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}
+      FACTORY_REPO: ${{ vars.FACTORY_REPO || github.repository }}
       TEMPLATE_REPO: ${{ secrets.TEMPLATE_REPO }}
       
     steps:
@@ -955,6 +955,20 @@ jobs:
               
               const fields = Object.fromEntries(factory.fields.nodes.map(f => [f.name, f]));
               
+              // Validate required fields exist
+              const requiredFields = ["Lead", "Lead Site", "Partner Sites", "Partner Count", "Target Date"];
+              const repoField = fields["Study Repo"] || fields["Repo"];
+              if (!repoField) {
+                core.setFailed("Factory must have a 'Study Repo' or 'Repo' field");
+                return;
+              }
+              
+              const missingFields = requiredFields.filter(f => !fields[f]);
+              if (missingFields.length > 0) {
+                core.setFailed(`Factory is missing required fields: ${missingFields.join(', ')}`);
+                return;
+              }
+              
               // Create Factory item
               const createItemResult = await github.graphql(`
                 mutation($projectId: ID!, $title: String!) {
@@ -972,12 +986,12 @@ jobs:
               
               const itemId = createItemResult.addProjectV2DraftIssue.projectItem.id;
               
-              // Set text fields
+              // Set text fields (use the actual field name that exists)
               const textFields = {
                 "Lead": lead,
                 "Lead Site": leadSite,
                 "Partner Sites": partnerSites,
-                "Study Repo": repoUrl
+                [repoField.name]: repoUrl
               };
               
               for (const [fieldName, value] of Object.entries(textFields)) {

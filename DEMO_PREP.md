@@ -21,11 +21,11 @@
     - **Partner sync** (create/edit/close partner-site issues → update **Partner Sites** + **Partner Count** in Factory; welcome ping on assignment)  
     - **Weekly Partner Nudge** (default **Mon 9:00 ET**, configurable via repo vars; stale if no activity for **7** days)
   - [ ] Add **README.md** (language-neutral OHDSI style) + `docs/STRATEGUS.md` placeholder.
-- [ ] Create private repo **`BIDS_General`** under `seanr87`.
+- [ ] Configure **`Factory`** repo under `seanr87`.
   - [ ] Add **Provision New Study** workflow (creates repo + per-study Project, seeds stage checklist issues, creates **partner-site** issues from intake, links to Factory, sets perms/vars).
   - [ ] Add **Factory Health** weekly digest workflow (Mon **9:05 ET**).
 
-## 3) Wire secrets & variables (in `BIDS_General` → Settings → Actions)
+## 3) Wire secrets & variables (in `Factory` → Settings → Actions)
 - [ ] **Secrets**:  
   - `ORG_ADMIN_TOKEN` = your fine-grained PAT  
   - `ORG_LOGIN` = `seanr87`  

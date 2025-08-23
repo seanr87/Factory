@@ -47,7 +47,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
       ORG_LOGIN: ${{ secrets.ORG_LOGIN }}
-      FACTORY_PROJECT_NUMBER: ${{ secrets.FACTORY_PROJECT_NUMBER }}
+      FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}
       TEMPLATE_REPO: ${{ secrets.TEMPLATE_REPO }}
     
     steps:

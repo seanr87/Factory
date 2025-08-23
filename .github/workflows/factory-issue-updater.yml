@@ -27,7 +27,8 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
       ORG_LOGIN: ${{ secrets.ORG_LOGIN }}
-      FACTORY_REPO: ${{ secrets.FACTORY_REPO }}
+      FACTORY_REPO: ${{ vars.FACTORY_REPO || github.repository }}
+      FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}
     
     steps:
       - name: Get Factory issues to update

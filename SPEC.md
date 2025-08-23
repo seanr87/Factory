@@ -19,8 +19,8 @@ Design goals:
 ### Must‑have
 
 * **One repo per study** created from a template; per‑study Project linked to that repo.
-* **Factory** portfolio with one row per study showing: **Stage**, **Lead**, **Lead Site**, **Partner Sites** (auto‑managed), **Partner Count** (auto), **Target Date**, **Repo**.
-* **Provision New Study** Action in **`BIDS_General`** that:
+* **Factory** portfolio with one row per study showing: **Stage**, **Lead**, **Lead Site**, **Partner Sites** (auto‑managed), **Partner Count** (auto), **Target Date**, **Study Repo**.
+* **Provision New Study** Action in **`Factory`** repository that:
 
   * creates repo & project; seeds **9 stage checklist issues** (from Ben’s framework);
   * creates **partner‑site issues** from intake (Status = **Potential**);
@@ -70,7 +70,7 @@ Design goals:
 * **Partner Sites** (text; auto‑managed list derived from partner‑site issues)
 * **Partner Count** (number; auto)
 * **Target Date** (date)
-* **Repo** (text/URL)
+* **Study Repo** (text/URL)
 
 **Per‑study Project**
 
@@ -146,12 +146,13 @@ stop
 
 ### Org/Secrets/Vars
 
-* **Org:** `JHU‑Odyssey` (GitHub Enterprise)
-* **Home repo:** `BIDS_General`
-* **Secrets (org or repo):** `ORG_ADMIN_TOKEN` (fine‑grained PAT; repo create, project write, contents write), `ORG_LOGIN=JHU-Odyssey`, `FACTORY_PROJECT_NUMBER`, `TEMPLATE_REPO=JHU-Odyssey/study-template`
+* **Org:** `seanr87` (GitHub.com for demo)
+* **Home repo:** `Factory` (contains provision workflow)
+* **Secrets (org or repo):** `ORG_ADMIN_TOKEN` (fine‑grained PAT; repo create, project write, contents write), `ORG_LOGIN=seanr87`, `TEMPLATE_REPO=seanr87/study-template`
+* **Variables (repo):** `FACTORY_PROJECT_NUMBER` (not sensitive, should be a variable)
 * **Repo variables per study:** `STUDY_LEAD_GH`, `NUDGE_DAY=Mon`, `NUDGE_HOUR_LOCAL=9`, `NUDGE_TZ=America/New_York`, `STALE_DAYS=7`
 
-### A) Provision New Study (in `BIDS_General`)
+### A) Provision New Study (in `Factory` repository)
 
 Inputs: `study_title, lead, lead_site, partner_sites (CSV), partner_contacts_csv (optional), target_date, admins, maintainers`
 Key steps (gh CLI + GraphQL):
@@ -190,7 +191,7 @@ Trigger: `schedule` (hourly) + `workflow_dispatch`
 * If current local time matches, build stale list (no activity > `STALE_DAYS`) for `partner-site` issues with Site Status ∈ {Potential, Invited, Diagnostics Sent, Diagnostics Returned}.
 * Comment on each stale issue tagging the **assignee**; update/create a **Weekly Partner Nudge** digest issue tagging the **Study Lead**.
 
-### E) Factory Health digest (in `BIDS_General`)
+### E) Factory Health digest (in `Factory` repository)
 
 Trigger: `schedule: Mon 09:05 ET` + `workflow_dispatch`
 
