@@ -1187,12 +1187,23 @@ jobs:
               
               for (const update of fieldUpdates) {
                 const field = fields[update.fieldName];
-                if (!field) continue;
+                if (!field) {
+                  console.log(`⚠️ Field '${update.fieldName}' not found in Factory project`);
+                  continue;
+                }
                 
                 if (field.options) {
                   // Single select field
-                  const option = field.options.find(o => o.name === update.value);
+                  console.log(`Setting single-select field '${update.fieldName}' to '${update.value}'`);
+                  console.log(`Available options: ${field.options.map(o => o.name).join(', ')}`);
+                  
+                  // Try exact match first, then case-insensitive match
+                  let option = field.options.find(o => o.name === update.value);
+                  if (!option) {
+                    option = field.options.find(o => o.name.toLowerCase() === update.value.toLowerCase());
+                  }
                   if (option) {
+                    console.log(`Found matching option: ${option.name} (ID: ${option.id})`);
                     await github.graphql(`
                       mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
                         updateProjectV2ItemFieldValue(input: {
@@ -1210,6 +1221,10 @@ jobs:
                       fieldId: field.id,
                       optId: option.id
                     });
+                    console.log(`✅ Successfully set ${update.fieldName} to ${update.value}`);
+                  } else {
+                    console.log(`❌ Option '${update.value}' not found for field '${update.fieldName}'`);
+                    console.log(`Available options: ${field.options.map(o => o.name).join(', ')}`);
                   }
                 } else if (update.fieldName === "Partner Count") {
                   // Number field
@@ -1251,6 +1266,7 @@ jobs:
                   });
                 } else {
                   // Text field
+                  console.log(`Setting text field '${update.fieldName}' to '${update.value}'`);
                   await github.graphql(`
                     mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $val: String!) {
                       updateProjectV2ItemFieldValue(input: {
