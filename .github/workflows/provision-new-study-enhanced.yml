@@ -1176,7 +1176,7 @@ jobs:
               
               // Set all the field values (Factory doesn't have Status field)
               const fieldUpdates = [
-                { fieldName: "Stage", value: "Protocol development" },  // Start with Protocol development
+                { fieldName: "Stage", value: "Initiation" },  // Start with Initiation
                 { fieldName: "Lead", value: `@${leadUsername}` },
                 { fieldName: "Lead Site", value: leadSite },
                 { fieldName: "Target Date", value: targetDate },
