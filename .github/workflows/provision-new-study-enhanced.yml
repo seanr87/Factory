@@ -896,7 +896,10 @@ jobs:
           
           echo "✅ Set repository permissions"
 
-      - name: Create/Update Factory item
+      # REMOVED: This step created duplicate draft issues in Factory project
+      # The actual Factory issue is already added in the next step
+      - name: Create/Update Factory item (DISABLED - causes duplicates)
+        if: false
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.GH_TOKEN }}
@@ -1167,14 +1170,17 @@ jobs:
               const itemId = addResult.addProjectV2ItemById.item.id;
               const fields = Object.fromEntries(project.fields.nodes.map(f => [f.name, f]));
               
-              // Set all the field values
+              // Handle both "Study Repo" and "Repo" field names
+              const repoField = fields["Study Repo"] || fields["Repo"];
+              const repoFieldName = repoField ? repoField.name : "Study Repo";
+              
+              // Set all the field values (Factory doesn't have Status field)
               const fieldUpdates = [
-                { fieldName: "Status", value: "Initiation" },
-                { fieldName: "Stage", value: "Initiation" },
+                { fieldName: "Stage", value: "Protocol development" },  // Start with Protocol development
                 { fieldName: "Lead", value: `@${leadUsername}` },
                 { fieldName: "Lead Site", value: leadSite },
                 { fieldName: "Target Date", value: targetDate },
-                { fieldName: "Study Repo", value: repoUrl },
+                { fieldName: repoFieldName, value: repoUrl },
                 { fieldName: "Partner Sites", value: partnerSites },
                 { fieldName: "Partner Count", value: partnerCount }
               ];
