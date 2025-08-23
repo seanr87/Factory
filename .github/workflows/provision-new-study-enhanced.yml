@@ -864,7 +864,11 @@ jobs:
           # Set study lead using cleaned username
           gh variable set STUDY_LEAD_GH --body "@${{ env.CLEAN_USERNAME }}" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
           
-          echo "✅ Set repository variables"
+          # Set the ORG_ADMIN_TOKEN secret so workflows can update Factory
+          echo "Setting ORG_ADMIN_TOKEN secret for Factory updates..."
+          gh secret set ORG_ADMIN_TOKEN --body "${{ secrets.ORG_ADMIN_TOKEN }}" --repo "${{ env.ORG_LOGIN }}/${{ steps.slug.outputs.repo_name }}"
+          
+          echo "✅ Set repository variables and secrets"
 
       - name: Grant repository permissions
         run: |
@@ -1175,8 +1179,21 @@ jobs:
               const repoFieldName = repoField ? repoField.name : "Study Repo";
               
               // Set all the field values (Factory doesn't have Status field)
+              // Try Initiation first, fallback to Protocol development if not available
+              const stageField = fields["Stage"];
+              let initialStage = "Initiation";
+              if (stageField && stageField.options) {
+                const hasInitiation = stageField.options.some(o => 
+                  o.name.toLowerCase() === "initiation"
+                );
+                if (!hasInitiation) {
+                  console.log("⚠️ Initiation stage not found, using Protocol development");
+                  initialStage = "Protocol development";
+                }
+              }
+              
               const fieldUpdates = [
-                { fieldName: "Stage", value: "Initiation" },  // Start with Initiation
+                { fieldName: "Stage", value: initialStage },  // Start with Initiation or fallback
                 { fieldName: "Lead", value: `@${leadUsername}` },
                 { fieldName: "Lead Site", value: leadSite },
                 { fieldName: "Target Date", value: targetDate },
