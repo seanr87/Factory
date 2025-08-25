@@ -127,66 +127,98 @@ jobs:
           EOF
           )
           
-          ISSUE_URL=$(gh issue create \
+          ISSUE_JSON=$(gh issue create \
             --repo "${{ github.repository }}" \
             --title "Study: ${{ inputs.study_title }}" \
             --body "$ISSUE_BODY" \
             --label "study-tracking" \
-            --format json | jq -r '.url')
+            --format json)
+          
+          ISSUE_URL=$(echo "$ISSUE_JSON" | jq -r '.url')
+          ISSUE_NODE_ID=$(echo "$ISSUE_JSON" | jq -r '.node_id')
           
           echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
+          echo "issue_node_id=$ISSUE_NODE_ID" >> $GITHUB_OUTPUT
           echo "✅ Created Factory tracking issue: $ISSUE_URL"
 
       - name: Add issue to Factory Portfolio project
-        run: |
-          # Add the tracking issue to the Factory Portfolio project
-          # Note: GITHUB_TOKEN has limited access to Projects v2
-          echo "🔍 Debug: Checking Factory Portfolio integration..."
-          echo "FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}"
-          echo "Issue URL: ${{ steps.factory_issue.outputs.issue_url }}"
-          echo "Repository Owner: ${{ github.repository_owner }}"
-          
-          if [[ -n "${{ vars.FACTORY_PROJECT_NUMBER }}" ]]; then
-            PROJECT_NUMBER="${{ vars.FACTORY_PROJECT_NUMBER }}"
-            ISSUE_URL="${{ steps.factory_issue.outputs.issue_url }}"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          script: |
+            const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
+            const owner = "${{ github.repository_owner }}";
+            const issueNodeId = "${{ steps.factory_issue.outputs.issue_node_id }}";
+            const studyTitle = "${{ inputs.study_title }}";
             
-            echo "📋 Attempting to add issue to Factory Portfolio project #$PROJECT_NUMBER"
-            echo "🔗 Issue URL: $ISSUE_URL"
+            console.log(`🔍 Adding issue to Factory Portfolio project #${factoryNumber}`);
+            console.log(`Issue Node ID: ${issueNodeId}`);
             
-            # Try with ORG_ADMIN_TOKEN first (has better project access)
-            if [[ -n "${{ secrets.ORG_ADMIN_TOKEN }}" ]]; then
-              echo "🔑 Using ORG_ADMIN_TOKEN for project access"
-              export GH_TOKEN="${{ secrets.ORG_ADMIN_TOKEN }}"
-            else
-              echo "⚠️ Using GITHUB_TOKEN (limited project access)"
-            fi
+            if (!factoryNumber) {
+              console.log("⚠️ FACTORY_PROJECT_NUMBER not set in repository variables");
+              console.log("To fix: Go to Settings → Variables → Repository variables → Add 'FACTORY_PROJECT_NUMBER'");
+              return;
+            }
             
-            # Try to add issue to project
-            if gh project item-add \
-              --project-number="$PROJECT_NUMBER" \
-              --owner "${{ github.repository_owner }}" \
-              --url "$ISSUE_URL"; then
-              echo "✅ Successfully added tracking issue to Factory Portfolio project #$PROJECT_NUMBER"
-            else
-              echo "❌ Automated project addition failed"
-              echo ""
-              echo "🔧 MANUAL STEPS REQUIRED:"
-              echo "1. Go to: https://github.com/users/${{ github.repository_owner }}/projects/$PROJECT_NUMBER"
-              echo "2. Click '+ Add items'"
-              echo "3. Search for: Study: ${{ inputs.study_title }}"
-              echo "4. Add the issue to your project"
-              echo ""
-              echo "💡 Why this happens:"
-              echo "- GITHUB_TOKEN has limited access to Projects v2"
-              echo "- See briefing/projects/github-projects-permissions.md for details"
-              echo "- This is a GitHub platform limitation, not a workflow bug"
-            fi
-          else
-            echo "⚠️ FACTORY_PROJECT_NUMBER not set in repository variables"
-            echo "To fix: Go to Settings → Variables → Repository variables → Add 'FACTORY_PROJECT_NUMBER'"
-            echo "Set it to your Factory Portfolio project number (found in project URL)"
-            echo "Example: if project URL is /projects/3, set FACTORY_PROJECT_NUMBER to 3"
-          fi
+            try {
+              // Query Factory project to get project ID
+              const factoryQuery = `
+                query($login: String!, $num: Int!) {
+                  user(login: $login) {
+                    projectV2(number: $num) {
+                      id
+                      title
+                    }
+                  }
+                }
+              `;
+              
+              const factoryResult = await github.graphql(factoryQuery, {
+                login: owner,
+                num: factoryNumber
+              });
+              
+              const project = factoryResult.user.projectV2;
+              if (!project) {
+                console.log(`❌ Factory project #${factoryNumber} not found for user ${owner}`);
+                console.log("💡 Make sure:");
+                console.log("1. The project number is correct");
+                console.log("2. The project exists and is accessible");
+                return;
+              }
+              
+              console.log(`📋 Found project: ${project.title} (${project.id})`);
+              
+              // Add issue to project using addProjectV2ItemById mutation
+              const addResult = await github.graphql(`
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId,
+                    contentId: $contentId
+                  }) {
+                    item { id }
+                  }
+                }
+              `, {
+                projectId: project.id,
+                contentId: issueNodeId
+              });
+              
+              const itemId = addResult.addProjectV2ItemById.item.id;
+              console.log(`✅ Successfully added tracking issue to Factory Portfolio project #${factoryNumber}`);
+              console.log(`📋 Project item ID: ${itemId}`);
+              
+            } catch (error) {
+              console.log(`❌ Failed to add issue to project: ${error.message}`);
+              console.log("");
+              console.log("🔧 MANUAL STEPS REQUIRED:");
+              console.log(`1. Go to: https://github.com/users/${owner}/projects/${factoryNumber}`);
+              console.log("2. Click '+ Add items'");
+              console.log(`3. Search for: Study: ${studyTitle}`);
+              console.log("4. Add the issue to your project");
+              console.log("");
+              console.log("💡 This uses the same method as the archived working workflow");
+            }
 
       - name: Summary
         run: |
