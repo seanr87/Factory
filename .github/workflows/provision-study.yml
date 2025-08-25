@@ -73,25 +73,83 @@ jobs:
 
       - name: Create study project
         id: create_project
-        run: |
-          # Create a new project for the study
-          PROJECT_TITLE="Study: ${{ inputs.study_title }}"
-          REPO_NAME="${{ steps.create_repo.outputs.repo_name }}"
-          
-          # Create project under the repository owner
-          PROJECT_URL=$(gh project create \
-            --owner "${{ github.repository_owner }}" \
-            --title "$PROJECT_TITLE" \
-            --format json | jq -r '.url')
-          
-          # Link the project to the repository
-          gh project link "$PROJECT_URL" \
-            --repo "${{ github.repository_owner }}/$REPO_NAME" || \
-          echo "⚠️ Project created but linking failed - you can link manually"
-          
-          echo "project_url=$PROJECT_URL" >> $GITHUB_OUTPUT
-          echo "✅ Created project: $PROJECT_TITLE"
-          echo "📋 Project URL: $PROJECT_URL"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          script: |
+            const repoOwner = "${{ github.repository_owner }}";
+            const repoName = "${{ steps.create_repo.outputs.repo_name }}";
+            const studyTitle = "${{ inputs.study_title }}";
+            
+            console.log(`Creating per-study project for ${repoName}`);
+            
+            try {
+              // Get the repository owner's node ID
+              const ownerResult = await github.rest.users.getByUsername({
+                username: repoOwner
+              });
+              const ownerId = ownerResult.data.node_id;
+              
+              // Create the project using GraphQL
+              const createResult = await github.graphql(`
+                mutation($ownerId: ID!, $title: String!) {
+                  createProjectV2(input: {
+                    ownerId: $ownerId,
+                    title: $title
+                  }) {
+                    projectV2 {
+                      id
+                      number
+                      url
+                    }
+                  }
+                }
+              `, {
+                ownerId: ownerId,
+                title: `Study: ${studyTitle}`
+              });
+              
+              const project = createResult.createProjectV2.projectV2;
+              console.log(`✅ Created project: ${project.url}`);
+              
+              // Get repository details for linking
+              const repoResult = await github.rest.repos.get({
+                owner: repoOwner,
+                repo: repoName
+              });
+              
+              // Link project to repository using GraphQL
+              await github.graphql(`
+                mutation($projectId: ID!, $repoId: ID!) {
+                  linkProjectV2ToRepository(input: {
+                    projectId: $projectId,
+                    repositoryId: $repoId
+                  }) {
+                    repository { id }
+                  }
+                }
+              `, {
+                projectId: project.id,
+                repoId: repoResult.data.node_id
+              });
+              
+              console.log('✅ Successfully linked project to repository');
+              
+              // Set outputs for later steps
+              core.setOutput('project_id', project.id);
+              core.setOutput('project_number', project.number);
+              core.setOutput('project_url', project.url);
+              
+              return {
+                id: project.id,
+                number: project.number,
+                url: project.url
+              };
+              
+            } catch (error) {
+              console.error('Error creating or linking project:', error);
+              core.setFailed(`Failed to create and link project: ${error.message}`);
+            }
 
       - name: Create Factory tracking issue
         id: factory_issue
@@ -227,9 +285,12 @@ jobs:
           echo "**Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
           echo "**Project:** ${{ steps.create_project.outputs.project_url }}"
           echo "**Lead:** @${{ inputs.lead_github }}"
+          echo "**Factory Tracking:** ${{ steps.factory_issue.outputs.issue_url }}"
           echo ""
           echo "### Next Steps:"
           echo "1. Visit the repository and update the README"
-          echo "2. Check the project board for stage tracking"
-          echo "3. Begin Base Camp stage"
+          echo "2. Check the linked project board for stage tracking"
+          echo "3. Begin Base Camp stage in the project"
           echo "4. Add data partners as needed"
+          echo ""
+          echo "✅ **Project is now properly linked to repository**"
