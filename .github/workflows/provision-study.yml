@@ -126,4 +126,3 @@ jobs:
           echo "1. Visit the repository and update the README"
           echo "2. Check the linked project board for stage tracking"
           echo "3. Begin Base Camp stage in the project"
-          echo "4. Add data partners as needed"
