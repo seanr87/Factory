@@ -1,0 +1,40 @@
+name: Debug All Webhooks
+
+on:
+  # Capture various collaboration-related events
+  member:
+    types: [added, removed, edited]
+  membership:
+    types: [added, removed]
+  organization:
+    types: [member_added, member_removed, member_invited]
+  repository:
+    types: [publicized, privatized, transferred]
+  collaboration_invitation:
+    types: [sent, accepted, cancelled]
+  # Manual trigger for testing
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug event
+        run: |
+          echo "=== EVENT DEBUGGING ==="
+          echo "Event: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "=== FULL PAYLOAD ==="
+          echo '${{ toJson(github.event) }}' | jq '.'
+          echo "======================"
+          
+          # Check repository settings that might affect webhooks
+          echo "=== REPOSITORY INFO ==="
+          echo "Owner type: ${{ github.repository_owner_id }}"
+          echo "Is organization: ${{ github.repository_owner != github.actor }}"
+          echo "======================="

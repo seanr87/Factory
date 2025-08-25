@@ -23,17 +23,40 @@ permissions:
 jobs:
   assign-pending-issues:
     runs-on: ubuntu-latest
-    if: github.event.action == 'added'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Debug event information
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Event action: ${{ github.event.action }}"
+          echo "Repository type: ${{ github.repository_owner_id }}"
+          echo "Event payload:"
+          echo '${{ toJson(github.event) }}' | jq '.'
 
       - name: Find and assign pending issues
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const newCollaborator = context.payload.member.login;
+            // Determine the collaborator username based on trigger type
+            let newCollaborator;
+            
+            if (context.eventName === 'member' && context.payload.member) {
+              newCollaborator = context.payload.member.login;
+              console.log(`🎉 Member event: New collaborator @${newCollaborator}`);
+            } else if (context.eventName === 'workflow_dispatch') {
+              newCollaborator = '${{ inputs.collaborator_username }}';
+              console.log(`🔧 Manual trigger: Testing assignment for @${newCollaborator}`);
+            } else if (context.eventName === 'push') {
+              console.log(`🚀 Push trigger: Workflow updated, skipping assignment`);
+              return;
+            } else {
+              console.log(`⚠️ Unexpected trigger: ${context.eventName}`);
+              console.log('Event payload:', JSON.stringify(context.payload, null, 2));
+              return;
+            }
             console.log(`🎉 New collaborator accepted: @${newCollaborator}`);
             
             try {
