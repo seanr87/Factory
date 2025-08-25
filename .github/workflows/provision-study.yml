@@ -127,19 +127,19 @@ jobs:
           EOF
           )
           
-          ISSUE_JSON=$(gh issue create \
+          ISSUE_URL=$(gh issue create \
             --repo "${{ github.repository }}" \
             --title "Study: ${{ inputs.study_title }}" \
             --body "$ISSUE_BODY" \
-            --label "study-tracking" \
-            --format json)
+            --label "study-tracking")
           
-          ISSUE_URL=$(echo "$ISSUE_JSON" | jq -r '.url')
-          ISSUE_NODE_ID=$(echo "$ISSUE_JSON" | jq -r '.node_id')
+          # Get issue number from URL and fetch node_id via API
+          ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
+          ISSUE_NODE_ID=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER --jq '.node_id')
           
           echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
           echo "issue_node_id=$ISSUE_NODE_ID" >> $GITHUB_OUTPUT
-          echo "✅ Created Factory tracking issue: $ISSUE_URL"
+          echo "✅ Created Factory tracking issue: $ISSUE_URL (Node: $ISSUE_NODE_ID)"
 
       - name: Add issue to Factory Portfolio project
         uses: actions/github-script@v7
