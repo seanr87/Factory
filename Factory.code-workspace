@@ -1,10 +1,12 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"name": "study-template",
+			"path": "../study-template"
 		},
 		{
-			"path": "../study-template"
+			"name": "Factory",
+			"path": "."
 		}
 	],
 	"settings": {}
