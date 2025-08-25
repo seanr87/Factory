@@ -57,10 +57,15 @@ jobs:
             --private \
             --description "OHDSI Study: ${{ inputs.study_title }}"
           
-          # Add study lead as admin
-          gh api repos/${{ github.repository_owner }}/$REPO_NAME/collaborators/${{ inputs.lead_github }} \
-            --method PUT \
-            --field permission=admin
+          # Add study lead as admin (skip if they're the repo owner)
+          if [[ "${{ inputs.lead_github }}" != "${{ github.repository_owner }}" ]]; then
+            gh api repos/${{ github.repository_owner }}/$REPO_NAME/collaborators/${{ inputs.lead_github }} \
+              --method PUT \
+              --field permission=admin
+            echo "✅ Added ${{ inputs.lead_github }} as admin"
+          else
+            echo "✅ Study lead is repo owner, skipping collaborator addition"
+          fi
           
           echo "✅ Created repository: $REPO_NAME"
 
