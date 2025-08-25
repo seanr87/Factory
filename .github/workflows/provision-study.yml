@@ -69,6 +69,23 @@ jobs:
           
           echo "✅ Created repository: $REPO_NAME"
 
+      - name: Create study project
+        id: create_project
+        run: |
+          # Create a new project for the study
+          PROJECT_TITLE="Study: ${{ inputs.study_title }}"
+          
+          # Create project linked to the repository
+          gh project create \
+            --title "$PROJECT_TITLE" \
+            --repo "${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}" \
+            --template "Feature planning" || \
+          gh project create \
+            --title "$PROJECT_TITLE" \
+            --repo "${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
+          
+          echo "✅ Created project: $PROJECT_TITLE"
+
       - name: Create Factory tracking issue
         run: |
           # Ensure study-tracking label exists
@@ -87,7 +104,7 @@ jobs:
           **Status:** 🟢 Active
           
           ### Current Stage
-          - [x] Initiation
+          - [x] Boot camp
           - [ ] Protocol Development
           - [ ] Phenotype Development
           - [ ] Analysis Specifications
@@ -115,9 +132,11 @@ jobs:
           echo "## ✅ Study Provisioned Successfully"
           echo ""
           echo "**Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
+          echo "**Project:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}/projects"
           echo "**Lead:** @${{ inputs.lead_github }}"
           echo ""
           echo "### Next Steps:"
           echo "1. Visit the repository and update the README"
-          echo "2. Begin protocol development"
-          echo "3. Add data partners as needed"
+          echo "2. Check the project board for stage tracking"
+          echo "3. Begin boot camp stage"
+          echo "4. Add data partners as needed"
