@@ -74,17 +74,22 @@ jobs:
         run: |
           # Create a new project for the study
           PROJECT_TITLE="Study: ${{ inputs.study_title }}"
+          REPO_NAME="${{ steps.create_repo.outputs.repo_name }}"
           
-          # Create project linked to the repository
-          gh project create \
+          # Create project under the repository owner
+          PROJECT_URL=$(gh project create \
+            --owner "${{ github.repository_owner }}" \
             --title "$PROJECT_TITLE" \
-            --repo "${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}" \
-            --template "Feature planning" || \
-          gh project create \
-            --title "$PROJECT_TITLE" \
-            --repo "${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
+            --format json | jq -r '.url')
           
+          # Link the project to the repository
+          gh project link "$PROJECT_URL" \
+            --repo "${{ github.repository_owner }}/$REPO_NAME" || \
+          echo "⚠️ Project created but linking failed - you can link manually"
+          
+          echo "project_url=$PROJECT_URL" >> $GITHUB_OUTPUT
           echo "✅ Created project: $PROJECT_TITLE"
+          echo "📋 Project URL: $PROJECT_URL"
 
       - name: Create Factory tracking issue
         run: |
@@ -132,7 +137,7 @@ jobs:
           echo "## ✅ Study Provisioned Successfully"
           echo ""
           echo "**Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
-          echo "**Project:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}/projects"
+          echo "**Project:** ${{ steps.create_project.outputs.project_url }}"
           echo "**Lead:** @${{ inputs.lead_github }}"
           echo ""
           echo "### Next Steps:"
