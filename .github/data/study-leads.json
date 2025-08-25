@@ -1,0 +1,16 @@
+{
+  "study_leads": [
+    {
+      "name": "Dr. Sarah Johnson",
+      "github_username": "sarahj-researcher"
+    },
+    {
+      "name": "Prof. Michael Chen",
+      "github_username": "mchen-lab"
+    },
+    {
+      "name": "Dr. Lisa Rodriguez",
+      "github_username": "lrodriguez-phd"
+    }
+  ]
+}

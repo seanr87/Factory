@@ -10,13 +10,22 @@ on:
         description: 'Study title'
         required: true
         type: string
-      lead_name:
-        description: 'Study lead name'
+      study_lead_selection:
+        description: 'Select existing study lead or add new'
         required: true
+        type: choice
+        options:
+          - 'Dr. Sarah Johnson|sarahj-researcher'
+          - 'Prof. Michael Chen|mchen-lab' 
+          - 'Dr. Lisa Rodriguez|lrodriguez-phd'
+          - 'Add new study lead'
+      new_lead_name:
+        description: 'New study lead name (only if adding new)'
+        required: false
         type: string
-      lead_github:
-        description: 'Study lead GitHub username'
-        required: true
+      new_lead_github:
+        description: 'New study lead GitHub username (only if adding new)'
+        required: false
         type: string
       target_date:
         description: 'Target completion date (YYYY-MM-DD)'
@@ -25,7 +34,7 @@ on:
 
 # Per briefing/actions/permissions.md - minimal permissions
 permissions:
-  contents: read
+  contents: write
   issues: write
   repository-projects: write
 
@@ -36,13 +45,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve study lead information
+        id: resolve_lead
+        uses: ./.github/actions/manage-study-leads
+        with:
+          operation: validate
+          selected_lead: ${{ inputs.study_lead_selection }}
+          lead_name: ${{ inputs.new_lead_name }}
+          lead_github: ${{ inputs.new_lead_github }}
+
+      - name: Add new study lead to database
+        if: inputs.study_lead_selection == 'Add new study lead'
+        uses: ./.github/actions/manage-study-leads
+        with:
+          operation: add
+          lead_name: ${{ inputs.new_lead_name }}
+          lead_github: ${{ inputs.new_lead_github }}
+
+      - name: Commit updated study leads data
+        if: inputs.study_lead_selection == 'Add new study lead'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/data/study-leads.json
+          git diff --staged --quiet || git commit -m "Add new study lead: ${{ inputs.new_lead_name }}"
+          git push
+
       - name: Validate inputs
         id: validate
         uses: ./.github/actions/validate-study-inputs
         with:
           study_title: ${{ inputs.study_title }}
-          lead_name: ${{ inputs.lead_name }}
-          lead_github: ${{ inputs.lead_github }}
+          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           target_date: ${{ inputs.target_date }}
 
       - name: Create repository
@@ -51,7 +86,7 @@ jobs:
         with:
           repo_name: ${{ steps.validate.outputs.repo_name }}
           study_title: ${{ inputs.study_title }}
-          lead_github: ${{ inputs.lead_github }}
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Setup project
@@ -67,8 +102,8 @@ jobs:
         uses: ./.github/actions/create-factory-tracking
         with:
           study_title: ${{ inputs.study_title }}
-          lead_name: ${{ inputs.lead_name }}
-          lead_github: ${{ inputs.lead_github }}
+          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           target_date: ${{ inputs.target_date }}
           repo_url: ${{ steps.repo.outputs.repo_url }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
@@ -87,7 +122,7 @@ jobs:
           echo ""
           echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
-          echo "**Lead:** @${{ inputs.lead_github }}"
+          echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
           echo ""
           echo "### Next Steps:"

@@ -1,0 +1,93 @@
+name: 'Manage Study Leads'
+description: 'Manages study lead data storage and retrieval'
+inputs:
+  operation:
+    description: 'Operation to perform: get, add, or validate'
+    required: true
+    type: string
+  lead_name:
+    description: 'Study lead name (for add operation)'
+    required: false
+  lead_github:
+    description: 'Study lead GitHub username (for add operation)'
+    required: false
+  selected_lead:
+    description: 'Selected lead from dropdown (for validate operation)'
+    required: false
+
+outputs:
+  lead_name:
+    description: 'Resolved study lead name'
+    value: ${{ steps.resolve.outputs.lead_name }}
+  lead_github:
+    description: 'Resolved study lead GitHub username'
+    value: ${{ steps.resolve.outputs.lead_github }}
+  study_leads_json:
+    description: 'JSON string of all study leads for dropdown generation'
+    value: ${{ steps.get.outputs.study_leads_json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Get study leads
+      id: get
+      if: inputs.operation == 'get'
+      shell: bash
+      run: |
+        if [[ -f .github/data/study-leads.json ]]; then
+          LEADS_JSON=$(jq -c '.study_leads' .github/data/study-leads.json)
+          echo "study_leads_json=$LEADS_JSON" >> $GITHUB_OUTPUT
+          echo "✅ Retrieved study leads data"
+        else
+          echo '[]' > .github/data/study-leads.json
+          echo "study_leads_json=[]" >> $GITHUB_OUTPUT
+          echo "✅ Created empty study leads file"
+        fi
+
+    - name: Add new study lead
+      id: add
+      if: inputs.operation == 'add'
+      shell: bash
+      run: |
+        # Ensure directory exists
+        mkdir -p .github/data
+        
+        # Initialize file if it doesn't exist
+        if [[ ! -f .github/data/study-leads.json ]]; then
+          echo '{"study_leads": []}' > .github/data/study-leads.json
+        fi
+        
+        # Check if lead already exists
+        EXISTING=$(jq --arg name "${{ inputs.lead_name }}" --arg github "${{ inputs.lead_github }}" \
+          '.study_leads | map(select(.name == $name or .github_username == $github)) | length' \
+          .github/data/study-leads.json)
+        
+        if [[ $EXISTING -eq 0 ]]; then
+          # Add new study lead
+          jq --arg name "${{ inputs.lead_name }}" --arg github "${{ inputs.lead_github }}" \
+            '.study_leads += [{"name": $name, "github_username": $github}]' \
+            .github/data/study-leads.json > temp.json
+          mv temp.json .github/data/study-leads.json
+          echo "✅ Added new study lead: ${{ inputs.lead_name }} (@${{ inputs.lead_github }})"
+        else
+          echo "⚠️  Study lead already exists, skipping add"
+        fi
+
+    - name: Resolve study lead info
+      id: resolve
+      if: inputs.operation == 'validate'
+      shell: bash
+      run: |
+        if [[ "${{ inputs.selected_lead }}" == "add_new" ]]; then
+          # Use the provided new lead info
+          echo "lead_name=${{ inputs.lead_name }}" >> $GITHUB_OUTPUT
+          echo "lead_github=${{ inputs.lead_github }}" >> $GITHUB_OUTPUT
+          echo "✅ Using new study lead: ${{ inputs.lead_name }} (@${{ inputs.lead_github }})"
+        else
+          # Parse selected lead (format: "Name|github_username")
+          LEAD_NAME=$(echo "${{ inputs.selected_lead }}" | cut -d'|' -f1)
+          LEAD_GITHUB=$(echo "${{ inputs.selected_lead }}" | cut -d'|' -f2)
+          echo "lead_name=$LEAD_NAME" >> $GITHUB_OUTPUT
+          echo "lead_github=$LEAD_GITHUB" >> $GITHUB_OUTPUT
+          echo "✅ Using existing study lead: $LEAD_NAME (@$LEAD_GITHUB)"
+        fi
