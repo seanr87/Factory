@@ -46,7 +46,8 @@ runs:
               mutation($ownerId: ID!, $title: String!) {
                 createProjectV2(input: {
                   ownerId: $ownerId,
-                  title: $title
+                  title: $title,
+                  public: true
                 }) {
                   projectV2 {
                     id

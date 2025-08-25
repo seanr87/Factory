@@ -36,7 +36,7 @@ runs:
         # Create repo from template
         gh repo create "$REPO_FULL_NAME" \
           --template "${{ github.repository_owner }}/study-template" \
-          --private \
+          --public \
           --description "OHDSI Study: ${{ inputs.study_title }}"
         
         REPO_URL="https://github.com/$REPO_FULL_NAME"
