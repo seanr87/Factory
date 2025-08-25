@@ -61,6 +61,7 @@ runs:
         # Use sed to replace the options section directly
         sed '/^        options:$/,/^      [a-zA-Z]/ {
           /^        options:$/ {
+            p
             r /tmp/new_options.txt
             d
           }
