@@ -33,8 +33,8 @@
 3. **Add this variable** (Go to Settings → Variables → New repository variable):
    
    **VARIABLE: `FACTORY_PROJECT_NUMBER`**
-   - Value: `1` (or whatever number you want to use)
-   - This is just for tracking
+   - Value: Your Factory Portfolio project number (see Part 2.5 below)
+   - This enables automatic issue tracking in your portfolio
 
 ### Part 2: Create Template Repository (3 minutes)
 
@@ -60,6 +60,22 @@
 
 3. **Go to Settings → Make it a template**
    - Check "Template repository" box
+
+### Part 2.5: Create Factory Portfolio Project (2 minutes)
+
+1. **Go to your organization or user profile**
+   - Click "Projects" tab
+   - Click "New project"
+   
+2. **Create the project**
+   - Name: `Factory Portfolio` 
+   - Description: `Tracks all OHDSI studies`
+   - Template: `Table` or `Board` (your choice)
+   
+3. **Get the project number**
+   - After creating, look at the URL: `https://github.com/users/USERNAME/projects/NUMBER`
+   - The NUMBER is what you need for `FACTORY_PROJECT_NUMBER` variable
+   - Example: if URL is `/projects/3`, then set variable to `3`
 
 ### Part 3: Test It! (2 minutes)
 

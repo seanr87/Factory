@@ -27,6 +27,7 @@ on:
 permissions:
   contents: read
   issues: write
+  projects: write
 
 jobs:
   provision:
@@ -138,22 +139,37 @@ jobs:
       - name: Add issue to Factory Portfolio project
         run: |
           # Add the tracking issue to the Factory Portfolio project
-          # Using the FACTORY_PROJECT_NUMBER variable if it exists
+          echo "🔍 Debug: Checking Factory Portfolio integration..."
+          echo "FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}"
+          echo "Issue URL: ${{ steps.factory_issue.outputs.issue_url }}"
+          echo "Repository Owner: ${{ github.repository_owner }}"
+          
           if [[ -n "${{ vars.FACTORY_PROJECT_NUMBER }}" ]]; then
             PROJECT_NUMBER="${{ vars.FACTORY_PROJECT_NUMBER }}"
+            ISSUE_URL="${{ steps.factory_issue.outputs.issue_url }}"
             
-            # Get the issue number from the URL
-            ISSUE_NUMBER=$(echo "${{ steps.factory_issue.outputs.issue_url }}" | grep -o '[0-9]*$')
+            echo "📋 Adding issue to Factory Portfolio project #$PROJECT_NUMBER"
+            echo "🔗 Issue URL: $ISSUE_URL"
             
-            # Add issue to project
-            gh project item-add "$PROJECT_NUMBER" \
+            # Try to add issue to project with detailed error handling
+            if gh project item-add \
+              --project-number="$PROJECT_NUMBER" \
               --owner "${{ github.repository_owner }}" \
-              --url "${{ steps.factory_issue.outputs.issue_url }}" || \
-            echo "⚠️ Could not add issue to Factory project #$PROJECT_NUMBER"
-            
-            echo "✅ Added tracking issue to Factory Portfolio project #$PROJECT_NUMBER"
+              --url "$ISSUE_URL"; then
+              echo "✅ Successfully added tracking issue to Factory Portfolio project #$PROJECT_NUMBER"
+            else
+              echo "❌ Failed to add issue to project. Possible causes:"
+              echo "  - Project #$PROJECT_NUMBER doesn't exist"
+              echo "  - No permission to access the project"  
+              echo "  - Issue URL format incorrect: $ISSUE_URL"
+              echo ""
+              echo "🔧 Manual fix: Go to your Factory Portfolio project and add this issue manually"
+              echo "📝 Issue title: Study: ${{ inputs.study_title }}"
+            fi
           else
-            echo "⚠️ FACTORY_PROJECT_NUMBER not set, skipping project association"
+            echo "⚠️ FACTORY_PROJECT_NUMBER not set in repository variables"
+            echo "To fix: Go to Settings → Variables → Repository variables → Add 'FACTORY_PROJECT_NUMBER'"
+            echo "Set it to your Factory Portfolio project number (found in project URL)"
           fi
 
       - name: Summary
