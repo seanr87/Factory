@@ -53,18 +53,19 @@ runs:
         echo -e "$OPTIONS_CONTENT"
         
         # Create updated workflow using Python for more reliable YAML manipulation
-        python3 << 'EOF'
+        python3 -c "
 import re
 import sys
+import os
 
-workflow_path = "${{ inputs.workflow_path }}"
-options_content = """$OPTIONS_CONTENT"""
+workflow_path = '${{ inputs.workflow_path }}'
+options_content = '''$OPTIONS_CONTENT'''
 
 try:
     with open(workflow_path, 'r') as f:
         content = f.read()
     
-    print(f"🔍 Looking for study_lead_selection section in {workflow_path}")
+    print(f'🔍 Looking for study_lead_selection section in {workflow_path}')
     
     # Find the study_lead_selection section and replace options
     pattern = r'(      study_lead_selection:.*?\n        options:\n)(.*?\n)(      \w+:)'
@@ -72,25 +73,25 @@ try:
     def replace_options(match):
         before = match.group(1)
         after = match.group(3)
-        print(f"📝 Replacing options section")
-        return before + options_content + "\n" + after
+        print(f'📝 Replacing options section')
+        return before + options_content + '\n' + after
     
     # Check if pattern matches
     matches = re.findall(pattern, content, flags=re.DOTALL | re.MULTILINE)
-    print(f"🔍 Found {len(matches)} matches")
+    print(f'🔍 Found {len(matches)} matches')
     
     updated_content = re.sub(pattern, replace_options, content, flags=re.DOTALL | re.MULTILINE)
     
     if updated_content != content:
         with open(workflow_path, 'w') as f:
             f.write(updated_content)
-        print("✅ Successfully updated workflow dropdown")
+        print('✅ Successfully updated workflow dropdown')
     else:
-        print("⚠️  No changes needed - workflow already up to date")
+        print('⚠️  No changes needed - workflow already up to date')
         
 except Exception as e:
-    print(f"❌ Error updating workflow: {e}")
+    print(f'❌ Error updating workflow: {e}')
     import traceback
     traceback.print_exc()
     sys.exit(1)
-EOF
+"
