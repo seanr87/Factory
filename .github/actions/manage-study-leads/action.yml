@@ -78,7 +78,7 @@ runs:
       if: inputs.operation == 'validate'
       shell: bash
       run: |
-        if [[ "${{ inputs.selected_lead }}" == "add_new" ]]; then
+        if [[ "${{ inputs.selected_lead }}" == "Add new study lead" ]]; then
           # Use the provided new lead info
           echo "lead_name=${{ inputs.lead_name }}" >> $GITHUB_OUTPUT
           echo "lead_github=${{ inputs.lead_github }}" >> $GITHUB_OUTPUT
