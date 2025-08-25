@@ -1,384 +1,129 @@
-🔍 Line 1: '# Modular study provisioning workflow' (IN_OPTIONS=false)
-📝 Normal line: '# Modular study provisioning workflow'
 # Modular study provisioning workflow
-🔍 Line 2: '# Per briefing/workflows/reusable.md and briefing/security/best-practices.md' (IN_OPTIONS=false)
-📝 Normal line: '# Per briefing/workflows/reusable.md and briefing/security/best-practices.md'
 # Per briefing/workflows/reusable.md and briefing/security/best-practices.md
-🔍 Line 3: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 4: 'name: Provision New Study' (IN_OPTIONS=false)
-📝 Normal line: 'name: Provision New Study'
 name: Provision New Study
-🔍 Line 5: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 6: 'on:' (IN_OPTIONS=false)
-📝 Normal line: 'on:'
 on:
-🔍 Line 7: '  workflow_dispatch:' (IN_OPTIONS=false)
-📝 Normal line: '  workflow_dispatch:'
   workflow_dispatch:
-🔍 Line 8: '    inputs:' (IN_OPTIONS=false)
-📝 Normal line: '    inputs:'
     inputs:
-🔍 Line 9: '      study_title:' (IN_OPTIONS=false)
-📝 Normal line: '      study_title:'
       study_title:
-🔍 Line 10: '        description: 'Study title'' (IN_OPTIONS=false)
-📝 Normal line: '        description: 'Study title''
         description: 'Study title'
-🔍 Line 11: '        required: true' (IN_OPTIONS=false)
-📝 Normal line: '        required: true'
         required: true
-🔍 Line 12: '        type: string' (IN_OPTIONS=false)
-📝 Normal line: '        type: string'
         type: string
-🔍 Line 13: '      study_lead_selection:' (IN_OPTIONS=false)
-📝 Normal line: '      study_lead_selection:'
       study_lead_selection:
-🔍 Line 14: '        description: 'Select existing study lead or add new'' (IN_OPTIONS=false)
-📝 Normal line: '        description: 'Select existing study lead or add new''
         description: 'Select existing study lead or add new'
-🔍 Line 15: '        required: true' (IN_OPTIONS=false)
-📝 Normal line: '        required: true'
         required: true
-🔍 Line 16: '        type: choice' (IN_OPTIONS=false)
-📝 Normal line: '        type: choice'
         type: choice
-🔍 Line 17: '        options:' (IN_OPTIONS=false)
-📝 Normal line: '        options:'
         options:
-🔍 Line 18: '          - 'Add new study lead'' (IN_OPTIONS=false)
-📝 Normal line: '          - 'Add new study lead''
           - 'Add new study lead'
-🔍 Line 19: '      new_lead_name:' (IN_OPTIONS=false)
-📝 Normal line: '      new_lead_name:'
       new_lead_name:
-🔍 Line 20: '        description: 'New study lead name (only if adding new)'' (IN_OPTIONS=false)
-📝 Normal line: '        description: 'New study lead name (only if adding new)''
         description: 'New study lead name (only if adding new)'
-🔍 Line 21: '        required: false' (IN_OPTIONS=false)
-📝 Normal line: '        required: false'
         required: false
-🔍 Line 22: '        type: string' (IN_OPTIONS=false)
-📝 Normal line: '        type: string'
         type: string
-🔍 Line 23: '      new_lead_github:' (IN_OPTIONS=false)
-📝 Normal line: '      new_lead_github:'
       new_lead_github:
-🔍 Line 24: '        description: 'New study lead GitHub username (only if adding new)'' (IN_OPTIONS=false)
-📝 Normal line: '        description: 'New study lead GitHub username (only if adding new)''
         description: 'New study lead GitHub username (only if adding new)'
-🔍 Line 25: '        required: false' (IN_OPTIONS=false)
-📝 Normal line: '        required: false'
         required: false
-🔍 Line 26: '        type: string' (IN_OPTIONS=false)
-📝 Normal line: '        type: string'
         type: string
-🔍 Line 27: '      target_date:' (IN_OPTIONS=false)
-📝 Normal line: '      target_date:'
       target_date:
-🔍 Line 28: '        description: 'Target completion date (YYYY-MM-DD)'' (IN_OPTIONS=false)
-📝 Normal line: '        description: 'Target completion date (YYYY-MM-DD)''
         description: 'Target completion date (YYYY-MM-DD)'
-🔍 Line 29: '        required: true' (IN_OPTIONS=false)
-📝 Normal line: '        required: true'
         required: true
-🔍 Line 30: '        type: string' (IN_OPTIONS=false)
-📝 Normal line: '        type: string'
         type: string
-🔍 Line 31: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 32: '# Per briefing/actions/permissions.md - minimal permissions' (IN_OPTIONS=false)
-📝 Normal line: '# Per briefing/actions/permissions.md - minimal permissions'
 # Per briefing/actions/permissions.md - minimal permissions
-🔍 Line 33: 'permissions:' (IN_OPTIONS=false)
-📝 Normal line: 'permissions:'
 permissions:
-🔍 Line 34: '  contents: write' (IN_OPTIONS=false)
-📝 Normal line: '  contents: write'
   contents: write
-🔍 Line 35: '  issues: write' (IN_OPTIONS=false)
-📝 Normal line: '  issues: write'
   issues: write
-🔍 Line 36: '  repository-projects: write' (IN_OPTIONS=false)
-📝 Normal line: '  repository-projects: write'
   repository-projects: write
-🔍 Line 37: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 38: 'jobs:' (IN_OPTIONS=false)
-📝 Normal line: 'jobs:'
 jobs:
-🔍 Line 39: '  provision:' (IN_OPTIONS=false)
-📝 Normal line: '  provision:'
   provision:
-🔍 Line 40: '    runs-on: ubuntu-latest' (IN_OPTIONS=false)
-📝 Normal line: '    runs-on: ubuntu-latest'
     runs-on: ubuntu-latest
-🔍 Line 41: '    steps:' (IN_OPTIONS=false)
-📝 Normal line: '    steps:'
     steps:
-🔍 Line 42: '      - name: Checkout' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Checkout'
       - name: Checkout
-🔍 Line 43: '        uses: actions/checkout@v4' (IN_OPTIONS=false)
-📝 Normal line: '        uses: actions/checkout@v4'
         uses: actions/checkout@v4
-🔍 Line 44: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 45: '      - name: Resolve study lead information' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Resolve study lead information'
       - name: Resolve study lead information
-🔍 Line 46: '        id: resolve_lead' (IN_OPTIONS=false)
-📝 Normal line: '        id: resolve_lead'
         id: resolve_lead
-🔍 Line 47: '        uses: ./.github/actions/manage-study-leads' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/manage-study-leads'
         uses: ./.github/actions/manage-study-leads
-🔍 Line 48: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 49: '          operation: validate' (IN_OPTIONS=false)
-📝 Normal line: '          operation: validate'
           operation: validate
-🔍 Line 50: '          selected_lead: ${{ inputs.study_lead_selection }}' (IN_OPTIONS=false)
-📝 Normal line: '          selected_lead: ${{ inputs.study_lead_selection }}'
           selected_lead: ${{ inputs.study_lead_selection }}
-🔍 Line 51: '          lead_name: ${{ inputs.new_lead_name }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_name: ${{ inputs.new_lead_name }}'
           lead_name: ${{ inputs.new_lead_name }}
-🔍 Line 52: '          lead_github: ${{ inputs.new_lead_github }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_github: ${{ inputs.new_lead_github }}'
           lead_github: ${{ inputs.new_lead_github }}
-🔍 Line 53: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 54: '      - name: Add new study lead to database' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Add new study lead to database'
       - name: Add new study lead to database
-🔍 Line 55: '        if: inputs.study_lead_selection == 'Add new study lead'' (IN_OPTIONS=false)
-📝 Normal line: '        if: inputs.study_lead_selection == 'Add new study lead''
         if: inputs.study_lead_selection == 'Add new study lead'
-🔍 Line 56: '        uses: ./.github/actions/manage-study-leads' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/manage-study-leads'
         uses: ./.github/actions/manage-study-leads
-🔍 Line 57: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 58: '          operation: add' (IN_OPTIONS=false)
-📝 Normal line: '          operation: add'
           operation: add
-🔍 Line 59: '          lead_name: ${{ inputs.new_lead_name }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_name: ${{ inputs.new_lead_name }}'
           lead_name: ${{ inputs.new_lead_name }}
-🔍 Line 60: '          lead_github: ${{ inputs.new_lead_github }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_github: ${{ inputs.new_lead_github }}'
           lead_github: ${{ inputs.new_lead_github }}
-🔍 Line 61: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 62: '      - name: Commit updated study leads data' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Commit updated study leads data'
       - name: Commit updated study leads data
-🔍 Line 63: '        if: inputs.study_lead_selection == 'Add new study lead'' (IN_OPTIONS=false)
-📝 Normal line: '        if: inputs.study_lead_selection == 'Add new study lead''
         if: inputs.study_lead_selection == 'Add new study lead'
-🔍 Line 64: '        run: |' (IN_OPTIONS=false)
-📝 Normal line: '        run: |'
         run: |
-🔍 Line 65: '          git config --local user.email "action@github.com"' (IN_OPTIONS=false)
-📝 Normal line: '          git config --local user.email "action@github.com"'
           git config --local user.email "action@github.com"
-🔍 Line 66: '          git config --local user.name "GitHub Action"' (IN_OPTIONS=false)
-📝 Normal line: '          git config --local user.name "GitHub Action"'
           git config --local user.name "GitHub Action"
-🔍 Line 67: '          git add .github/data/study-leads.json' (IN_OPTIONS=false)
-📝 Normal line: '          git add .github/data/study-leads.json'
           git add .github/data/study-leads.json
-🔍 Line 68: '          git diff --staged --quiet || git commit -m "Add new study lead: ${{ inputs.new_lead_name }}"' (IN_OPTIONS=false)
-📝 Normal line: '          git diff --staged --quiet || git commit -m "Add new study lead: ${{ inputs.new_lead_name }}"'
           git diff --staged --quiet || git commit -m "Add new study lead: ${{ inputs.new_lead_name }}"
-🔍 Line 69: '          git push' (IN_OPTIONS=false)
-📝 Normal line: '          git push'
           git push
-🔍 Line 70: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 71: '      - name: Validate inputs' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Validate inputs'
       - name: Validate inputs
-🔍 Line 72: '        id: validate' (IN_OPTIONS=false)
-📝 Normal line: '        id: validate'
         id: validate
-🔍 Line 73: '        uses: ./.github/actions/validate-study-inputs' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/validate-study-inputs'
         uses: ./.github/actions/validate-study-inputs
-🔍 Line 74: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 75: '          study_title: ${{ inputs.study_title }}' (IN_OPTIONS=false)
-📝 Normal line: '          study_title: ${{ inputs.study_title }}'
           study_title: ${{ inputs.study_title }}
-🔍 Line 76: '          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}'
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
-🔍 Line 77: '          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}'
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-🔍 Line 78: '          target_date: ${{ inputs.target_date }}' (IN_OPTIONS=false)
-📝 Normal line: '          target_date: ${{ inputs.target_date }}'
           target_date: ${{ inputs.target_date }}
-🔍 Line 79: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 80: '      - name: Create repository' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Create repository'
       - name: Create repository
-🔍 Line 81: '        id: repo' (IN_OPTIONS=false)
-📝 Normal line: '        id: repo'
         id: repo
-🔍 Line 82: '        uses: ./.github/actions/create-study-repository' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/create-study-repository'
         uses: ./.github/actions/create-study-repository
-🔍 Line 83: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 84: '          repo_name: ${{ steps.validate.outputs.repo_name }}' (IN_OPTIONS=false)
-📝 Normal line: '          repo_name: ${{ steps.validate.outputs.repo_name }}'
           repo_name: ${{ steps.validate.outputs.repo_name }}
-🔍 Line 85: '          study_title: ${{ inputs.study_title }}' (IN_OPTIONS=false)
-📝 Normal line: '          study_title: ${{ inputs.study_title }}'
           study_title: ${{ inputs.study_title }}
-🔍 Line 86: '          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}'
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-🔍 Line 87: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}' (IN_OPTIONS=false)
-📝 Normal line: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}'
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
-🔍 Line 88: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 89: '      - name: Setup project' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Setup project'
       - name: Setup project
-🔍 Line 90: '        id: project' (IN_OPTIONS=false)
-📝 Normal line: '        id: project'
         id: project
-🔍 Line 91: '        uses: ./.github/actions/setup-study-project' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/setup-study-project'
         uses: ./.github/actions/setup-study-project
-🔍 Line 92: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 93: '          repo_name: ${{ steps.validate.outputs.repo_name }}' (IN_OPTIONS=false)
-📝 Normal line: '          repo_name: ${{ steps.validate.outputs.repo_name }}'
           repo_name: ${{ steps.validate.outputs.repo_name }}
-🔍 Line 94: '          study_title: ${{ inputs.study_title }}' (IN_OPTIONS=false)
-📝 Normal line: '          study_title: ${{ inputs.study_title }}'
           study_title: ${{ inputs.study_title }}
-🔍 Line 95: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}' (IN_OPTIONS=false)
-📝 Normal line: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}'
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
-🔍 Line 96: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 97: '      - name: Create Factory tracking' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Create Factory tracking'
       - name: Create Factory tracking
-🔍 Line 98: '        id: tracking' (IN_OPTIONS=false)
-📝 Normal line: '        id: tracking'
         id: tracking
-🔍 Line 99: '        uses: ./.github/actions/create-factory-tracking' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/create-factory-tracking'
         uses: ./.github/actions/create-factory-tracking
-🔍 Line 100: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 101: '          study_title: ${{ inputs.study_title }}' (IN_OPTIONS=false)
-📝 Normal line: '          study_title: ${{ inputs.study_title }}'
           study_title: ${{ inputs.study_title }}
-🔍 Line 102: '          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}'
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
-🔍 Line 103: '          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}' (IN_OPTIONS=false)
-📝 Normal line: '          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}'
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-🔍 Line 104: '          target_date: ${{ inputs.target_date }}' (IN_OPTIONS=false)
-📝 Normal line: '          target_date: ${{ inputs.target_date }}'
           target_date: ${{ inputs.target_date }}
-🔍 Line 105: '          repo_url: ${{ steps.repo.outputs.repo_url }}' (IN_OPTIONS=false)
-📝 Normal line: '          repo_url: ${{ steps.repo.outputs.repo_url }}'
           repo_url: ${{ steps.repo.outputs.repo_url }}
-🔍 Line 106: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}' (IN_OPTIONS=false)
-📝 Normal line: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}'
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
-🔍 Line 107: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 108: '      - name: Add to Factory project' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Add to Factory project'
       - name: Add to Factory project
-🔍 Line 109: '        uses: ./.github/actions/add-to-factory-project' (IN_OPTIONS=false)
-📝 Normal line: '        uses: ./.github/actions/add-to-factory-project'
         uses: ./.github/actions/add-to-factory-project
-🔍 Line 110: '        with:' (IN_OPTIONS=false)
-📝 Normal line: '        with:'
         with:
-🔍 Line 111: '          issue_node_id: ${{ steps.tracking.outputs.issue_node_id }}' (IN_OPTIONS=false)
-📝 Normal line: '          issue_node_id: ${{ steps.tracking.outputs.issue_node_id }}'
           issue_node_id: ${{ steps.tracking.outputs.issue_node_id }}
-🔍 Line 112: '          study_title: ${{ inputs.study_title }}' (IN_OPTIONS=false)
-📝 Normal line: '          study_title: ${{ inputs.study_title }}'
           study_title: ${{ inputs.study_title }}
-🔍 Line 113: '          factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}' (IN_OPTIONS=false)
-📝 Normal line: '          factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}'
           factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}
-🔍 Line 114: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}' (IN_OPTIONS=false)
-📝 Normal line: '          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}'
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
-🔍 Line 115: '' (IN_OPTIONS=false)
-📝 Normal line: ''
 
-🔍 Line 116: '      - name: Summary' (IN_OPTIONS=false)
-📝 Normal line: '      - name: Summary'
       - name: Summary
-🔍 Line 117: '        run: |' (IN_OPTIONS=false)
-📝 Normal line: '        run: |'
         run: |
-🔍 Line 118: '          echo "## ✅ Study Provisioned Successfully"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "## ✅ Study Provisioned Successfully"'
           echo "## ✅ Study Provisioned Successfully"
-🔍 Line 119: '          echo ""' (IN_OPTIONS=false)
-📝 Normal line: '          echo ""'
           echo ""
-🔍 Line 120: '          echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"'
           echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"
-🔍 Line 121: '          echo "**Project:** ${{ steps.project.outputs.project_url }}"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "**Project:** ${{ steps.project.outputs.project_url }}"'
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
-🔍 Line 122: '          echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"'
           echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
-🔍 Line 123: '          echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"'
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
-🔍 Line 124: '          echo ""' (IN_OPTIONS=false)
-📝 Normal line: '          echo ""'
           echo ""
-🔍 Line 125: '          echo "### Next Steps:"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "### Next Steps:"'
           echo "### Next Steps:"
-🔍 Line 126: '          echo "1. Visit the repository and update the README"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "1. Visit the repository and update the README"'
           echo "1. Visit the repository and update the README"
-🔍 Line 127: '          echo "2. Check the linked project board for stage tracking"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "2. Check the linked project board for stage tracking"'
           echo "2. Check the linked project board for stage tracking"
-🔍 Line 128: '          echo "3. Begin Base Camp stage in the project"' (IN_OPTIONS=false)
-📝 Normal line: '          echo "3. Begin Base Camp stage in the project"'
           echo "3. Begin Base Camp stage in the project"
+          echo "4. Add data partners as needed"

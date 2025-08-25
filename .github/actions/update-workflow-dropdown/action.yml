@@ -58,29 +58,21 @@ runs:
         # Write new options to temp file
         echo -e "$OPTIONS_CONTENT" > /tmp/new_options.txt
         
-        # Process the workflow file line by line
-        IN_OPTIONS=false
-        LINE_NUM=0
-        while IFS= read -r line; do
-          LINE_NUM=$((LINE_NUM + 1))
-          echo "🔍 Line $LINE_NUM: '$line' (IN_OPTIONS=$IN_OPTIONS)" >&2
-          
-          if [[ "$line" =~ ^[[:space:]]*options:[[:space:]]*$ ]]; then
-            echo "📝 Found options line, writing new options" >&2
-            echo "$line"
-            cat /tmp/new_options.txt
-            IN_OPTIONS=true
-          elif [[ "$IN_OPTIONS" == true ]] && [[ "$line" =~ ^[[:space:]]{6}[a-zA-Z] ]]; then
-            echo "📝 Found end of options section at line: '$line'" >&2
-            echo "$line"
-            IN_OPTIONS=false
-          elif [[ "$IN_OPTIONS" == false ]]; then
-            echo "📝 Normal line: '$line'" >&2
-            echo "$line"
-          else
-            echo "📝 Skipping option line: '$line'" >&2
-          fi
-        done < "${{ inputs.workflow_path }}" > /tmp/workflow_temp.yml
+        # Use sed to replace the options section directly
+        sed '/^        options:$/,/^      [a-zA-Z]/ {
+          /^        options:$/ {
+            r /tmp/new_options.txt
+            d
+          }
+          /^      [a-zA-Z]/ !d
+        }' "${{ inputs.workflow_path }}" > /tmp/workflow_temp.yml
+        
+        echo "🔍 Checking if replacement was successful..."
+        if grep -q "Sean O" /tmp/workflow_temp.yml; then
+          echo "✅ Found Sean O in updated file"
+        else
+          echo "❌ Sean O not found in updated file"
+        fi
         
         # Replace original file
         mv /tmp/workflow_temp.yml "${{ inputs.workflow_path }}"
