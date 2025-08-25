@@ -21,7 +21,7 @@ GITHUB_API_URL = os.getenv("GITHUB_API_URL", "https://api.github.com")
 
 # Stage label mapping
 STAGE_LABELS = {
-    "stage:boot-camp": "Boot camp",
+    "stage:base-camp": "Base Camp",
     "stage:protocol-development": "Protocol Development",
     "stage:phenotype-development": "Phenotype Development",
     "stage:analysis-specifications": "Analysis Specifications",

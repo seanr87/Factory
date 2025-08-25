@@ -92,6 +92,7 @@ jobs:
           echo "📋 Project URL: $PROJECT_URL"
 
       - name: Create Factory tracking issue
+        id: factory_issue
         run: |
           # Ensure study-tracking label exists
           gh label create "study-tracking" \
@@ -109,7 +110,7 @@ jobs:
           **Status:** 🟢 Active
           
           ### Current Stage
-          - [x] Boot camp
+          - [x] Base Camp
           - [ ] Protocol Development
           - [ ] Phenotype Development
           - [ ] Analysis Specifications
@@ -124,13 +125,36 @@ jobs:
           EOF
           )
           
-          gh issue create \
+          ISSUE_URL=$(gh issue create \
             --repo "${{ github.repository }}" \
             --title "Study: ${{ inputs.study_title }}" \
             --body "$ISSUE_BODY" \
-            --label "study-tracking"
+            --label "study-tracking" \
+            --format json | jq -r '.url')
           
-          echo "✅ Created Factory tracking issue"
+          echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
+          echo "✅ Created Factory tracking issue: $ISSUE_URL"
+
+      - name: Add issue to Factory Portfolio project
+        run: |
+          # Add the tracking issue to the Factory Portfolio project
+          # Using the FACTORY_PROJECT_NUMBER variable if it exists
+          if [[ -n "${{ vars.FACTORY_PROJECT_NUMBER }}" ]]; then
+            PROJECT_NUMBER="${{ vars.FACTORY_PROJECT_NUMBER }}"
+            
+            # Get the issue number from the URL
+            ISSUE_NUMBER=$(echo "${{ steps.factory_issue.outputs.issue_url }}" | grep -o '[0-9]*$')
+            
+            # Add issue to project
+            gh project item-add "$PROJECT_NUMBER" \
+              --owner "${{ github.repository_owner }}" \
+              --url "${{ steps.factory_issue.outputs.issue_url }}" || \
+            echo "⚠️ Could not add issue to Factory project #$PROJECT_NUMBER"
+            
+            echo "✅ Added tracking issue to Factory Portfolio project #$PROJECT_NUMBER"
+          else
+            echo "⚠️ FACTORY_PROJECT_NUMBER not set, skipping project association"
+          fi
 
       - name: Summary
         run: |
@@ -143,5 +167,5 @@ jobs:
           echo "### Next Steps:"
           echo "1. Visit the repository and update the README"
           echo "2. Check the project board for stage tracking"
-          echo "3. Begin boot camp stage"
+          echo "3. Begin Base Camp stage"
           echo "4. Add data partners as needed"
