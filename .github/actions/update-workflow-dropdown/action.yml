@@ -58,32 +58,29 @@ runs:
         # Write new options to temp file
         echo -e "$OPTIONS_CONTENT" > /tmp/new_options.txt
         
-        # Process the workflow file line by line with detailed debugging
+        # Process the workflow file line by line
         IN_OPTIONS=false
         LINE_NUM=0
         while IFS= read -r line; do
           LINE_NUM=$((LINE_NUM + 1))
-          echo "🔍 Line $LINE_NUM: '$line' (IN_OPTIONS=$IN_OPTIONS)"
+          echo "🔍 Line $LINE_NUM: '$line' (IN_OPTIONS=$IN_OPTIONS)" >&2
           
-          if [[ "$line" == "        options:" ]]; then
-            echo "📝 Found options line, writing new options"
+          if [[ "$line" =~ ^[[:space:]]*options:[[:space:]]*$ ]]; then
+            echo "📝 Found options line, writing new options" >&2
             echo "$line"
             cat /tmp/new_options.txt
             IN_OPTIONS=true
           elif [[ "$IN_OPTIONS" == true ]] && [[ "$line" =~ ^[[:space:]]{6}[a-zA-Z] ]]; then
-            echo "📝 Found end of options section at line: '$line'"
+            echo "📝 Found end of options section at line: '$line'" >&2
             echo "$line"
             IN_OPTIONS=false
           elif [[ "$IN_OPTIONS" == false ]]; then
-            echo "📝 Normal line: '$line'"
+            echo "📝 Normal line: '$line'" >&2
             echo "$line"
           else
-            echo "📝 Skipping option line: '$line'"
+            echo "📝 Skipping option line: '$line'" >&2
           fi
         done < "${{ inputs.workflow_path }}" > /tmp/workflow_temp.yml
-        
-        echo "🔍 Contents of temp file:"
-        cat /tmp/workflow_temp.yml
         
         # Replace original file
         mv /tmp/workflow_temp.yml "${{ inputs.workflow_path }}"
