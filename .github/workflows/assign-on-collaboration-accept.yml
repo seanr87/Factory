@@ -3,6 +3,18 @@ name: Auto-assign Issues on Collaboration Accept
 on:
   member:
     types: [added]
+  # Add manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      collaborator_username:
+        description: 'Username of collaborator to assign issues to'
+        required: true
+        type: string
+  # Add push trigger for debugging
+  push:
+    branches: [main]
+    paths: 
+      - '.github/workflows/assign-on-collaboration-accept.yml'
 
 permissions:
   issues: write
