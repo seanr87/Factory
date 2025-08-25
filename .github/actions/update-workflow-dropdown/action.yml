@@ -12,42 +12,85 @@ runs:
     - name: Update dropdown options
       shell: bash
       run: |
-        # Read current study leads
+        echo "🔍 Starting workflow dropdown update..."
+        
+        # Check if study leads file exists
         if [[ ! -f .github/data/study-leads.json ]]; then
-          echo "No study leads file found, skipping update"
+          echo "❌ No study leads file found, skipping update"
           exit 0
         fi
         
-        # Generate dropdown options from JSON
-        OPTIONS=""
-        while IFS= read -r line; do
-          NAME=$(echo "$line" | jq -r '.name')
-          GITHUB=$(echo "$line" | jq -r '.github_username')
-          # Escape single quotes in name for YAML
-          ESCAPED_NAME=$(echo "$NAME" | sed "s/'/''/g")
-          OPTIONS="${OPTIONS}          - '${ESCAPED_NAME}|${GITHUB}'\n"
-        done < <(jq -c '.study_leads[]' .github/data/study-leads.json)
+        echo "📖 Reading study leads from JSON..."
+        cat .github/data/study-leads.json
         
-        # Add "Add new study lead" option at the end
-        OPTIONS="${OPTIONS}          - 'Add new study lead'"
+        # Count study leads
+        LEAD_COUNT=$(jq '.study_leads | length' .github/data/study-leads.json)
+        echo "📊 Found $LEAD_COUNT study leads"
         
-        # Create temporary file with updated workflow
-        awk -v options="$OPTIONS" '
-        /^      study_lead_selection:/ { in_section = 1 }
-        /^        options:/ && in_section { 
-          print $0
-          print options
-          in_options = 1
-          next
-        }
-        /^      [a-zA-Z]/ && in_section && !/^      study_lead_selection:/ { 
-          in_section = 0
-          in_options = 0
-        }
-        /^          -/ && in_options { next }
-        !in_options || !in_section { print }
-        ' "${{ inputs.workflow_path }}" > temp_workflow.yml
+        if [[ $LEAD_COUNT -eq 0 ]]; then
+          echo "⚠️  No study leads found, keeping only 'Add new study lead' option"
+          OPTIONS_CONTENT="          - 'Add new study lead'"
+        else
+          echo "🔄 Generating dropdown options..."
+          
+          # Generate dropdown options from JSON
+          OPTIONS_CONTENT=""
+          while IFS= read -r line; do
+            NAME=$(echo "$line" | jq -r '.name')
+            GITHUB=$(echo "$line" | jq -r '.github_username')
+            echo "  Processing: $NAME ($GITHUB)"
+            
+            # Escape single quotes in name for YAML
+            ESCAPED_NAME=$(echo "$NAME" | sed "s/'/''/g")
+            OPTIONS_CONTENT="${OPTIONS_CONTENT}          - '${ESCAPED_NAME}|${GITHUB}'\n"
+          done < <(jq -c '.study_leads[]' .github/data/study-leads.json)
+          
+          # Add "Add new study lead" option at the end
+          OPTIONS_CONTENT="${OPTIONS_CONTENT}          - 'Add new study lead'"
+        fi
         
-        # Replace original workflow
-        mv temp_workflow.yml "${{ inputs.workflow_path }}"
-        echo "✅ Updated workflow dropdown with current study leads"
+        echo "📝 Generated options:"
+        echo -e "$OPTIONS_CONTENT"
+        
+        # Create updated workflow using Python for more reliable YAML manipulation
+        python3 << 'EOF'
+import re
+import sys
+
+workflow_path = "${{ inputs.workflow_path }}"
+options_content = """$OPTIONS_CONTENT"""
+
+try:
+    with open(workflow_path, 'r') as f:
+        content = f.read()
+    
+    print(f"🔍 Looking for study_lead_selection section in {workflow_path}")
+    
+    # Find the study_lead_selection section and replace options
+    pattern = r'(      study_lead_selection:.*?\n        options:\n)(.*?\n)(      \w+:)'
+    
+    def replace_options(match):
+        before = match.group(1)
+        after = match.group(3)
+        print(f"📝 Replacing options section")
+        return before + options_content + "\n" + after
+    
+    # Check if pattern matches
+    matches = re.findall(pattern, content, flags=re.DOTALL | re.MULTILINE)
+    print(f"🔍 Found {len(matches)} matches")
+    
+    updated_content = re.sub(pattern, replace_options, content, flags=re.DOTALL | re.MULTILINE)
+    
+    if updated_content != content:
+        with open(workflow_path, 'w') as f:
+            f.write(updated_content)
+        print("✅ Successfully updated workflow dropdown")
+    else:
+        print("⚠️  No changes needed - workflow already up to date")
+        
+except Exception as e:
+    print(f"❌ Error updating workflow: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+EOF

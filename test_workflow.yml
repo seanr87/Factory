@@ -1,0 +1,14 @@
+      study_title:
+        description: 'Study title'
+        required: true
+        type: string
+      study_lead_selection:
+        description: 'Select existing study lead or add new'
+        required: true
+        type: choice
+        options:
+          - 'Add new study lead'
+      new_lead_name:
+        description: 'New study lead name'
+        required: false
+        type: string
