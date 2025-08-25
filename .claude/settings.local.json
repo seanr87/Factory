@@ -7,7 +7,11 @@
       "Bash(gh auth:*)",
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(gh:*)",
+      "Bash(git config:*)",
+      "WebSearch",
+      "Bash(curl:*)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"

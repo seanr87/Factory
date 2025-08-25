@@ -6,8 +6,6 @@
 ### Original Problem
 - Manual study repository creation was time-consuming
 - No centralized tracking of study progress across portfolio
-- Complex project board management
-- Inconsistent study templates and workflows
 
 ---
 

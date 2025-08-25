@@ -1,0 +1,243 @@
+# Simple Factory sync workflow - MVP version
+# Per briefing/workflows/reusable.md and briefing/security/best-practices.md
+
+name: Factory Sync
+
+on:
+  schedule:
+    # Daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+# Per briefing/actions/permissions.md - minimal permissions
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+      - name: Find study tracking issues
+        id: find_issues
+        run: |
+          # Get all open study tracking issues
+          gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "study-tracking" \
+            --state open \
+            --json number,title,body \
+            --jq '.[] | @json' > issues.jsonl
+          
+          echo "Found $(wc -l < issues.jsonl) study tracking issues"
+
+      - name: Check study activity
+        run: |
+          # Process each tracking issue
+          while IFS= read -r issue_json; do
+            issue=$(echo "$issue_json" | jq -r '.')
+            number=$(echo "$issue" | jq -r '.number')
+            title=$(echo "$issue" | jq -r '.title')
+            body=$(echo "$issue" | jq -r '.body')
+            
+            # Extract repo URL from body
+            repo_url=$(echo "$body" | grep -oP 'Repository: \Khttps://github.com/[^/]+/[^\s]+' | head -1)
+            
+            if [[ -n "$repo_url" ]]; then
+              repo_name=$(echo "$repo_url" | sed 's|https://github.com/||')
+              
+              # Get last commit date
+              last_activity=$(gh api repos/$repo_name --jq '.pushed_at' 2>/dev/null || echo "unknown")
+              
+              if [[ "$last_activity" != "unknown" ]]; then
+                # Calculate days since last activity
+                last_date=$(date -d "$last_activity" +%s)
+                now=$(date +%s)
+                days_inactive=$(( (now - last_date) / 86400 ))
+                
+                # Determine status
+                if [[ $days_inactive -gt 30 ]]; then
+                  status="🔴 Inactive ($days_inactive days)"
+                elif [[ $days_inactive -gt 14 ]]; then
+                  status="🟡 Low Activity ($days_inactive days)"
+                else
+                  status="🟢 Active"
+                fi
+                
+                # Update issue body with new activity timestamp
+                updated_body=$(echo "$body" | sed "s|Last updated:.*|Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")|")
+                updated_body=$(echo "$updated_body" | sed "s|Status:.*|Status: $status|")
+                
+                # Extract emoji from status for title update (more reliable method)
+                if [[ "$status" == *"🟢"* ]]; then
+                  status_emoji="🟢"
+                elif [[ "$status" == *"🟡"* ]]; then
+                  status_emoji="🟡"
+                elif [[ "$status" == *"🔴"* ]]; then
+                  status_emoji="🔴"
+                else
+                  status_emoji=""
+                fi
+                
+                # Clean title of any existing emoji and add new one
+                # Remove any leading emoji (🟢, 🟡, 🔴) followed by optional space
+                base_title=$(echo "$title" | sed -E 's/^[🟢🟡🔴][[:space:]]*//')
+                new_title="${status_emoji} ${base_title}"
+                
+                echo "🔍 Debug: Original title: '$title'"
+                echo "🔍 Debug: Base title: '$base_title'"
+                echo "🔍 Debug: Status emoji: '$status_emoji'"
+                echo "🔍 Debug: New title: '$new_title'"
+                
+                if gh issue edit $number \
+                  --repo "${{ github.repository }}" \
+                  --title "$new_title" \
+                  --body "$updated_body"; then
+                  echo "✅ Updated issue #$number: '$title' -> '$new_title' - $status"
+                else
+                  echo "❌ Failed to update issue #$number: $title"
+                fi
+              else
+                echo "⚠️  Could not check repo: $repo_name"
+              fi
+            fi
+          done < issues.jsonl
+
+      - name: Update Factory Portfolio project status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          script: |
+            console.log("🔍 Portfolio project update step - DISABLED FOR TESTING");
+            console.log("💡 Issue titles were already updated with emoji status above");
+            console.log("💡 GitHub Projects should automatically reflect the updated issue titles");
+            return; // Skip project updates to avoid conflicts
+            
+            // TEMPORARILY DISABLED - Issue title updates should be sufficient
+            const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
+            const owner = "${{ github.repository_owner }}";
+            
+            console.log(`🔍 Updating Factory Portfolio project status...`);
+            
+            if (!factoryNumber) {
+              console.log("⚠️ FACTORY_PROJECT_NUMBER not set, skipping portfolio updates");
+              return;
+            }
+            
+            try {
+              // Query Factory project to get project ID
+              const factoryQuery = `
+                query($login: String!, $num: Int!) {
+                  user(login: $login) {
+                    projectV2(number: $num) {
+                      id
+                      title
+                      items(first: 100) {
+                        nodes {
+                          id
+                          type
+                          content {
+                            ... on Issue {
+                              id
+                              number
+                              title
+                              body
+                              labels(first: 10) {
+                                nodes {
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const factoryResult = await github.graphql(factoryQuery, {
+                login: owner,
+                num: factoryNumber
+              });
+              
+              const project = factoryResult.user.projectV2;
+              if (!project) {
+                console.log(`❌ Factory project #${factoryNumber} not found`);
+                return;
+              }
+              
+              console.log(`📋 Found project: ${project.title}`);
+              
+              // Process each project item that has study-tracking label
+              let updatedCount = 0;
+              for (const item of project.items.nodes) {
+                if (item.content && item.content.labels) {
+                  const hasTrackingLabel = item.content.labels.nodes.some(label => 
+                    label.name === 'study-tracking'
+                  );
+                  
+                  if (hasTrackingLabel) {
+                    const issueTitle = item.content.title;
+                    const issueBody = item.content.body || '';
+                    
+                    // Extract status from issue body (look for Status: line)
+                    const statusMatch = issueBody.match(/Status:\s*([🟢🟡🔴][^\\n]*)/);
+                    if (statusMatch) {
+                      const statusLine = statusMatch[1];
+                      const statusEmoji = statusLine.charAt(0); // Get first emoji
+                      
+                      // Clean title of any existing status emoji  
+                      const baseTitle = issueTitle.replace(/^[🟢🟡🔴]\s*/, '');
+                      const newTitle = `${statusEmoji} ${baseTitle}`;
+                      
+                      console.log(`🔍 Project item: Original='${issueTitle}', New='${newTitle}'`);
+                      
+                      // Only update if title changed
+                      if (newTitle !== issueTitle) {
+                        try {
+                          await github.graphql(`
+                            mutation($projectId: ID!, $itemId: ID!, $title: String!) {
+                              updateProjectV2Item(input: {
+                                projectId: $projectId,
+                                itemId: $itemId,
+                                fieldChanges: {
+                                  title: $title
+                                }
+                              }) {
+                                item { id }
+                              }
+                            }
+                          `, {
+                            projectId: project.id,
+                            itemId: item.id,
+                            title: newTitle
+                          });
+                          
+                          console.log(`✅ Updated project item: ${newTitle}`);
+                          updatedCount++;
+                        } catch (error) {
+                          console.log(`❌ Failed to update item ${issueTitle}: ${error.message}`);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              
+              console.log(`📊 Updated ${updatedCount} project items with status`);
+              
+            } catch (error) {
+              console.log(`❌ Failed to update portfolio status: ${error.message}`);
+              console.log("💡 Portfolio status updates are optional - core sync still works");
+            }
+
+      - name: Summary
+        run: |
+          total=$(wc -l < issues.jsonl)
+          echo "## 📊 Factory Sync Complete"
+          echo "Processed $total study tracking issues"
+          echo "Next sync: tomorrow at 9 AM UTC"
