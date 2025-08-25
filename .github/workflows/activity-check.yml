@@ -1,7 +1,7 @@
 # Simple Factory sync workflow - MVP version
 # Per briefing/workflows/reusable.md and briefing/security/best-practices.md
 
-name: Factory Sync
+name: Activity Check
 
 on:
   schedule:
@@ -24,6 +24,8 @@ jobs:
       - name: Find study tracking issues
         id: find_issues
         run: |
+          echo "🔍 Searching for study tracking issues..."
+          
           # Get all open study tracking issues
           gh issue list \
             --repo "${{ github.repository }}" \
@@ -32,27 +34,59 @@ jobs:
             --json number,title,body \
             --jq '.[] | @json' > issues.jsonl
           
-          echo "Found $(wc -l < issues.jsonl) study tracking issues"
+          issue_count=$(wc -l < issues.jsonl)
+          echo "📊 Found $issue_count study tracking issues"
+          
+          if [[ $issue_count -eq 0 ]]; then
+            echo "⚠️ No study tracking issues found - workflow will exit early"
+          else
+            echo "📝 Issues found:"
+            cat issues.jsonl | jq -r '. | "#" + (.number|tostring) + ": " + .title'
+          fi
+          
+          echo "issue_count=$issue_count" >> $GITHUB_OUTPUT
 
       - name: Gather study activity data
+        id: gather_data
         run: |
+          echo "🔄 Processing study activity data..."
+          
+          # Check if we have issues to process
+          issue_count=$(wc -l < issues.jsonl)
+          if [[ $issue_count -eq 0 ]]; then
+            echo "⚠️ No issues to process, skipping data gathering"
+            echo "[]" > issue_updates.json
+            exit 0
+          fi
+          
           # Process each tracking issue and collect data for GraphQL updates
           echo "[]" > issue_updates.json
+          processed_count=0
+          
+          echo "📋 Processing $issue_count issues..."
           
           while IFS= read -r issue_json; do
+            processed_count=$((processed_count + 1))
+            echo "\n📍 Processing issue $processed_count/$issue_count"
             issue=$(echo "$issue_json" | jq -r '.')
             number=$(echo "$issue" | jq -r '.number')
             title=$(echo "$issue" | jq -r '.title')
             body=$(echo "$issue" | jq -r '.body')
             
+            echo "🐞 Issue #$number: '$title'"
+            
             # Extract repo URL from body
             repo_url=$(echo "$body" | grep -oP 'Repository: \Khttps://github.com/[^/]+/[^\s]+' | head -1)
+            echo "🔗 Repository URL: $repo_url"
             
             if [[ -n "$repo_url" ]]; then
               repo_name=$(echo "$repo_url" | sed 's|https://github.com/||')
+              echo "📁 Checking repo: $repo_name"
               
               # Get last commit date
+              echo "🔍 Fetching last activity for $repo_name..."
               last_activity=$(gh api repos/$repo_name --jq '.pushed_at' 2>/dev/null || echo "unknown")
+              echo "📅 Last activity: $last_activity"
               
               if [[ "$last_activity" != "unknown" ]]; then
                 # Calculate days since last activity
@@ -60,27 +94,38 @@ jobs:
                 now=$(date +%s)
                 days_inactive=$(( (now - last_date) / 86400 ))
                 
+                echo "📈 Days since last activity: $days_inactive"
+                
                 # Determine status using shortcodes
                 if [[ $days_inactive -gt 30 ]]; then
                   status_shortcode=":red_circle:"
                   status_text="Inactive ($days_inactive days)"
+                  echo "🔴 Status: RED - $status_text"
                 elif [[ $days_inactive -gt 14 ]]; then
                   status_shortcode=":yellow_circle:"
                   status_text="Low Activity ($days_inactive days)"
+                  echo "🟡 Status: YELLOW - $status_text"
                 else
                   status_shortcode=":green_circle:"
                   status_text="Active"
+                  echo "🟢 Status: GREEN - $status_text"
                 fi
                 
                 # Clean existing emoji/shortcodes from title
+                echo "🧹 Cleaning title: '$title'"
                 base_title=$(echo "$title" | sed -E 's/^(🟢|🟡|🔴|:green_circle:|:yellow_circle:|:red_circle:)[[:space:]]*//')
                 new_title="${status_shortcode} ${base_title}"
+                echo "🏷️  Base title: '$base_title'"
+                echo "✨ New title: '$new_title'"
                 
                 # Update issue body with new timestamp and status
+                echo "📝 Updating issue body..."
                 updated_body=$(echo "$body" | sed "s|Last updated:.*|Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")|")
                 updated_body=$(echo "$updated_body" | sed "s|Status:.*|Status: ${status_shortcode} ${status_text}|")
+                echo "✅ Body updated with new status and timestamp"
                 
                 # Add to update list
+                echo "💾 Adding to update queue..."
                 update_data=$(jq -n \
                   --arg number "$number" \
                   --arg title "$new_title" \
@@ -88,18 +133,39 @@ jobs:
                   --arg status "$status_shortcode" \
                   '{number: $number, title: $title, body: $body, status: $status}')
                 
+                echo "📊 Update data: $update_data"
+                
                 jq --argjson update "$update_data" '. += [$update]' issue_updates.json > tmp.json && mv tmp.json issue_updates.json
                 
-                echo "📝 Prepared update for issue #$number: '$title' -> '$new_title'"
+                if [[ $? -eq 0 ]]; then
+                  echo "✅ Successfully prepared update for issue #$number: '$title' -> '$new_title'"
+                else
+                  echo "❌ Failed to add issue #$number to update queue"
+                fi
               else
-                echo "⚠️  Could not check repo: $repo_name"
+                echo "⚠️  Could not check repo: $repo_name (API call failed)"
               fi
+            else
+              echo "⚠️  No repository URL found in issue body"
             fi
           done < issues.jsonl
           
-          echo "📊 Prepared $(jq length issue_updates.json) issue updates"
+          updates_count=$(jq length issue_updates.json)
+          echo "\n📊 Processing complete!"
+          echo "📄 Processed $processed_count issues"
+          echo "🎯 Prepared $updates_count issue updates"
+          
+          echo "\n📝 Final update queue contents:"
+          cat issue_updates.json | jq .
+          
+          echo "\n💾 File info:"
+          ls -la issue_updates.json
+          echo "File size: $(wc -c < issue_updates.json) bytes"
+          
+          echo "updates_count=$updates_count" >> $GITHUB_OUTPUT
 
       - name: Update issues and portfolio with GraphQL
+        id: graphql_updates
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
@@ -107,21 +173,49 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             
-            // Read the updates prepared in previous step
+            console.log('🚀 Starting GraphQL update process...');
+            console.log(`🔑 Token type: ${context.payload.repository ? 'ORG_ADMIN_TOKEN' : 'Unknown'}`);
+            console.log(`🏠 Repository: ${context.repo.owner}/${context.repo.repo}`);
+            
+            // Check if updates file exists
             const updatesFile = 'issue_updates.json';
+            console.log(`🔍 Checking for updates file: ${updatesFile}`);
+            
+            if (!fs.existsSync(updatesFile)) {
+              console.log('❌ Updates file does not exist!');
+              return;
+            }
+            
+            const stats = fs.statSync(updatesFile);
+            console.log(`💾 File size: ${stats.size} bytes, modified: ${stats.mtime}`);
+            
+            // Read the updates prepared in previous step
             let updates = [];
             
             try {
               const data = fs.readFileSync(updatesFile, 'utf8');
+              console.log(`📝 Raw file contents: ${data}`);
+              
               updates = JSON.parse(data);
-              console.log(`📊 Processing ${updates.length} issue updates`);
+              console.log(`📊 Successfully parsed ${updates.length} issue updates`);
+              
+              if (updates.length > 0) {
+                console.log('📄 Updates to process:');
+                updates.forEach((update, index) => {
+                  console.log(`  ${index + 1}. Issue #${update.number}: "${update.title}"`);
+                });
+              }
             } catch (error) {
-              console.log(`⚠️ No update data found: ${error.message}`);
+              console.log(`❌ Failed to read/parse update data: ${error.message}`);
+              console.log(`🔍 Error stack: ${error.stack}`);
               return;
             }
             
             if (updates.length === 0) {
-              console.log("ℹ️ No issues to update");
+              console.log("ℹ️ No issues to update - workflow complete");
+              core.setOutput('updates_processed', 0);
+              core.setOutput('updates_successful', 0);
+              core.setOutput('updates_failed', 0);
               return;
             }
             
@@ -129,11 +223,16 @@ jobs:
             let successCount = 0;
             let failureCount = 0;
             
+            console.log(`\n🔄 Starting to process ${updates.length} updates...`);
+            
             for (const update of updates) {
               try {
-                console.log(`🔄 Updating issue #${update.number}: ${update.title}`);
+                console.log(`\n--- Processing Issue #${update.number} ---`);
+                console.log(`📌 Current title: "${update.title}"`);
+                console.log(`📋 Status: ${update.status}`);
                 
                 // Update issue using GraphQL
+                console.log('📝 Preparing GraphQL mutation...');
                 const updateMutation = `
                   mutation UpdateIssue($issueId: ID!, $title: String!, $body: String!) {
                     updateIssue(input: {
@@ -149,8 +248,10 @@ jobs:
                     }
                   }
                 `;
+                console.log('✅ GraphQL mutation prepared');
                 
                 // First, get the issue ID from the issue number
+                console.log('🔍 Fetching issue ID via GraphQL...');
                 const issueQuery = `
                   query GetIssue($owner: String!, $name: String!, $number: Int!) {
                     repository(owner: $owner, name: $name) {
@@ -163,14 +264,19 @@ jobs:
                 `;
                 
                 const [owner, repo] = "${{ github.repository }}".split('/');
+                console.log(`🏠 Repository: ${owner}/${repo}`);
+                console.log(`🔢 Issue number: ${update.number}`);
+                
                 const issueResult = await github.graphql(issueQuery, {
                   owner: owner,
                   name: repo,
                   number: parseInt(update.number)
                 });
                 
+                console.log('📊 GraphQL query result:', JSON.stringify(issueResult, null, 2));
+                
                 if (!issueResult.repository.issue) {
-                  console.log(`❌ Issue #${update.number} not found`);
+                  console.log(`❌ Issue #${update.number} not found in repository`);
                   failureCount++;
                   continue;
                 }
@@ -178,39 +284,108 @@ jobs:
                 const issueId = issueResult.repository.issue.id;
                 const oldTitle = issueResult.repository.issue.title;
                 
+                console.log(`🆔 Issue ID: ${issueId}`);
+                console.log(`📖 Current title: "${oldTitle}"`);
+                console.log(`✏️  New title: "${update.title}"`);
+                
                 // Update the issue
-                await github.graphql(updateMutation, {
+                console.log('🚀 Executing GraphQL mutation...');
+                const mutationResult = await github.graphql(updateMutation, {
                   issueId: issueId,
                   title: update.title,
                   body: update.body
                 });
                 
-                console.log(`✅ Updated issue #${update.number}: '${oldTitle}' -> '${update.title}'`);
+                console.log('📊 Mutation result:', JSON.stringify(mutationResult, null, 2));
+                console.log(`✅ Successfully updated issue #${update.number}`);
+                console.log(`   Old: "${oldTitle}"`);
+                console.log(`   New: "${mutationResult.updateIssue.issue.title}"`);
                 successCount++;
                 
               } catch (error) {
-                console.log(`❌ Failed to update issue #${update.number}: ${error.message}`);
+                console.log(`❌ Failed to update issue #${update.number}:`);
+                console.log(`   Error: ${error.message}`);
+                console.log(`   Stack: ${error.stack}`);
+                if (error.response) {
+                  console.log(`   Response: ${JSON.stringify(error.response, null, 2)}`);
+                }
                 failureCount++;
               }
             }
             
-            console.log(`📊 Completed: ${successCount} successful, ${failureCount} failed`);
+            console.log(`\n🏁 Update process complete!`);
+            console.log(`📊 Results: ${successCount} successful, ${failureCount} failed`);
+            
+            // Set outputs for next steps
+            core.setOutput('updates_processed', updates.length);
+            core.setOutput('updates_successful', successCount);
+            core.setOutput('updates_failed', failureCount);
             
             // Portfolio project updates (optional)
             const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
             
             if (!factoryNumber) {
               console.log("ℹ️ FACTORY_PROJECT_NUMBER not set, skipping portfolio updates");
-              return;
+            } else {
+              console.log(`\n📋 Portfolio project #${factoryNumber} updates:`);
+              console.log("💡 GitHub Projects should automatically reflect the updated issue titles");
+              console.log("ℹ️ If project titles don't sync, manual project item updates may be needed");
             }
-            
-            console.log(`📋 Portfolio project #${factoryNumber} updates:`);
-            console.log("💡 GitHub Projects should automatically reflect the updated issue titles");
-            console.log("ℹ️ If project titles don't sync, manual project item updates may be needed");
 
       - name: Summary
         run: |
-          total=$(wc -l < issues.jsonl)
-          echo "## 📊 Factory Sync Complete"
-          echo "Processed $total study tracking issues"
-          echo "Next sync: tomorrow at 9 AM UTC"
+          echo "## 📊 Activity Check Complete"
+          echo ""
+          
+          # Get step outputs
+          total=$(wc -l < issues.jsonl 2>/dev/null || echo "0")
+          updates_prepared="${{ steps.gather_data.outputs.updates_count || '0' }}"
+          updates_processed="${{ steps.graphql_updates.outputs.updates_processed || '0' }}"
+          updates_successful="${{ steps.graphql_updates.outputs.updates_successful || '0' }}"
+          updates_failed="${{ steps.graphql_updates.outputs.updates_failed || '0' }}"
+          
+          echo "### Results:"
+          echo "- 🔍 Study tracking issues found: **$total**"
+          echo "- 📝 Updates prepared: **$updates_prepared**"
+          echo "- 🔄 Updates processed: **$updates_processed**"
+          echo "- ✅ Updates successful: **$updates_successful**"
+          echo "- ❌ Updates failed: **$updates_failed**"
+          echo ""
+          echo "### Next Steps:"
+          if [[ $updates_successful -gt 0 ]]; then
+            echo "- ✅ Check issue titles for emoji status indicators"
+            echo "- 🔍 Verify Factory Portfolio project reflects changes"
+          fi
+          if [[ $updates_failed -gt 0 ]]; then
+            echo "- ⚠️ Review failed updates in workflow logs"
+            echo "- 🔧 Check token permissions and API limits"
+          fi
+          echo ""
+          echo "📅 Next scheduled sync: tomorrow at 9 AM UTC"
+          echo "🔄 Manual runs available via workflow dispatch"
+          
+          # Create GitHub Actions job summary
+          {
+            echo "# 🏭 Activity Check Results"
+            echo ""
+            echo "## 📊 Summary"
+            echo "| Metric | Count |"
+            echo "|--------|-------|"
+            echo "| Issues Found | $total |"
+            echo "| Updates Prepared | $updates_prepared |"
+            echo "| Updates Processed | $updates_processed |"
+            echo "| Updates Successful | $updates_successful |"
+            echo "| Updates Failed | $updates_failed |"
+            echo ""
+            if [[ $updates_successful -gt 0 ]]; then
+              echo "## ✅ Success"
+              echo "Successfully updated $updates_successful issue(s) with activity status emojis."
+            fi
+            if [[ $updates_failed -gt 0 ]]; then
+              echo "## ⚠️ Issues"
+              echo "Failed to update $updates_failed issue(s). Check workflow logs for details."
+            fi
+            echo ""
+            echo "## 🔄 Next Run"
+            echo "Scheduled for tomorrow at 9 AM UTC"
+          } >> $GITHUB_STEP_SUMMARY
