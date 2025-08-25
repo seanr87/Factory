@@ -82,6 +82,127 @@ jobs:
             fi
           done < issues.jsonl
 
+      - name: Update Factory Portfolio project status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          script: |
+            const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
+            const owner = "${{ github.repository_owner }}";
+            
+            console.log(`🔍 Updating Factory Portfolio project status...`);
+            
+            if (!factoryNumber) {
+              console.log("⚠️ FACTORY_PROJECT_NUMBER not set, skipping portfolio updates");
+              return;
+            }
+            
+            try {
+              // Query Factory project to get project ID
+              const factoryQuery = `
+                query($login: String!, $num: Int!) {
+                  user(login: $login) {
+                    projectV2(number: $num) {
+                      id
+                      title
+                      items(first: 100) {
+                        nodes {
+                          id
+                          type
+                          content {
+                            ... on Issue {
+                              id
+                              number
+                              title
+                              body
+                              labels(first: 10) {
+                                nodes {
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const factoryResult = await github.graphql(factoryQuery, {
+                login: owner,
+                num: factoryNumber
+              });
+              
+              const project = factoryResult.user.projectV2;
+              if (!project) {
+                console.log(`❌ Factory project #${factoryNumber} not found`);
+                return;
+              }
+              
+              console.log(`📋 Found project: ${project.title}`);
+              
+              // Process each project item that has study-tracking label
+              let updatedCount = 0;
+              for (const item of project.items.nodes) {
+                if (item.content && item.content.labels) {
+                  const hasTrackingLabel = item.content.labels.nodes.some(label => 
+                    label.name === 'study-tracking'
+                  );
+                  
+                  if (hasTrackingLabel) {
+                    const issueTitle = item.content.title;
+                    const issueBody = item.content.body || '';
+                    
+                    // Extract status from issue body (look for Status: line)
+                    const statusMatch = issueBody.match(/Status:\s*([🟢🟡🔴][^\\n]*)/);
+                    if (statusMatch) {
+                      const statusLine = statusMatch[1];
+                      const statusEmoji = statusLine.charAt(0); // Get first emoji
+                      
+                      // Clean title of any existing status emoji
+                      const baseTitle = issueTitle.replace(/^[🟢🟡🔴]\s*/, '');
+                      const newTitle = `${statusEmoji} ${baseTitle}`;
+                      
+                      // Only update if title changed
+                      if (newTitle !== issueTitle) {
+                        try {
+                          await github.graphql(`
+                            mutation($projectId: ID!, $itemId: ID!, $title: String!) {
+                              updateProjectV2Item(input: {
+                                projectId: $projectId,
+                                itemId: $itemId,
+                                fieldChanges: {
+                                  title: $title
+                                }
+                              }) {
+                                item { id }
+                              }
+                            }
+                          `, {
+                            projectId: project.id,
+                            itemId: item.id,
+                            title: newTitle
+                          });
+                          
+                          console.log(`✅ Updated project item: ${newTitle}`);
+                          updatedCount++;
+                        } catch (error) {
+                          console.log(`❌ Failed to update item ${issueTitle}: ${error.message}`);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              
+              console.log(`📊 Updated ${updatedCount} project items with status`);
+              
+            } catch (error) {
+              console.log(`❌ Failed to update portfolio status: ${error.message}`);
+              console.log("💡 Portfolio status updates are optional - core sync still works");
+            }
+
       - name: Summary
         run: |
           total=$(wc -l < issues.jsonl)

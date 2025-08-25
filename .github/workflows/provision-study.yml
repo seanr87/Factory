@@ -104,7 +104,7 @@ jobs:
           
           # Create tracking issue in Factory repo
           ISSUE_BODY=$(cat <<EOF
-          ## Study: ${{ inputs.study_title }}
+          ## ${{ inputs.study_title }}
           
           **Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}
           **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
@@ -129,7 +129,7 @@ jobs:
           
           ISSUE_URL=$(gh issue create \
             --repo "${{ github.repository }}" \
-            --title "Study: ${{ inputs.study_title }}" \
+            --title "${{ inputs.study_title }}" \
             --body "$ISSUE_BODY" \
             --label "study-tracking")
           
@@ -214,7 +214,7 @@ jobs:
               console.log("🔧 MANUAL STEPS REQUIRED:");
               console.log(`1. Go to: https://github.com/users/${owner}/projects/${factoryNumber}`);
               console.log("2. Click '+ Add items'");
-              console.log(`3. Search for: Study: ${studyTitle}`);
+              console.log(`3. Search for: ${studyTitle}`);
               console.log("4. Add the issue to your project");
               console.log("");
               console.log("💡 This uses the same method as the archived working workflow");
