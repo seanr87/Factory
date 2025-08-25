@@ -71,6 +71,12 @@ jobs:
 
       - name: Create Factory tracking issue
         run: |
+          # Ensure study-tracking label exists
+          gh label create "study-tracking" \
+            --description "Tracks individual study progress" \
+            --color "0969da" \
+            --repo "${{ github.repository }}" || echo "Label already exists"
+          
           # Create tracking issue in Factory repo
           ISSUE_BODY=$(cat <<EOF
           ## Study: ${{ inputs.study_title }}
