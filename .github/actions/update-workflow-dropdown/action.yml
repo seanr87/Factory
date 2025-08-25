@@ -52,46 +52,31 @@ runs:
         echo "📝 Generated options:"
         echo -e "$OPTIONS_CONTENT"
         
-        # Create updated workflow using Python for more reliable YAML manipulation
-        python3 -c "
-import re
-import sys
-import os
-
-workflow_path = '${{ inputs.workflow_path }}'
-options_content = '''$OPTIONS_CONTENT'''
-
-try:
-    with open(workflow_path, 'r') as f:
-        content = f.read()
-    
-    print(f'🔍 Looking for study_lead_selection section in {workflow_path}')
-    
-    # Find the study_lead_selection section and replace options
-    pattern = r'(      study_lead_selection:.*?\n        options:\n)(.*?\n)(      \w+:)'
-    
-    def replace_options(match):
-        before = match.group(1)
-        after = match.group(3)
-        print(f'📝 Replacing options section')
-        return before + options_content + '\n' + after
-    
-    # Check if pattern matches
-    matches = re.findall(pattern, content, flags=re.DOTALL | re.MULTILINE)
-    print(f'🔍 Found {len(matches)} matches')
-    
-    updated_content = re.sub(pattern, replace_options, content, flags=re.DOTALL | re.MULTILINE)
-    
-    if updated_content != content:
-        with open(workflow_path, 'w') as f:
-            f.write(updated_content)
-        print('✅ Successfully updated workflow dropdown')
-    else:
-        print('⚠️  No changes needed - workflow already up to date')
+        # Update workflow using sed - more YAML-safe approach
+        echo "🔧 Updating workflow file..."
         
-except Exception as e:
-    print(f'❌ Error updating workflow: {e}')
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-"
+        # Create temporary file with new options
+        echo -e "$OPTIONS_CONTENT" > /tmp/new_options.txt
+        
+        # Find start and end line numbers for the options section
+        START_LINE=$(grep -n "        options:" "${{ inputs.workflow_path }}" | cut -d: -f1)
+        END_LINE=$(awk "/^        options:/{flag=1; next} flag && /^      [a-zA-Z]/{print NR-1; exit}' "${{ inputs.workflow_path }}")
+        
+        if [[ -n "$START_LINE" ]] && [[ -n "$END_LINE" ]]; then
+          echo "🔍 Found options section at lines $START_LINE to $END_LINE"
+          
+          # Create new workflow file
+          head -n $START_LINE "${{ inputs.workflow_path }}" > /tmp/workflow_temp.yml
+          cat /tmp/new_options.txt >> /tmp/workflow_temp.yml
+          tail -n +$((END_LINE+1)) "${{ inputs.workflow_path }}" >> /tmp/workflow_temp.yml
+          
+          # Replace original file
+          mv /tmp/workflow_temp.yml "${{ inputs.workflow_path }}"
+          echo "✅ Successfully updated workflow dropdown"
+        else
+          echo "❌ Could not find options section in workflow file"
+          exit 1
+        fi
+        
+        # Cleanup
+        rm -f /tmp/new_options.txt
