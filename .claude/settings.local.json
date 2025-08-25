@@ -12,7 +12,8 @@
       "Bash(git config:*)",
       "WebSearch",
       "Bash(curl:*)",
-      "WebFetch(domain:docs.github.com)"
+      "WebFetch(domain:docs.github.com)",
+      "Bash(./.github/actions/validate-study-inputs/action.yml)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"

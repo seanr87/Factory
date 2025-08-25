@@ -34,11 +34,11 @@ runs:
     - name: Validate GitHub username
       shell: bash
       run: |
-        if [[ ! "${{ inputs.lead_github }}" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$ ]]; then
-          echo "❌ Invalid GitHub username format"
+        if [[ ! "${{ inputs.lead_github }}" =~ ^[a-zA-Z0-9]([a-zA-Z0-9_-]*[a-zA-Z0-9])?$ ]]; then
+          echo "❌ Invalid GitHub username format: ${{ inputs.lead_github }}"
           exit 1
         fi
-        echo "✅ GitHub username validated"
+        echo "✅ GitHub username validated: ${{ inputs.lead_github }}"
 
     - name: Generate repository name
       id: generate

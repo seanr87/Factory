@@ -15,9 +15,6 @@ on:
         required: true
         type: choice
         options:
-          - 'Dr. Sarah Johnson|sarahj-researcher'
-          - 'Prof. Michael Chen|mchen-lab' 
-          - 'Dr. Lisa Rodriguez|lrodriguez-phd'
           - 'Add new study lead'
       new_lead_name:
         description: 'New study lead name (only if adding new)'
