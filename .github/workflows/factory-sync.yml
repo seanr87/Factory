@@ -71,8 +71,16 @@ jobs:
                 updated_body=$(echo "$body" | sed "s|Last updated:.*|Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")|")
                 updated_body=$(echo "$updated_body" | sed "s|Status:.*|Status: $status|")
                 
+                # Extract emoji from status for title update
+                status_emoji=$(echo "$status" | grep -o '^[🟢🟡🔴]')
+                
+                # Clean title of any existing emoji and add new one
+                base_title=$(echo "$title" | sed 's/^[🟢🟡🔴] *//')
+                new_title="${status_emoji} ${base_title}"
+                
                 gh issue edit $number \
                   --repo "${{ github.repository }}" \
+                  --title "$new_title" \
                   --body "$updated_body"
                 
                 echo "✅ Updated issue #$number: $title - $status"
