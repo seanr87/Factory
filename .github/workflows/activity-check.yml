@@ -75,8 +75,8 @@ jobs:
             
             echo "🐞 Issue #$number: '$title'"
             
-            # Extract repo URL from body
-            repo_url=$(echo "$body" | grep -oP 'Repository: \Khttps://github.com/[^/]+/[^\s]+' | head -1)
+            # Extract repo URL from body (handle bold markdown format)
+            repo_url=$(echo "$body" | grep -oP '\*\*Repository:\*\*\s*\Khttps://github.com/[^/]+/[^\s]+' | head -1)
             echo "🔗 Repository URL: $repo_url"
             
             if [[ -n "$repo_url" ]]; then
