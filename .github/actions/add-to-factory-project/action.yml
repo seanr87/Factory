@@ -7,6 +7,9 @@ inputs:
   study_title:
     description: 'Study title for error messages'
     required: true
+  factory_project_number:
+    description: 'Factory Portfolio project number'
+    required: true
   org_token:
     description: 'Organization admin token'
     required: true
@@ -19,7 +22,7 @@ runs:
       with:
         github-token: ${{ inputs.org_token }}
         script: |
-          const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
+          const factoryNumber = parseInt("${{ inputs.factory_project_number }}", 10);
           const owner = "${{ github.repository_owner }}";
           const issueNodeId = "${{ inputs.issue_node_id }}";
           const studyTitle = "${{ inputs.study_title }}";

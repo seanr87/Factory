@@ -78,6 +78,7 @@ jobs:
         with:
           issue_node_id: ${{ steps.tracking.outputs.issue_node_id }}
           study_title: ${{ inputs.study_title }}
+          factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Summary
