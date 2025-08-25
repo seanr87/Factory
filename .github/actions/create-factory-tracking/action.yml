@@ -16,6 +16,14 @@ inputs:
   repo_url:
     description: 'Study repository URL'
     required: true
+  already_collaborator:
+    description: 'Whether study lead is already a collaborator'
+    required: false
+    default: 'false'
+  invitation_sent:
+    description: 'Whether collaboration invitation was sent'
+    required: false
+    default: 'false'
   org_token:
     description: 'Organization admin token'
     required: true
@@ -72,12 +80,43 @@ runs:
         EOF
         )
         
-        ISSUE_URL=$(gh issue create \
-          --repo "${{ github.repository }}" \
-          --title "${{ inputs.study_title }}" \
-          --body "$ISSUE_BODY" \
-          --label "study-tracking" \
-          --assignee "${{ inputs.lead_github }}")
+        # Determine assignment strategy based on collaborator status
+        if [[ "${{ inputs.already_collaborator }}" == "true" ]]; then
+          echo "✅ @${{ inputs.lead_github }} is already a collaborator - attempting assignment..."
+          
+          ISSUE_URL=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "${{ inputs.study_title }}" \
+            --body "$ISSUE_BODY" \
+            --label "study-tracking" \
+            --assignee "${{ inputs.lead_github }}")
+          
+          ASSIGNED_STATUS="(assigned to @${{ inputs.lead_github }})"
+          
+        elif [[ "${{ inputs.invitation_sent }}" == "true" ]]; then
+          echo "📨 Collaboration invitation sent to @${{ inputs.lead_github }}"
+          echo "⏳ Creating issue without assignment (will work once they accept invitation)..."
+          
+          ISSUE_URL=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "${{ inputs.study_title }}" \
+            --body "$ISSUE_BODY" \
+            --label "study-tracking")
+          
+          ASSIGNED_STATUS="(invitation sent - can assign after acceptance)"
+          
+        else
+          echo "⚠️  Could not invite @${{ inputs.lead_github }} as collaborator"
+          echo "🔄 Creating issue without assignee..."
+          
+          ISSUE_URL=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "${{ inputs.study_title }}" \
+            --body "$ISSUE_BODY" \
+            --label "study-tracking")
+          
+          ASSIGNED_STATUS="(manual collaborator addition required)"
+        fi
         
         # Get issue number and node_id
         ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
@@ -85,4 +124,4 @@ runs:
         
         echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
         echo "issue_node_id=$ISSUE_NODE_ID" >> $GITHUB_OUTPUT
-        echo "✅ Created Factory tracking issue: $ISSUE_URL (assigned to @${{ inputs.lead_github }})"
+        echo "✅ Factory tracking issue created: $ISSUE_URL $ASSIGNED_STATUS"

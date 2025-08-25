@@ -94,6 +94,14 @@ jobs:
           study_title: ${{ inputs.study_title }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
+      - name: Invite study lead as collaborator
+        id: invite
+        uses: ./.github/actions/invite-collaborator
+        with:
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
+          permission: read
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
       - name: Create Factory tracking
         id: tracking
         uses: ./.github/actions/create-factory-tracking
@@ -103,6 +111,8 @@ jobs:
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           target_date: ${{ inputs.target_date }}
           repo_url: ${{ steps.repo.outputs.repo_url }}
+          already_collaborator: ${{ steps.invite.outputs.already_collaborator }}
+          invitation_sent: ${{ steps.invite.outputs.invitation_sent }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Add to Factory project

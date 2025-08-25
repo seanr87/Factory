@@ -1,0 +1,80 @@
+name: 'Invite Collaborator'
+description: 'Invites study lead as repository collaborator'
+inputs:
+  lead_github:
+    description: 'GitHub username of study lead to invite'
+    required: true
+  permission:
+    description: 'Permission level (read, write, admin)'
+    required: false
+    default: 'read'
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  invitation_sent:
+    description: 'Whether invitation was sent (true/false)'
+    value: ${{ steps.invite.outputs.invitation_sent }}
+  already_collaborator:
+    description: 'Whether user is already a collaborator (true/false)'
+    value: ${{ steps.invite.outputs.already_collaborator }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check if user is already a collaborator
+      id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        echo "🔍 Checking if @${{ inputs.lead_github }} is already a collaborator..."
+        
+        # Check if user is already a collaborator
+        if gh api repos/${{ github.repository }}/collaborators/${{ inputs.lead_github }} >/dev/null 2>&1; then
+          echo "✅ @${{ inputs.lead_github }} is already a collaborator"
+          echo "already_collaborator=true" >> $GITHUB_OUTPUT
+          echo "needs_invitation=false" >> $GITHUB_OUTPUT
+        else
+          echo "📝 @${{ inputs.lead_github }} is not a collaborator"
+          echo "already_collaborator=false" >> $GITHUB_OUTPUT
+          echo "needs_invitation=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Send collaboration invitation
+      id: invite
+      if: steps.check.outputs.needs_invitation == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        echo "📨 Sending collaboration invitation to @${{ inputs.lead_github }}..."
+        
+        # Send invitation
+        if gh api repos/${{ github.repository }}/collaborators/${{ inputs.lead_github }} \
+           --method PUT \
+           --field permission=${{ inputs.permission }} >/dev/null 2>&1; then
+          
+          echo "✅ Collaboration invitation sent to @${{ inputs.lead_github }}"
+          echo "📧 They will receive an email invitation to collaborate"
+          echo "⏳ Assignment will work once they accept the invitation"
+          echo "invitation_sent=true" >> $GITHUB_OUTPUT
+          echo "already_collaborator=false" >> $GITHUB_OUTPUT
+          
+        else
+          echo "❌ Failed to send collaboration invitation"
+          echo "🔍 This might happen if:"
+          echo "  - The username doesn't exist"
+          echo "  - The user has blocked invitations"
+          echo "  - There's a permissions issue"
+          echo "invitation_sent=false" >> $GITHUB_OUTPUT
+          echo "already_collaborator=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set outputs for existing collaborator
+      if: steps.check.outputs.already_collaborator == 'true'
+      shell: bash
+      run: |
+        echo "invitation_sent=false" >> $GITHUB_OUTPUT
+        echo "already_collaborator=true" >> $GITHUB_OUTPUT
