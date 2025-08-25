@@ -1,0 +1,90 @@
+# Simple Factory sync workflow - MVP version
+# Per briefing/workflows/reusable.md and briefing/security/best-practices.md
+
+name: Factory Sync
+
+on:
+  schedule:
+    # Daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+# Per briefing/actions/permissions.md - minimal permissions
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+      - name: Find study tracking issues
+        id: find_issues
+        run: |
+          # Get all open study tracking issues
+          gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "study-tracking" \
+            --state open \
+            --json number,title,body \
+            --jq '.[] | @json' > issues.jsonl
+          
+          echo "Found $(wc -l < issues.jsonl) study tracking issues"
+
+      - name: Check study activity
+        run: |
+          # Process each tracking issue
+          while IFS= read -r issue_json; do
+            issue=$(echo "$issue_json" | jq -r '.')
+            number=$(echo "$issue" | jq -r '.number')
+            title=$(echo "$issue" | jq -r '.title')
+            body=$(echo "$issue" | jq -r '.body')
+            
+            # Extract repo URL from body
+            repo_url=$(echo "$body" | grep -oP 'Repository: \Khttps://github.com/[^/]+/[^\s]+' | head -1)
+            
+            if [[ -n "$repo_url" ]]; then
+              repo_name=$(echo "$repo_url" | sed 's|https://github.com/||')
+              
+              # Get last commit date
+              last_activity=$(gh api repos/$repo_name --jq '.pushed_at' 2>/dev/null || echo "unknown")
+              
+              if [[ "$last_activity" != "unknown" ]]; then
+                # Calculate days since last activity
+                last_date=$(date -d "$last_activity" +%s)
+                now=$(date +%s)
+                days_inactive=$(( (now - last_date) / 86400 ))
+                
+                # Determine status
+                if [[ $days_inactive -gt 30 ]]; then
+                  status="🔴 Inactive ($days_inactive days)"
+                elif [[ $days_inactive -gt 14 ]]; then
+                  status="🟡 Low Activity ($days_inactive days)"
+                else
+                  status="🟢 Active"
+                fi
+                
+                # Update issue body with new activity timestamp
+                updated_body=$(echo "$body" | sed "s|Last updated:.*|Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")|")
+                updated_body=$(echo "$updated_body" | sed "s|Status:.*|Status: $status|")
+                
+                gh issue edit $number \
+                  --repo "${{ github.repository }}" \
+                  --body "$updated_body"
+                
+                echo "✅ Updated issue #$number: $title - $status"
+              else
+                echo "⚠️  Could not check repo: $repo_name"
+              fi
+            fi
+          done < issues.jsonl
+
+      - name: Summary
+        run: |
+          total=$(wc -l < issues.jsonl)
+          echo "## 📊 Factory Sync Complete"
+          echo "Processed $total study tracking issues"
+          echo "Next sync: tomorrow at 9 AM UTC"

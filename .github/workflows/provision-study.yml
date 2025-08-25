@@ -1,0 +1,112 @@
+# Minimal study provisioning workflow - MVP version
+# Per briefing/workflows/reusable.md and briefing/security/best-practices.md
+
+name: Provision New Study
+
+on:
+  workflow_dispatch:
+    inputs:
+      study_title:
+        description: 'Study title'
+        required: true
+        type: string
+      lead_name:
+        description: 'Study lead name'
+        required: true
+        type: string
+      lead_github:
+        description: 'Study lead GitHub username'
+        required: true
+        type: string
+      target_date:
+        description: 'Target completion date (YYYY-MM-DD)'
+        required: true
+        type: string
+
+# Per briefing/actions/permissions.md - minimal permissions
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+    
+    steps:
+      - name: Validate inputs
+        run: |
+          # Validate date format
+          if ! date -d "${{ inputs.target_date }}" >/dev/null 2>&1; then
+            echo "❌ Invalid date format. Use YYYY-MM-DD"
+            exit 1
+          fi
+          echo "✅ Inputs validated"
+
+      - name: Create study repository
+        id: create_repo
+        run: |
+          # Generate repo name from title
+          REPO_NAME=$(echo "study-${{ inputs.study_title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g')
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          
+          # Create repo from template
+          gh repo create "${{ github.repository_owner }}/$REPO_NAME" \
+            --template "${{ github.repository_owner }}/study-template" \
+            --private \
+            --description "OHDSI Study: ${{ inputs.study_title }}"
+          
+          # Add study lead as admin
+          gh api repos/${{ github.repository_owner }}/$REPO_NAME/collaborators/${{ inputs.lead_github }} \
+            --method PUT \
+            --field permission=admin
+          
+          echo "✅ Created repository: $REPO_NAME"
+
+      - name: Create Factory tracking issue
+        run: |
+          # Create tracking issue in Factory repo
+          ISSUE_BODY=$(cat <<EOF
+          ## Study: ${{ inputs.study_title }}
+          
+          **Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}
+          **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
+          **Target Date:** ${{ inputs.target_date }}
+          **Status:** 🟢 Active
+          
+          ### Current Stage
+          - [x] Initiation
+          - [ ] Protocol Development
+          - [ ] Phenotype Development
+          - [ ] Analysis Specifications
+          - [ ] Network Execution
+          - [ ] Results Evaluation
+          
+          ### Activity
+          Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
+          
+          ---
+          *This issue tracks the study progress. Updates are automated.*
+          EOF
+          )
+          
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Study: ${{ inputs.study_title }}" \
+            --body "$ISSUE_BODY" \
+            --label "study-tracking"
+          
+          echo "✅ Created Factory tracking issue"
+
+      - name: Summary
+        run: |
+          echo "## ✅ Study Provisioned Successfully"
+          echo ""
+          echo "**Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
+          echo "**Lead:** @${{ inputs.lead_github }}"
+          echo ""
+          echo "### Next Steps:"
+          echo "1. Visit the repository and update the README"
+          echo "2. Begin protocol development"
+          echo "3. Add data partners as needed"
