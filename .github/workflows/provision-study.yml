@@ -56,11 +56,10 @@ jobs:
 
       - name: Setup project
         id: project
-        uses: ./.github/workflows/reusable/setup-study-project.yml
+        uses: ./.github/actions/setup-study-project
         with:
           repo_name: ${{ steps.validate.outputs.repo_name }}
           study_title: ${{ inputs.study_title }}
-        secrets:
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Create Factory tracking
