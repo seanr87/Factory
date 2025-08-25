@@ -24,10 +24,11 @@ on:
         type: string
 
 # Per briefing/actions/permissions.md - minimal permissions
+# Note: repository-projects only works for classic projects, not Projects v2
 permissions:
   contents: read
   issues: write
-  projects: write
+  repository-projects: write
 
 jobs:
   provision:
@@ -139,6 +140,7 @@ jobs:
       - name: Add issue to Factory Portfolio project
         run: |
           # Add the tracking issue to the Factory Portfolio project
+          # Note: GITHUB_TOKEN has limited access to Projects v2
           echo "🔍 Debug: Checking Factory Portfolio integration..."
           echo "FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}"
           echo "Issue URL: ${{ steps.factory_issue.outputs.issue_url }}"
@@ -148,28 +150,42 @@ jobs:
             PROJECT_NUMBER="${{ vars.FACTORY_PROJECT_NUMBER }}"
             ISSUE_URL="${{ steps.factory_issue.outputs.issue_url }}"
             
-            echo "📋 Adding issue to Factory Portfolio project #$PROJECT_NUMBER"
+            echo "📋 Attempting to add issue to Factory Portfolio project #$PROJECT_NUMBER"
             echo "🔗 Issue URL: $ISSUE_URL"
             
-            # Try to add issue to project with detailed error handling
+            # Try with ORG_ADMIN_TOKEN first (has better project access)
+            if [[ -n "${{ secrets.ORG_ADMIN_TOKEN }}" ]]; then
+              echo "🔑 Using ORG_ADMIN_TOKEN for project access"
+              export GH_TOKEN="${{ secrets.ORG_ADMIN_TOKEN }}"
+            else
+              echo "⚠️ Using GITHUB_TOKEN (limited project access)"
+            fi
+            
+            # Try to add issue to project
             if gh project item-add \
               --project-number="$PROJECT_NUMBER" \
               --owner "${{ github.repository_owner }}" \
               --url "$ISSUE_URL"; then
               echo "✅ Successfully added tracking issue to Factory Portfolio project #$PROJECT_NUMBER"
             else
-              echo "❌ Failed to add issue to project. Possible causes:"
-              echo "  - Project #$PROJECT_NUMBER doesn't exist"
-              echo "  - No permission to access the project"  
-              echo "  - Issue URL format incorrect: $ISSUE_URL"
+              echo "❌ Automated project addition failed"
               echo ""
-              echo "🔧 Manual fix: Go to your Factory Portfolio project and add this issue manually"
-              echo "📝 Issue title: Study: ${{ inputs.study_title }}"
+              echo "🔧 MANUAL STEPS REQUIRED:"
+              echo "1. Go to: https://github.com/users/${{ github.repository_owner }}/projects/$PROJECT_NUMBER"
+              echo "2. Click '+ Add items'"
+              echo "3. Search for: Study: ${{ inputs.study_title }}"
+              echo "4. Add the issue to your project"
+              echo ""
+              echo "💡 Why this happens:"
+              echo "- GITHUB_TOKEN has limited access to Projects v2"
+              echo "- See briefing/projects/github-projects-permissions.md for details"
+              echo "- This is a GitHub platform limitation, not a workflow bug"
             fi
           else
             echo "⚠️ FACTORY_PROJECT_NUMBER not set in repository variables"
             echo "To fix: Go to Settings → Variables → Repository variables → Add 'FACTORY_PROJECT_NUMBER'"
             echo "Set it to your Factory Portfolio project number (found in project URL)"
+            echo "Example: if project URL is /projects/3, set FACTORY_PROJECT_NUMBER to 3"
           fi
 
       - name: Summary
