@@ -11,7 +11,8 @@
       "Bash(gh:*)",
       "Bash(git config:*)",
       "WebSearch",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "WebFetch(domain:docs.github.com)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"

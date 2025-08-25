@@ -46,8 +46,7 @@ runs:
               mutation($ownerId: ID!, $title: String!) {
                 createProjectV2(input: {
                   ownerId: $ownerId,
-                  title: $title,
-                  public: true
+                  title: $title
                 }) {
                   projectV2 {
                     id
@@ -63,6 +62,24 @@ runs:
             
             const project = createResult.createProjectV2.projectV2;
             console.log(`✅ Created project: ${project.url}`);
+            
+            // Make the project public
+            await github.graphql(`
+              mutation($projectId: ID!) {
+                updateProjectV2(input: {
+                  projectId: $projectId,
+                  public: true
+                }) {
+                  projectV2 {
+                    id
+                  }
+                }
+              }
+            `, {
+              projectId: project.id
+            });
+            
+            console.log('✅ Made project public');
             
             // Get repository details for linking
             const repoResult = await github.rest.repos.get({
