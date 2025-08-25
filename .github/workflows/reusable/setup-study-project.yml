@@ -1,0 +1,105 @@
+name: 'Setup Study Project'
+on:
+  workflow_call:
+    inputs:
+      repo_name:
+        description: 'Repository name to link to project'
+        required: true
+        type: string
+      study_title:
+        description: 'Study title for project name'
+        required: true
+        type: string
+    secrets:
+      org_token:
+        description: 'Organization admin token'
+        required: true
+    outputs:
+      project_id:
+        description: 'Created project ID'
+        value: ${{ jobs.setup.outputs.project_id }}
+      project_url:
+        description: 'Created project URL'
+        value: ${{ jobs.setup.outputs.project_url }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      project_id: ${{ steps.create.outputs.project_id }}
+      project_url: ${{ steps.create.outputs.project_url }}
+    steps:
+      - name: Create and link project
+        id: create
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.org_token }}
+          script: |
+            const repoOwner = "${{ github.repository_owner }}";
+            const repoName = "${{ inputs.repo_name }}";
+            const studyTitle = "${{ inputs.study_title }}";
+            
+            console.log(`Creating per-study project for ${repoName}`);
+            
+            try {
+              // Get the repository owner's node ID
+              const ownerResult = await github.rest.users.getByUsername({
+                username: repoOwner
+              });
+              const ownerId = ownerResult.data.node_id;
+              
+              // Create the project using GraphQL
+              const createResult = await github.graphql(`
+                mutation($ownerId: ID!, $title: String!) {
+                  createProjectV2(input: {
+                    ownerId: $ownerId,
+                    title: $title
+                  }) {
+                    projectV2 {
+                      id
+                      number
+                      url
+                    }
+                  }
+                }
+              `, {
+                ownerId: ownerId,
+                title: `Study: ${studyTitle}`
+              });
+              
+              const project = createResult.createProjectV2.projectV2;
+              console.log(`✅ Created project: ${project.url}`);
+              
+              // Get repository details for linking
+              const repoResult = await github.rest.repos.get({
+                owner: repoOwner,
+                repo: repoName
+              });
+              
+              // Link project to repository using GraphQL
+              await github.graphql(`
+                mutation($projectId: ID!, $repoId: ID!) {
+                  linkProjectV2ToRepository(input: {
+                    projectId: $projectId,
+                    repositoryId: $repoId
+                  }) {
+                    repository { id }
+                  }
+                }
+              `, {
+                projectId: project.id,
+                repoId: repoResult.data.node_id
+              });
+              
+              console.log('✅ Successfully linked project to repository');
+              
+              // Set outputs
+              core.setOutput('project_id', project.id);
+              core.setOutput('project_url', project.url);
+              
+              return { id: project.id, url: project.url };
+              
+            } catch (error) {
+              console.error('Error creating or linking project:', error);
+              core.setFailed(`Failed to create and link project: ${error.message}`);
+            }

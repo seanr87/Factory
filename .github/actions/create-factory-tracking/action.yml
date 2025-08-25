@@ -1,0 +1,87 @@
+name: 'Create Factory Tracking'
+description: 'Creates tracking issue in Factory repo'
+inputs:
+  study_title:
+    description: 'Study title'
+    required: true
+  lead_name:
+    description: 'Study lead name'
+    required: true
+  lead_github:
+    description: 'Study lead GitHub username'
+    required: true
+  target_date:
+    description: 'Target completion date'
+    required: true
+  repo_url:
+    description: 'Study repository URL'
+    required: true
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  issue_url:
+    description: 'Created issue URL'
+    value: ${{ steps.create.outputs.issue_url }}
+  issue_node_id:
+    description: 'Issue node ID for project linking'
+    value: ${{ steps.create.outputs.issue_node_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Ensure study-tracking label exists
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        gh label create "study-tracking" \
+          --description "Tracks individual study progress" \
+          --color "0969da" \
+          --repo "${{ github.repository }}" || echo "Label already exists"
+
+    - name: Create tracking issue
+      id: create
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        # Create tracking issue in Factory repo
+        ISSUE_BODY=$(cat <<EOF
+        ## ${{ inputs.study_title }}
+        
+        **Repository:** ${{ inputs.repo_url }}
+        **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
+        **Target Date:** ${{ inputs.target_date }}
+        **Status:** 🟢 Active
+        
+        ### Current Stage
+        - [x] Base Camp
+        - [ ] Protocol Development
+        - [ ] Phenotype Development
+        - [ ] Analysis Specifications
+        - [ ] Network Execution
+        - [ ] Results Evaluation
+        
+        ### Activity
+        Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
+        
+        ---
+        *This issue tracks the study progress. Updates are automated.*
+        EOF
+        )
+        
+        ISSUE_URL=$(gh issue create \
+          --repo "${{ github.repository }}" \
+          --title "${{ inputs.study_title }}" \
+          --body "$ISSUE_BODY" \
+          --label "study-tracking")
+        
+        # Get issue number and node_id
+        ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
+        ISSUE_NODE_ID=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER --jq '.node_id')
+        
+        echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
+        echo "issue_node_id=$ISSUE_NODE_ID" >> $GITHUB_OUTPUT
+        echo "✅ Created Factory tracking issue: $ISSUE_URL"

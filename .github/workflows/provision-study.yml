@@ -1,4 +1,4 @@
-# Minimal study provisioning workflow - MVP version
+# Modular study provisioning workflow
 # Per briefing/workflows/reusable.md and briefing/security/best-practices.md
 
 name: Provision New Study
@@ -24,7 +24,6 @@ on:
         type: string
 
 # Per briefing/actions/permissions.md - minimal permissions
-# Note: repository-projects only works for classic projects, not Projects v2
 permissions:
   contents: read
   issues: write
@@ -33,264 +32,66 @@ permissions:
 jobs:
   provision:
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
-    
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Validate inputs
-        run: |
-          # Validate date format
-          if ! date -d "${{ inputs.target_date }}" >/dev/null 2>&1; then
-            echo "❌ Invalid date format. Use YYYY-MM-DD"
-            exit 1
-          fi
-          echo "✅ Inputs validated"
-
-      - name: Create study repository
-        id: create_repo
-        run: |
-          # Generate repo name from title
-          REPO_NAME=$(echo "study-${{ inputs.study_title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g')
-          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
-          
-          # Create repo from template
-          gh repo create "${{ github.repository_owner }}/$REPO_NAME" \
-            --template "${{ github.repository_owner }}/study-template" \
-            --private \
-            --description "OHDSI Study: ${{ inputs.study_title }}"
-          
-          # Add study lead as admin (skip if they're the repo owner)
-          if [[ "${{ inputs.lead_github }}" != "${{ github.repository_owner }}" ]]; then
-            gh api repos/${{ github.repository_owner }}/$REPO_NAME/collaborators/${{ inputs.lead_github }} \
-              --method PUT \
-              --field permission=admin
-            echo "✅ Added ${{ inputs.lead_github }} as admin"
-          else
-            echo "✅ Study lead is repo owner, skipping collaborator addition"
-          fi
-          
-          echo "✅ Created repository: $REPO_NAME"
-
-      - name: Create study project
-        id: create_project
-        uses: actions/github-script@v7
+        id: validate
+        uses: ./.github/actions/validate-study-inputs
         with:
-          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
-          script: |
-            const repoOwner = "${{ github.repository_owner }}";
-            const repoName = "${{ steps.create_repo.outputs.repo_name }}";
-            const studyTitle = "${{ inputs.study_title }}";
-            
-            console.log(`Creating per-study project for ${repoName}`);
-            
-            try {
-              // Get the repository owner's node ID
-              const ownerResult = await github.rest.users.getByUsername({
-                username: repoOwner
-              });
-              const ownerId = ownerResult.data.node_id;
-              
-              // Create the project using GraphQL
-              const createResult = await github.graphql(`
-                mutation($ownerId: ID!, $title: String!) {
-                  createProjectV2(input: {
-                    ownerId: $ownerId,
-                    title: $title
-                  }) {
-                    projectV2 {
-                      id
-                      number
-                      url
-                    }
-                  }
-                }
-              `, {
-                ownerId: ownerId,
-                title: `Study: ${studyTitle}`
-              });
-              
-              const project = createResult.createProjectV2.projectV2;
-              console.log(`✅ Created project: ${project.url}`);
-              
-              // Get repository details for linking
-              const repoResult = await github.rest.repos.get({
-                owner: repoOwner,
-                repo: repoName
-              });
-              
-              // Link project to repository using GraphQL
-              await github.graphql(`
-                mutation($projectId: ID!, $repoId: ID!) {
-                  linkProjectV2ToRepository(input: {
-                    projectId: $projectId,
-                    repositoryId: $repoId
-                  }) {
-                    repository { id }
-                  }
-                }
-              `, {
-                projectId: project.id,
-                repoId: repoResult.data.node_id
-              });
-              
-              console.log('✅ Successfully linked project to repository');
-              
-              // Set outputs for later steps
-              core.setOutput('project_id', project.id);
-              core.setOutput('project_number', project.number);
-              core.setOutput('project_url', project.url);
-              
-              return {
-                id: project.id,
-                number: project.number,
-                url: project.url
-              };
-              
-            } catch (error) {
-              console.error('Error creating or linking project:', error);
-              core.setFailed(`Failed to create and link project: ${error.message}`);
-            }
+          study_title: ${{ inputs.study_title }}
+          lead_name: ${{ inputs.lead_name }}
+          lead_github: ${{ inputs.lead_github }}
+          target_date: ${{ inputs.target_date }}
 
-      - name: Create Factory tracking issue
-        id: factory_issue
-        run: |
-          # Ensure study-tracking label exists
-          gh label create "study-tracking" \
-            --description "Tracks individual study progress" \
-            --color "0969da" \
-            --repo "${{ github.repository }}" || echo "Label already exists"
-          
-          # Create tracking issue in Factory repo
-          ISSUE_BODY=$(cat <<EOF
-          ## ${{ inputs.study_title }}
-          
-          **Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}
-          **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
-          **Target Date:** ${{ inputs.target_date }}
-          **Status:** 🟢 Active
-          
-          ### Current Stage
-          - [x] Base Camp
-          - [ ] Protocol Development
-          - [ ] Phenotype Development
-          - [ ] Analysis Specifications
-          - [ ] Network Execution
-          - [ ] Results Evaluation
-          
-          ### Activity
-          Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
-          
-          ---
-          *This issue tracks the study progress. Updates are automated.*
-          EOF
-          )
-          
-          ISSUE_URL=$(gh issue create \
-            --repo "${{ github.repository }}" \
-            --title "${{ inputs.study_title }}" \
-            --body "$ISSUE_BODY" \
-            --label "study-tracking")
-          
-          # Get issue number from URL and fetch node_id via API
-          ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
-          ISSUE_NODE_ID=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER --jq '.node_id')
-          
-          echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
-          echo "issue_node_id=$ISSUE_NODE_ID" >> $GITHUB_OUTPUT
-          echo "✅ Created Factory tracking issue: $ISSUE_URL (Node: $ISSUE_NODE_ID)"
-
-      - name: Add issue to Factory Portfolio project
-        uses: actions/github-script@v7
+      - name: Create repository
+        id: repo
+        uses: ./.github/actions/create-study-repository
         with:
-          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
-          script: |
-            const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
-            const owner = "${{ github.repository_owner }}";
-            const issueNodeId = "${{ steps.factory_issue.outputs.issue_node_id }}";
-            const studyTitle = "${{ inputs.study_title }}";
-            
-            console.log(`🔍 Adding issue to Factory Portfolio project #${factoryNumber}`);
-            console.log(`Issue Node ID: ${issueNodeId}`);
-            
-            if (!factoryNumber) {
-              console.log("⚠️ FACTORY_PROJECT_NUMBER not set in repository variables");
-              console.log("To fix: Go to Settings → Variables → Repository variables → Add 'FACTORY_PROJECT_NUMBER'");
-              return;
-            }
-            
-            try {
-              // Query Factory project to get project ID
-              const factoryQuery = `
-                query($login: String!, $num: Int!) {
-                  user(login: $login) {
-                    projectV2(number: $num) {
-                      id
-                      title
-                    }
-                  }
-                }
-              `;
-              
-              const factoryResult = await github.graphql(factoryQuery, {
-                login: owner,
-                num: factoryNumber
-              });
-              
-              const project = factoryResult.user.projectV2;
-              if (!project) {
-                console.log(`❌ Factory project #${factoryNumber} not found for user ${owner}`);
-                console.log("💡 Make sure:");
-                console.log("1. The project number is correct");
-                console.log("2. The project exists and is accessible");
-                return;
-              }
-              
-              console.log(`📋 Found project: ${project.title} (${project.id})`);
-              
-              // Add issue to project using addProjectV2ItemById mutation
-              const addResult = await github.graphql(`
-                mutation($projectId: ID!, $contentId: ID!) {
-                  addProjectV2ItemById(input: {
-                    projectId: $projectId,
-                    contentId: $contentId
-                  }) {
-                    item { id }
-                  }
-                }
-              `, {
-                projectId: project.id,
-                contentId: issueNodeId
-              });
-              
-              const itemId = addResult.addProjectV2ItemById.item.id;
-              console.log(`✅ Successfully added tracking issue to Factory Portfolio project #${factoryNumber}`);
-              console.log(`📋 Project item ID: ${itemId}`);
-              
-            } catch (error) {
-              console.log(`❌ Failed to add issue to project: ${error.message}`);
-              console.log("");
-              console.log("🔧 MANUAL STEPS REQUIRED:");
-              console.log(`1. Go to: https://github.com/users/${owner}/projects/${factoryNumber}`);
-              console.log("2. Click '+ Add items'");
-              console.log(`3. Search for: ${studyTitle}`);
-              console.log("4. Add the issue to your project");
-              console.log("");
-              console.log("💡 This uses the same method as the archived working workflow");
-            }
+          repo_name: ${{ steps.validate.outputs.repo_name }}
+          study_title: ${{ inputs.study_title }}
+          lead_github: ${{ inputs.lead_github }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      - name: Setup project
+        id: project
+        uses: ./.github/workflows/reusable/setup-study-project.yml
+        with:
+          repo_name: ${{ steps.validate.outputs.repo_name }}
+          study_title: ${{ inputs.study_title }}
+        secrets:
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      - name: Create Factory tracking
+        id: tracking
+        uses: ./.github/actions/create-factory-tracking
+        with:
+          study_title: ${{ inputs.study_title }}
+          lead_name: ${{ inputs.lead_name }}
+          lead_github: ${{ inputs.lead_github }}
+          target_date: ${{ inputs.target_date }}
+          repo_url: ${{ steps.repo.outputs.repo_url }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      - name: Add to Factory project
+        uses: ./.github/actions/add-to-factory-project
+        with:
+          issue_node_id: ${{ steps.tracking.outputs.issue_node_id }}
+          study_title: ${{ inputs.study_title }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Summary
         run: |
           echo "## ✅ Study Provisioned Successfully"
           echo ""
-          echo "**Repository:** https://github.com/${{ github.repository_owner }}/${{ steps.create_repo.outputs.repo_name }}"
-          echo "**Project:** ${{ steps.create_project.outputs.project_url }}"
+          echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"
+          echo "**Project:** ${{ steps.project.outputs.project_url }}"
           echo "**Lead:** @${{ inputs.lead_github }}"
-          echo "**Factory Tracking:** ${{ steps.factory_issue.outputs.issue_url }}"
+          echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
           echo ""
           echo "### Next Steps:"
           echo "1. Visit the repository and update the README"
           echo "2. Check the linked project board for stage tracking"
           echo "3. Begin Base Camp stage in the project"
           echo "4. Add data partners as needed"
-          echo ""
-          echo "✅ **Project is now properly linked to repository**"

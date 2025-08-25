@@ -1,0 +1,79 @@
+name: 'Add Issue to Factory Project'
+description: 'Adds tracking issue to Factory Portfolio project'
+inputs:
+  issue_node_id:
+    description: 'Issue node ID to add to project'
+    required: true
+  study_title:
+    description: 'Study title for error messages'
+    required: true
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Add to Factory Portfolio project
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.org_token }}
+        script: |
+          const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
+          const owner = "${{ github.repository_owner }}";
+          const issueNodeId = "${{ inputs.issue_node_id }}";
+          const studyTitle = "${{ inputs.study_title }}";
+          
+          console.log(`🔍 Adding issue to Factory Portfolio project #${factoryNumber}`);
+          
+          if (!factoryNumber) {
+            console.log("⚠️ FACTORY_PROJECT_NUMBER not set in repository variables");
+            console.log("To fix: Settings → Variables → Repository variables → Add 'FACTORY_PROJECT_NUMBER'");
+            return;
+          }
+          
+          try {
+            // Query Factory project
+            const factoryResult = await github.graphql(`
+              query($login: String!, $num: Int!) {
+                user(login: $login) {
+                  projectV2(number: $num) {
+                    id
+                    title
+                  }
+                }
+              }
+            `, { login: owner, num: factoryNumber });
+            
+            const project = factoryResult.user.projectV2;
+            if (!project) {
+              console.log(`❌ Factory project #${factoryNumber} not found`);
+              return;
+            }
+            
+            console.log(`📋 Found project: ${project.title}`);
+            
+            // Add issue to project
+            await github.graphql(`
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {
+                  projectId: $projectId,
+                  contentId: $contentId
+                }) {
+                  item { id }
+                }
+              }
+            `, {
+              projectId: project.id,
+              contentId: issueNodeId
+            });
+            
+            console.log(`✅ Added tracking issue to Factory Portfolio project`);
+            
+          } catch (error) {
+            console.log(`❌ Failed to add issue to project: ${error.message}`);
+            console.log("🔧 MANUAL STEPS REQUIRED:");
+            console.log(`1. Go to: https://github.com/users/${owner}/projects/${factoryNumber}`);
+            console.log("2. Click '+ Add items'");
+            console.log(`3. Search for: ${studyTitle}`);
+          }

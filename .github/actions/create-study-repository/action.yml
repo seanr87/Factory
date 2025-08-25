@@ -1,0 +1,67 @@
+name: 'Create Study Repository'
+description: 'Creates study repository from template and sets up permissions'
+inputs:
+  repo_name:
+    description: 'Repository name'
+    required: true
+  study_title:
+    description: 'Study title for description'
+    required: true
+  lead_github:
+    description: 'GitHub username of study lead'
+    required: true
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  repo_url:
+    description: 'URL of created repository'
+    value: ${{ steps.create.outputs.repo_url }}
+  repo_full_name:
+    description: 'Full name (owner/repo) of repository'
+    value: ${{ steps.create.outputs.repo_full_name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create repository from template
+      id: create
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        REPO_FULL_NAME="${{ github.repository_owner }}/${{ inputs.repo_name }}"
+        
+        # Create repo from template
+        gh repo create "$REPO_FULL_NAME" \
+          --template "${{ github.repository_owner }}/study-template" \
+          --private \
+          --description "OHDSI Study: ${{ inputs.study_title }}"
+        
+        REPO_URL="https://github.com/$REPO_FULL_NAME"
+        echo "repo_url=$REPO_URL" >> $GITHUB_OUTPUT
+        echo "repo_full_name=$REPO_FULL_NAME" >> $GITHUB_OUTPUT
+        echo "✅ Created repository: $REPO_URL"
+
+    - name: Add study lead as admin
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        # Skip if study lead is the repo owner
+        if [[ "${{ inputs.lead_github }}" != "${{ github.repository_owner }}" ]]; then
+          gh api repos/${{ github.repository_owner }}/${{ inputs.repo_name }}/collaborators/${{ inputs.lead_github }} \
+            --method PUT \
+            --field permission=admin
+          echo "✅ Added ${{ inputs.lead_github }} as admin"
+        else
+          echo "✅ Study lead is repo owner, skipping collaborator addition"
+        fi
+
+    - name: Repository creation summary
+      shell: bash
+      run: |
+        echo "✅ Repository setup completed"
+        echo "  Repository: ${{ steps.create.outputs.repo_url }}"
+        echo "  Admin: @${{ inputs.lead_github }}"
