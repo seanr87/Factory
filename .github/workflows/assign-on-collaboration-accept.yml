@@ -1,0 +1,125 @@
+name: Auto-assign Issues on Collaboration Accept
+
+on:
+  member:
+    types: [added]
+
+permissions:
+  issues: write
+  repository-projects: read
+
+jobs:
+  assign-pending-issues:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'added'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find and assign pending issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const newCollaborator = context.payload.member.login;
+            console.log(`🎉 New collaborator accepted: @${newCollaborator}`);
+            
+            try {
+              // Get all study-tracking issues
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'study-tracking',
+                state: 'open'
+              });
+              
+              console.log(`🔍 Found ${issues.data.length} study-tracking issues`);
+              
+              // Find issues where this user should be assigned
+              const issuesToAssign = [];
+              
+              for (const issue of issues.data) {
+                // Skip if already assigned
+                if (issue.assignees && issue.assignees.length > 0) {
+                  console.log(`⏩ Issue #${issue.number} already assigned to: ${issue.assignees.map(a => a.login).join(', ')}`);
+                  continue;
+                }
+                
+                // Check if the issue body mentions this user as the lead
+                const issueBody = issue.body || '';
+                const leadPattern = /\*\*Lead:\*\*\s+([^(]+)\s+\(@([^)]+)\)/;
+                const match = issueBody.match(leadPattern);
+                
+                if (match) {
+                  const leadName = match[1].trim();
+                  const leadUsername = match[2].trim();
+                  
+                  console.log(`📋 Issue #${issue.number} lead: ${leadName} (@${leadUsername})`);
+                  
+                  if (leadUsername === newCollaborator) {
+                    console.log(`✅ Match found! Issue #${issue.number} should be assigned to @${newCollaborator}`);
+                    issuesToAssign.push({
+                      number: issue.number,
+                      title: issue.title,
+                      leadName: leadName
+                    });
+                  }
+                } else {
+                  console.log(`⚠️  Could not parse lead info from issue #${issue.number}`);
+                }
+              }
+              
+              // Assign the issues
+              if (issuesToAssign.length === 0) {
+                console.log(`📝 No issues found that should be assigned to @${newCollaborator}`);
+                return;
+              }
+              
+              console.log(`🎯 Assigning ${issuesToAssign.length} issues to @${newCollaborator}:`);
+              
+              const results = [];
+              for (const issue of issuesToAssign) {
+                try {
+                  await github.rest.issues.addAssignees({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    assignees: [newCollaborator]
+                  });
+                  
+                  console.log(`✅ Assigned issue #${issue.number}: ${issue.title}`);
+                  results.push(`✅ #${issue.number}: ${issue.title}`);
+                  
+                } catch (assignError) {
+                  console.log(`❌ Failed to assign issue #${issue.number}: ${assignError.message}`);
+                  results.push(`❌ #${issue.number}: Failed to assign`);
+                }
+              }
+              
+              // Create a summary comment on one of the assigned issues
+              if (results.length > 0 && issuesToAssign.length > 0) {
+                const summaryComment = [
+                  `🎉 Welcome @${newCollaborator}! You've been automatically assigned to your study tracking issues:`,
+                  '',
+                  ...results,
+                  '',
+                  `This assignment happened because you accepted collaboration on this repository and were listed as the study lead.`
+                ].join('\\n');
+                
+                try {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issuesToAssign[0].number,
+                    body: summaryComment
+                  });
+                  console.log(`📝 Added welcome comment to issue #${issuesToAssign[0].number}`);
+                } catch (commentError) {
+                  console.log(`⚠️  Could not add welcome comment: ${commentError.message}`);
+                }
+              }
+              
+            } catch (error) {
+              console.error(`❌ Error in assignment workflow: ${error.message}`);
+              core.setFailed(`Failed to process collaboration acceptance: ${error.message}`);
+            }
