@@ -1,0 +1,41 @@
+name: Update Study Leads Dropdown
+
+on:
+  push:
+    paths:
+      - '.github/data/study-leads.json'
+
+permissions:
+  contents: write
+
+jobs:
+  update-dropdown:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'  # Prevent infinite loops
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update workflow dropdown
+        uses: ./.github/actions/update-workflow-dropdown
+        with:
+          workflow_path: .github/workflows/provision-study.yml
+
+      - name: Commit updated workflow
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/workflows/provision-study.yml
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update study leads dropdown options
+
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            git push
+            echo "✅ Updated workflow dropdown with current study leads"
+          fi

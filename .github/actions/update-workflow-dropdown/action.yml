@@ -1,0 +1,53 @@
+name: 'Update Workflow Dropdown'
+description: 'Updates the provision-study workflow dropdown with current study leads'
+inputs:
+  workflow_path:
+    description: 'Path to the workflow file to update'
+    required: true
+    default: '.github/workflows/provision-study.yml'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update dropdown options
+      shell: bash
+      run: |
+        # Read current study leads
+        if [[ ! -f .github/data/study-leads.json ]]; then
+          echo "No study leads file found, skipping update"
+          exit 0
+        fi
+        
+        # Generate dropdown options from JSON
+        OPTIONS=""
+        while IFS= read -r line; do
+          NAME=$(echo "$line" | jq -r '.name')
+          GITHUB=$(echo "$line" | jq -r '.github_username')
+          # Escape single quotes in name for YAML
+          ESCAPED_NAME=$(echo "$NAME" | sed "s/'/''/g")
+          OPTIONS="${OPTIONS}          - '${ESCAPED_NAME}|${GITHUB}'\n"
+        done < <(jq -c '.study_leads[]' .github/data/study-leads.json)
+        
+        # Add "Add new study lead" option at the end
+        OPTIONS="${OPTIONS}          - 'Add new study lead'"
+        
+        # Create temporary file with updated workflow
+        awk -v options="$OPTIONS" '
+        /^      study_lead_selection:/ { in_section = 1 }
+        /^        options:/ && in_section { 
+          print $0
+          print options
+          in_options = 1
+          next
+        }
+        /^      [a-zA-Z]/ && in_section && !/^      study_lead_selection:/ { 
+          in_section = 0
+          in_options = 0
+        }
+        /^          -/ && in_options { next }
+        !in_options || !in_section { print }
+        ' "${{ inputs.workflow_path }}" > temp_workflow.yml
+        
+        # Replace original workflow
+        mv temp_workflow.yml "${{ inputs.workflow_path }}"
+        echo "✅ Updated workflow dropdown with current study leads"

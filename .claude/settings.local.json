@@ -16,7 +16,10 @@
       "Bash(./.github/actions/validate-study-inputs/action.yml)",
       "Bash(if [[ \"Add new study lead\" == \"Add new study lead\" ]])",
       "Bash(else echo \"❌ Condition failed\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(./.github/actions/update-workflow-dropdown/action.yml)",
+      "Bash(jq:*)",
+      "Bash(cat:*)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"
