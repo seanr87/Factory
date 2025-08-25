@@ -76,7 +76,8 @@ runs:
           --repo "${{ github.repository }}" \
           --title "${{ inputs.study_title }}" \
           --body "$ISSUE_BODY" \
-          --label "study-tracking")
+          --label "study-tracking" \
+          --assignee "${{ inputs.lead_github }}")
         
         # Get issue number and node_id
         ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
@@ -84,4 +85,4 @@ runs:
         
         echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
         echo "issue_node_id=$ISSUE_NODE_ID" >> $GITHUB_OUTPUT
-        echo "✅ Created Factory tracking issue: $ISSUE_URL"
+        echo "✅ Created Factory tracking issue: $ISSUE_URL (assigned to @${{ inputs.lead_github }})"

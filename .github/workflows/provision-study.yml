@@ -15,7 +15,6 @@ on:
         required: true
         type: choice
         options:
-          - 'Sean O''Reilly|seanr87'
           - 'Add new study lead'
       new_lead_name:
         description: 'New study lead name (only if adding new)'
@@ -112,6 +111,7 @@ jobs:
           issue_node_id: ${{ steps.tracking.outputs.issue_node_id }}
           study_title: ${{ inputs.study_title }}
           factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}
+          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Summary

@@ -33,8 +33,10 @@ runs:
         else
           echo "🔄 Generating dropdown options..."
           
-          # Generate dropdown options from JSON
-          OPTIONS_CONTENT=""
+          # Start with "Add new study lead" as default first option
+          OPTIONS_CONTENT="          - 'Add new study lead'"
+          
+          # Generate dropdown options from JSON and add beneath
           while IFS= read -r line; do
             NAME=$(echo "$line" | jq -r '.name')
             GITHUB=$(echo "$line" | jq -r '.github_username')
@@ -42,11 +44,8 @@ runs:
             
             # Escape single quotes in name for YAML
             ESCAPED_NAME=$(echo "$NAME" | sed "s/'/''/g")
-            OPTIONS_CONTENT="${OPTIONS_CONTENT}          - '${ESCAPED_NAME}|${GITHUB}'\n"
+            OPTIONS_CONTENT="${OPTIONS_CONTENT}\n          - '${ESCAPED_NAME}|${GITHUB}'"
           done < <(jq -c '.study_leads[]' .github/data/study-leads.json)
-          
-          # Add "Add new study lead" option at the end
-          OPTIONS_CONTENT="${OPTIONS_CONTENT}          - 'Add new study lead'"
         fi
         
         echo "📝 Generated options:"

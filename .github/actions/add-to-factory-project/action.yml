@@ -10,6 +10,9 @@ inputs:
   factory_project_number:
     description: 'Factory Portfolio project number'
     required: true
+  lead_name:
+    description: 'Study lead name for custom field'
+    required: true
   org_token:
     description: 'Organization admin token'
     required: true
@@ -26,6 +29,7 @@ runs:
           const owner = "${{ github.repository_owner }}";
           const issueNodeId = "${{ inputs.issue_node_id }}";
           const studyTitle = "${{ inputs.study_title }}";
+          const leadName = "${{ inputs.lead_name }}";
           
           console.log(`🔍 Adding issue to Factory Portfolio project #${factoryNumber}`);
           
@@ -36,13 +40,25 @@ runs:
           }
           
           try {
-            // Query Factory project
+            // Query Factory project and custom fields
             const factoryResult = await github.graphql(`
               query($login: String!, $num: Int!) {
                 user(login: $login) {
                   projectV2(number: $num) {
                     id
                     title
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2Field {
+                          id
+                          name
+                        }
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -56,8 +72,14 @@ runs:
             
             console.log(`📋 Found project: ${project.title}`);
             
+            // Find Lead field
+            const leadField = project.fields.nodes.find(field => field.name === 'Lead');
+            if (!leadField) {
+              console.log(`⚠️ 'Lead' custom field not found in project`);
+            }
+            
             // Add issue to project
-            await github.graphql(`
+            const addResult = await github.graphql(`
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2ItemById(input: {
                   projectId: $projectId,
@@ -71,7 +93,36 @@ runs:
               contentId: issueNodeId
             });
             
+            const itemId = addResult.addProjectV2ItemById.item.id;
             console.log(`✅ Added tracking issue to Factory Portfolio project`);
+            
+            // Set Lead field if it exists
+            if (leadField) {
+              try {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: {
+                        text: $value
+                      }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: project.id,
+                  itemId: itemId,
+                  fieldId: leadField.id,
+                  value: leadName
+                });
+                console.log(`✅ Set Lead field to: ${leadName}`);
+              } catch (fieldError) {
+                console.log(`⚠️ Failed to set Lead field: ${fieldError.message}`);
+              }
+            }
             
           } catch (error) {
             console.log(`❌ Failed to add issue to project: ${error.message}`);
