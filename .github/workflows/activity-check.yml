@@ -34,9 +34,11 @@ jobs:
           
           echo "Found $(wc -l < issues.jsonl) study tracking issues"
 
-      - name: Check study activity
+      - name: Gather study activity data
         run: |
-          # Process each tracking issue
+          # Process each tracking issue and collect data for GraphQL updates
+          echo "[]" > issue_updates.json
+          
           while IFS= read -r issue_json; do
             issue=$(echo "$issue_json" | jq -r '.')
             number=$(echo "$issue" | jq -r '.number')
@@ -58,182 +60,153 @@ jobs:
                 now=$(date +%s)
                 days_inactive=$(( (now - last_date) / 86400 ))
                 
-                # Determine status
+                # Determine status using shortcodes
                 if [[ $days_inactive -gt 30 ]]; then
-                  status="🔴 Inactive ($days_inactive days)"
+                  status_shortcode=":red_circle:"
+                  status_text="Inactive ($days_inactive days)"
                 elif [[ $days_inactive -gt 14 ]]; then
-                  status="🟡 Low Activity ($days_inactive days)"
+                  status_shortcode=":yellow_circle:"
+                  status_text="Low Activity ($days_inactive days)"
                 else
-                  status="🟢 Active"
+                  status_shortcode=":green_circle:"
+                  status_text="Active"
                 fi
                 
-                # Update issue body with new activity timestamp
+                # Clean existing emoji/shortcodes from title
+                base_title=$(echo "$title" | sed -E 's/^(🟢|🟡|🔴|:green_circle:|:yellow_circle:|:red_circle:)[[:space:]]*//')
+                new_title="${status_shortcode} ${base_title}"
+                
+                # Update issue body with new timestamp and status
                 updated_body=$(echo "$body" | sed "s|Last updated:.*|Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")|")
-                updated_body=$(echo "$updated_body" | sed "s|Status:.*|Status: $status|")
+                updated_body=$(echo "$updated_body" | sed "s|Status:.*|Status: ${status_shortcode} ${status_text}|")
                 
-                # Extract emoji from status for title update (more reliable method)
-                if [[ "$status" == *"🟢"* ]]; then
-                  status_emoji="🟢"
-                elif [[ "$status" == *"🟡"* ]]; then
-                  status_emoji="🟡"
-                elif [[ "$status" == *"🔴"* ]]; then
-                  status_emoji="🔴"
-                else
-                  status_emoji=""
-                fi
+                # Add to update list
+                update_data=$(jq -n \
+                  --arg number "$number" \
+                  --arg title "$new_title" \
+                  --arg body "$updated_body" \
+                  --arg status "$status_shortcode" \
+                  '{number: $number, title: $title, body: $body, status: $status}')
                 
-                # Clean title of any existing emoji and add new one
-                # Remove any leading emoji (🟢, 🟡, 🔴) followed by optional space
-                base_title=$(echo "$title" | sed -E 's/^[🟢🟡🔴][[:space:]]*//')
-                new_title="${status_emoji} ${base_title}"
+                jq --argjson update "$update_data" '. += [$update]' issue_updates.json > tmp.json && mv tmp.json issue_updates.json
                 
-                echo "🔍 Debug: Original title: '$title'"
-                echo "🔍 Debug: Base title: '$base_title'"
-                echo "🔍 Debug: Status emoji: '$status_emoji'"
-                echo "🔍 Debug: New title: '$new_title'"
-                
-                if gh issue edit $number \
-                  --repo "${{ github.repository }}" \
-                  --title "$new_title" \
-                  --body "$updated_body"; then
-                  echo "✅ Updated issue #$number: '$title' -> '$new_title' - $status"
-                else
-                  echo "❌ Failed to update issue #$number: $title"
-                fi
+                echo "📝 Prepared update for issue #$number: '$title' -> '$new_title'"
               else
                 echo "⚠️  Could not check repo: $repo_name"
               fi
             fi
           done < issues.jsonl
+          
+          echo "📊 Prepared $(jq length issue_updates.json) issue updates"
 
-      - name: Update Factory Portfolio project status
+      - name: Update issues and portfolio with GraphQL
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
           script: |
-            console.log("🔍 Portfolio project update step - DISABLED FOR TESTING");
-            console.log("💡 Issue titles were already updated with emoji status above");
-            console.log("💡 GitHub Projects should automatically reflect the updated issue titles");
-            return; // Skip project updates to avoid conflicts
+            const fs = require('fs');
+            const path = require('path');
             
-            // TEMPORARILY DISABLED - Issue title updates should be sufficient
-            const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
-            const owner = "${{ github.repository_owner }}";
+            // Read the updates prepared in previous step
+            const updatesFile = 'issue_updates.json';
+            let updates = [];
             
-            console.log(`🔍 Updating Factory Portfolio project status...`);
-            
-            if (!factoryNumber) {
-              console.log("⚠️ FACTORY_PROJECT_NUMBER not set, skipping portfolio updates");
+            try {
+              const data = fs.readFileSync(updatesFile, 'utf8');
+              updates = JSON.parse(data);
+              console.log(`📊 Processing ${updates.length} issue updates`);
+            } catch (error) {
+              console.log(`⚠️ No update data found: ${error.message}`);
               return;
             }
             
-            try {
-              // Query Factory project to get project ID
-              const factoryQuery = `
-                query($login: String!, $num: Int!) {
-                  user(login: $login) {
-                    projectV2(number: $num) {
-                      id
-                      title
-                      items(first: 100) {
-                        nodes {
-                          id
-                          type
-                          content {
-                            ... on Issue {
-                              id
-                              number
-                              title
-                              body
-                              labels(first: 10) {
-                                nodes {
-                                  name
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              `;
-              
-              const factoryResult = await github.graphql(factoryQuery, {
-                login: owner,
-                num: factoryNumber
-              });
-              
-              const project = factoryResult.user.projectV2;
-              if (!project) {
-                console.log(`❌ Factory project #${factoryNumber} not found`);
-                return;
-              }
-              
-              console.log(`📋 Found project: ${project.title}`);
-              
-              // Process each project item that has study-tracking label
-              let updatedCount = 0;
-              for (const item of project.items.nodes) {
-                if (item.content && item.content.labels) {
-                  const hasTrackingLabel = item.content.labels.nodes.some(label => 
-                    label.name === 'study-tracking'
-                  );
-                  
-                  if (hasTrackingLabel) {
-                    const issueTitle = item.content.title;
-                    const issueBody = item.content.body || '';
-                    
-                    // Extract status from issue body (look for Status: line)
-                    const statusMatch = issueBody.match(/Status:\s*([🟢🟡🔴][^\\n]*)/);
-                    if (statusMatch) {
-                      const statusLine = statusMatch[1];
-                      const statusEmoji = statusLine.charAt(0); // Get first emoji
-                      
-                      // Clean title of any existing status emoji  
-                      const baseTitle = issueTitle.replace(/^[🟢🟡🔴]\s*/, '');
-                      const newTitle = `${statusEmoji} ${baseTitle}`;
-                      
-                      console.log(`🔍 Project item: Original='${issueTitle}', New='${newTitle}'`);
-                      
-                      // Only update if title changed
-                      if (newTitle !== issueTitle) {
-                        try {
-                          await github.graphql(`
-                            mutation($projectId: ID!, $itemId: ID!, $title: String!) {
-                              updateProjectV2Item(input: {
-                                projectId: $projectId,
-                                itemId: $itemId,
-                                fieldChanges: {
-                                  title: $title
-                                }
-                              }) {
-                                item { id }
-                              }
-                            }
-                          `, {
-                            projectId: project.id,
-                            itemId: item.id,
-                            title: newTitle
-                          });
-                          
-                          console.log(`✅ Updated project item: ${newTitle}`);
-                          updatedCount++;
-                        } catch (error) {
-                          console.log(`❌ Failed to update item ${issueTitle}: ${error.message}`);
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-              
-              console.log(`📊 Updated ${updatedCount} project items with status`);
-              
-            } catch (error) {
-              console.log(`❌ Failed to update portfolio status: ${error.message}`);
-              console.log("💡 Portfolio status updates are optional - core sync still works");
+            if (updates.length === 0) {
+              console.log("ℹ️ No issues to update");
+              return;
             }
+            
+            // Process each issue update
+            let successCount = 0;
+            let failureCount = 0;
+            
+            for (const update of updates) {
+              try {
+                console.log(`🔄 Updating issue #${update.number}: ${update.title}`);
+                
+                // Update issue using GraphQL
+                const updateMutation = `
+                  mutation UpdateIssue($issueId: ID!, $title: String!, $body: String!) {
+                    updateIssue(input: {
+                      id: $issueId,
+                      title: $title,
+                      body: $body
+                    }) {
+                      issue {
+                        id
+                        number
+                        title
+                      }
+                    }
+                  }
+                `;
+                
+                // First, get the issue ID from the issue number
+                const issueQuery = `
+                  query GetIssue($owner: String!, $name: String!, $number: Int!) {
+                    repository(owner: $owner, name: $name) {
+                      issue(number: $number) {
+                        id
+                        title
+                      }
+                    }
+                  }
+                `;
+                
+                const [owner, repo] = "${{ github.repository }}".split('/');
+                const issueResult = await github.graphql(issueQuery, {
+                  owner: owner,
+                  name: repo,
+                  number: parseInt(update.number)
+                });
+                
+                if (!issueResult.repository.issue) {
+                  console.log(`❌ Issue #${update.number} not found`);
+                  failureCount++;
+                  continue;
+                }
+                
+                const issueId = issueResult.repository.issue.id;
+                const oldTitle = issueResult.repository.issue.title;
+                
+                // Update the issue
+                await github.graphql(updateMutation, {
+                  issueId: issueId,
+                  title: update.title,
+                  body: update.body
+                });
+                
+                console.log(`✅ Updated issue #${update.number}: '${oldTitle}' -> '${update.title}'`);
+                successCount++;
+                
+              } catch (error) {
+                console.log(`❌ Failed to update issue #${update.number}: ${error.message}`);
+                failureCount++;
+              }
+            }
+            
+            console.log(`📊 Completed: ${successCount} successful, ${failureCount} failed`);
+            
+            // Portfolio project updates (optional)
+            const factoryNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
+            
+            if (!factoryNumber) {
+              console.log("ℹ️ FACTORY_PROJECT_NUMBER not set, skipping portfolio updates");
+              return;
+            }
+            
+            console.log(`📋 Portfolio project #${factoryNumber} updates:`);
+            console.log("💡 GitHub Projects should automatically reflect the updated issue titles");
+            console.log("ℹ️ If project titles don't sync, manual project item updates may be needed");
 
       - name: Summary
         run: |
