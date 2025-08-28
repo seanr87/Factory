@@ -192,44 +192,9 @@ runs:
             // Sort issues by order for proper display in project
             createdIssues.sort((a, b) => a.order - b.order);
             
-            // Create status update webhook workflow in the study repository
-            const workflowContent = [
-              'name: Status Update Webhook',
-              '',
-              'on:',
-              '  issues:',
-              '    types: [closed, edited]',
-              '  projects_v2_item:',
-              '    types: [edited]',
-              '',
-              'jobs:',
-              '  update-factory-objective:',
-              '    uses: ' + repoOwner + '/Factory/.github/workflows/reusable/study-status-webhook.yml@main',
-              '    with:',
-              '      factory_issue_number: "' + factoryIssueNumber + '"',
-              '    secrets:',
-              '      FACTORY_ORG_TOKEN: $' + '{{ secrets.FACTORY_ORG_TOKEN }}',
-              ''
-            ].join('\n');
-
-            try {
-              // Create .github/workflows directory structure if it doesn't exist
-              await github.rest.repos.createOrUpdateFileContents({
-                owner: repoOwner,
-                repo: repoName,
-                path: '.github/workflows/status-update.yml',
-                message: 'Add status update webhook workflow',
-                content: Buffer.from(workflowContent).toString('base64'),
-                committer: {
-                  name: 'GitHub Action',
-                  email: 'action@github.com'
-                }
-              });
-              
-              console.log('✅ Created status update webhook workflow');
-            } catch (workflowError) {
-              console.log(`⚠️ Failed to create webhook workflow: ${workflowError.message}`);
-            }
+            // Note: Factory objective update workflow is included in study template repository
+            // No need to create webhook workflow - it should already exist from template
+            console.log('ℹ️ Factory objective update workflow should be included from study-template repository');
             
             console.log(`✅ Successfully created ${issuesCreated} status issues`);
             console.log('Issues created:', createdIssues.map(i => `${i.order}. ${i.title}`).join(', '));
