@@ -20,7 +20,8 @@
       "Bash(./.github/actions/update-workflow-dropdown/action.yml)",
       "Bash(jq:*)",
       "Bash(cat:*)",
-      "Bash(yamllint:*)"
+      "Bash(yamllint:*)",
+      "WebFetch(domain:github.com)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"
