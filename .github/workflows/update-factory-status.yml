@@ -41,15 +41,17 @@ jobs:
               let updatedBody = currentIssue.data.body;
               
               // Update the status in the body
+              const statusEmoji = '🟡';
               updatedBody = updatedBody.replace(
                 /\*\*Status:\*\* [^\n]+/,
-                `**Status:** 🟡 ${newStatus}`
+                `**Status:** ${statusEmoji} ${newStatus}`
               );
               
               // Add activity log entry
               const activitySection = /### Activity\n(.*?)(\n---|\n\*This issue tracks|$)/s;
-              const newActivity = `Last updated: ${new Date().toISOString().split('T')[0]}
-📋 Status updated to **${newStatus}** (triggered by: [${closedIssueTitle}](${closedIssueUrl}) in ${studyRepo})`;
+              const currentDate = new Date().toISOString().split('T')[0];
+              const newActivity = `Last updated: ${currentDate}
+Status updated to **${newStatus}** (triggered by: [${closedIssueTitle}](${closedIssueUrl}) in ${studyRepo})`;
               
               if (activitySection.test(updatedBody)) {
                 updatedBody = updatedBody.replace(
@@ -73,11 +75,12 @@ jobs:
               });
               
               // Add a comment to the Factory issue
+              const targetEmoji = '🎯';
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: parseInt(factoryIssueNumber),
-                body: `🎯 **Status Update:** ${newStatus}
+                body: `${targetEmoji} **Status Update:** ${newStatus}
 
 Study milestone completed in [${studyRepo}](https://github.com/${studyRepo}):
 - Closed: [${closedIssueTitle}](${closedIssueUrl})
