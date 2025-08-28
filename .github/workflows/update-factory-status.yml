@@ -75,16 +75,12 @@ jobs:
               
               // Add a comment to the Factory issue
               const targetEmoji = '🎯';
+              const commentBody = `${targetEmoji} **Status Update:** ${newStatus}\n\nStudy milestone completed in [${studyRepo}](https://github.com/${studyRepo}):\n- Closed: [${closedIssueTitle}](${closedIssueUrl})\n\nThis status change was triggered automatically by the study status tracking system.`;
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: parseInt(factoryIssueNumber),
-                body: `${targetEmoji} **Status Update:** ${newStatus}
-
-Study milestone completed in [${studyRepo}](https://github.com/${studyRepo}):
-- Closed: [${closedIssueTitle}](${closedIssueUrl})
-
-This status change was triggered automatically by the study status tracking system.`
+                body: commentBody
               });
               
               console.log(`✅ Successfully updated Factory issue #${factoryIssueNumber}`);
