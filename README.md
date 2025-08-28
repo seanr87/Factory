@@ -2,6 +2,18 @@
 
 > Simple system for creating and tracking OHDSI network studies
 
+## Conventions
+### Study Lead Management
+When Provisioning, you can assign a Study Lead in 2 ways.
+#### 1. Existing Study Lead
+Simply select the Study Lead's name & GitHub name from the list. The Study Lead will receive Admin permissions on the Study Project* and Study Repo, and will be both assigned and tagged in the study's Factory Issue to be displayed in Factory Portfolio.
+#### 2. Add New Study Lead
+* Leave the "Select Existing Study Lead" dropdown on "Add New Study Lead".
+* In the following fields, enter the new Study Lead's name and GitHub username.
+* The Study Lead will receive Admin permissions on the Study Project* and Study Repo.
+> If the Study Lead is an existing Collaborator, they'll be assigned to the study's Factory Issue.
+> If the Study Lead is _not_ an existing Collaborator, they'll receive a Collaborator invitation. Once they accept it, **Coordinator must manuallyassign Study Lead to the study's Factory Issue.**
+
 ## Currently Built Functions ✅
 
 - **Study Provisioning**: Automated study repository creation with GitHub Actions

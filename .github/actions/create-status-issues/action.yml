@@ -118,7 +118,22 @@ runs:
             createdIssues.sort((a, b) => a.order - b.order);
             
             // Create status update webhook workflow in the study repository
-            const workflowContent = `name: Status Update Webhook\n\non:\n  issues:\n    types: [closed]\n\njobs:\n  update-factory-status:\n    uses: ${{ github.repository_owner }}/Factory/.github/workflows/reusable/study-status-webhook.yml@main\n    with:\n      factory_issue_number: "${factoryIssueNumber}"\n    secrets:\n      FACTORY_ORG_TOKEN: \\${{ secrets.FACTORY_ORG_TOKEN }}\n`;
+            const workflowContent = [
+              'name: Status Update Webhook',
+              '',
+              'on:',
+              '  issues:',
+              '    types: [closed]',
+              '',
+              'jobs:',
+              '  update-factory-status:',
+              '    uses: ' + repoOwner + '/Factory/.github/workflows/reusable/study-status-webhook.yml@main',
+              '    with:',
+              '      factory_issue_number: "' + factoryIssueNumber + '"',
+              '    secrets:',
+              '      FACTORY_ORG_TOKEN: $' + '{{ secrets.FACTORY_ORG_TOKEN }}',
+              ''
+            ].join('\n');
 
             try {
               // Create .github/workflows directory structure if it doesn't exist
