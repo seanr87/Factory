@@ -104,6 +104,70 @@ runs:
                 const itemId = addResult.addProjectV2ItemById.item.id;
                 console.log(`   ✅ Added to project successfully (Item ID: ${itemId})`);
                 
+                // Set initial status if configured
+                if (issueConfig.initial_status) {
+                  try {
+                    console.log(`   🔄 Setting initial status to: ${issueConfig.initial_status}`);
+                    
+                    // Get project fields to find Status field
+                    const projectFields = await github.graphql(`
+                      query($projectId: ID!) {
+                        node(id: $projectId) {
+                          ... on ProjectV2 {
+                            fields(first: 20) {
+                              nodes {
+                                ... on ProjectV2SingleSelectField {
+                                  id
+                                  name
+                                  options {
+                                    id
+                                    name
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    `, { projectId: projectId });
+                    
+                    const statusField = projectFields.node.fields.nodes.find(field => field.name === 'Status');
+                    if (statusField) {
+                      const statusOption = statusField.options.find(option => option.name === issueConfig.initial_status);
+                      
+                      if (statusOption) {
+                        await github.graphql(`
+                          mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                            updateProjectV2ItemFieldValue(input: {
+                              projectId: $projectId,
+                              itemId: $itemId,
+                              fieldId: $fieldId,
+                              value: { singleSelectOptionId: $optionId }
+                            }) {
+                              projectV2Item {
+                                id
+                              }
+                            }
+                          }
+                        `, {
+                          projectId: projectId,
+                          itemId: itemId,
+                          fieldId: statusField.id,
+                          optionId: statusOption.id
+                        });
+                        
+                        console.log(`   ✅ Set status to: ${issueConfig.initial_status}`);
+                      } else {
+                        console.log(`   ❌ Status option '${issueConfig.initial_status}' not found`);
+                      }
+                    } else {
+                      console.log(`   ❌ Status field not found in project`);
+                    }
+                  } catch (statusError) {
+                    console.log(`   ❌ Failed to set initial status: ${statusError.message}`);
+                  }
+                }
+                
               } catch (projectError) {
                 console.log(`   ❌ Failed to add to project: ${projectError.message}`);
                 console.log(`   🔍 Project ID: ${projectId}`);
@@ -116,7 +180,7 @@ runs:
                 url: issueResponse.data.html_url,
                 title: issueConfig.title,
                 order: issueConfig.order,
-                factory_status: issueConfig.factory_status
+                factory_objective: issueConfig.factory_objective
               });
               
               issuesCreated++;
@@ -134,10 +198,12 @@ runs:
               '',
               'on:',
               '  issues:',
-              '    types: [closed]',
+              '    types: [closed, edited]',
+              '  projects_v2_item:',
+              '    types: [edited]',
               '',
               'jobs:',
-              '  update-factory-status:',
+              '  update-factory-objective:',
               '    uses: ' + repoOwner + '/Factory/.github/workflows/reusable/study-status-webhook.yml@main',
               '    with:',
               '      factory_issue_number: "' + factoryIssueNumber + '"',

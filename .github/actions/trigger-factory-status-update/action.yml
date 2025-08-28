@@ -1,14 +1,17 @@
-name: 'Trigger Factory Status Update'
-description: 'Triggers status update in Factory repository when study status issues are closed'
+name: 'Update Factory Objective Field'
+description: 'Updates Factory issue Objective field when study status issues change or close'
 inputs:
-  closed_issue_title:
-    description: 'Title of the closed issue'
+  issue_title:
+    description: 'Title of the issue'
     required: true
-  closed_issue_url:
-    description: 'URL of the closed issue'
+  issue_url:
+    description: 'URL of the issue'
     required: true
-  closed_issue_labels:
-    description: 'Labels of the closed issue (JSON array)'
+  issue_labels:
+    description: 'Labels of the issue (JSON array)'
+    required: true
+  issue_action:
+    description: 'GitHub event action (closed, edited, etc.)'
     required: true
   factory_issue_number:
     description: 'Factory issue number to update'
@@ -27,7 +30,7 @@ runs:
       id: check_status
       shell: bash
       run: |
-        LABELS='${{ inputs.closed_issue_labels }}'
+        LABELS='${{ inputs.issue_labels }}'
         if echo "$LABELS" | jq -e '.[] | select(.name == "status-tracking")' > /dev/null; then
           echo "is_status_issue=true" >> $GITHUB_OUTPUT
           echo "✅ This is a status tracking issue"
@@ -36,76 +39,105 @@ runs:
           echo "ℹ️  Not a status tracking issue, skipping Factory update"
         fi
 
-    - name: Load status mapping
+    - name: Load objective mapping
       id: load_config
       if: steps.check_status.outputs.is_status_issue == 'true'
       shell: bash
       run: |
-        # Download status configuration from Factory repo
+        # Download objective configuration from Factory repo
         curl -H "Authorization: token ${{ inputs.factory_org_token }}" \
              -H "Accept: application/vnd.github.v3.raw" \
-             -o /tmp/status-config.json \
+             -o /tmp/objective-config.json \
              "https://api.github.com/repos/${{ github.repository_owner }}/Factory/contents/.github/data/study-status-issues.json"
         
-        if [ -f /tmp/status-config.json ]; then
-          echo "✅ Successfully downloaded status configuration"
-          cat /tmp/status-config.json
+        if [ -f /tmp/objective-config.json ]; then
+          echo "✅ Successfully downloaded objective configuration"
         else
-          echo "❌ Failed to download status configuration"
+          echo "❌ Failed to download objective configuration"
           exit 1
         fi
 
-    - name: Determine new status
-      id: determine_status
+    - name: Determine new objective
+      id: determine_objective
       if: steps.check_status.outputs.is_status_issue == 'true'
       shell: bash
       run: |
-        ISSUE_TITLE="${{ inputs.closed_issue_title }}"
+        ISSUE_TITLE="${{ inputs.issue_title }}"
+        ACTION="${{ inputs.issue_action }}"
         
-        # Parse the configuration to find matching status
-        NEW_STATUS=$(jq -r --arg title "$ISSUE_TITLE" '
+        echo "Processing issue: $ISSUE_TITLE"
+        echo "Action: $ACTION"
+        
+        # Find the current issue's objective
+        CURRENT_OBJECTIVE=$(jq -r --arg title "$ISSUE_TITLE" '
           .issues[] | 
           select(.title == $title) | 
-          .factory_status
-        ' /tmp/status-config.json)
+          .factory_objective
+        ' /tmp/objective-config.json)
         
-        if [ "$NEW_STATUS" != "null" ] && [ -n "$NEW_STATUS" ]; then
-          echo "new_status=$NEW_STATUS" >> $GITHUB_OUTPUT
-          echo "✅ Determined new status: $NEW_STATUS"
-        else
-          echo "⚠️  Could not determine status from title: $ISSUE_TITLE"
-          # Fallback: try to extract status from title patterns
-          if [[ "$ISSUE_TITLE" =~ "Protocol Development" ]]; then
-            echo "new_status=Protocol Development" >> $GITHUB_OUTPUT
-          elif [[ "$ISSUE_TITLE" =~ "Analysis Specifications" ]]; then
-            echo "new_status=Analysis Specifications" >> $GITHUB_OUTPUT
-          elif [[ "$ISSUE_TITLE" =~ "Network Execution" ]]; then
-            echo "new_status=Network Execution" >> $GITHUB_OUTPUT
+        # Find the current issue's order
+        CURRENT_ORDER=$(jq -r --arg title "$ISSUE_TITLE" '
+          .issues[] | 
+          select(.title == $title) | 
+          .order
+        ' /tmp/objective-config.json)
+        
+        echo "Current objective: $CURRENT_OBJECTIVE"
+        echo "Current order: $CURRENT_ORDER"
+        
+        NEW_OBJECTIVE=""
+        
+        if [ "$ACTION" = "closed" ]; then
+          # Issue closed -> set to next issue's objective
+          NEXT_ORDER=$((CURRENT_ORDER + 1))
+          NEXT_OBJECTIVE=$(jq -r --arg order "$NEXT_ORDER" '
+            .issues[] | 
+            select(.order == ($order | tonumber)) | 
+            .factory_objective
+          ' /tmp/objective-config.json)
+          
+          if [ "$NEXT_OBJECTIVE" != "null" ] && [ -n "$NEXT_OBJECTIVE" ]; then
+            NEW_OBJECTIVE="$NEXT_OBJECTIVE"
           else
-            echo "new_status=" >> $GITHUB_OUTPUT
-            echo "❌ Could not determine status"
+            # No next issue, set to Complete
+            NEW_OBJECTIVE="Complete"
           fi
+          
+        elif [ "$ACTION" = "edited" ] || [ "$ACTION" = "synchronized" ]; then
+          # For now, we'll assume this is a status change to "In Progress" or "Done"
+          # In a real implementation, we'd need to check the project field changes
+          # For simplicity, we'll set to the current objective when status changes
+          NEW_OBJECTIVE="$CURRENT_OBJECTIVE"
+        fi
+        
+        if [ -n "$NEW_OBJECTIVE" ]; then
+          echo "new_objective=$NEW_OBJECTIVE" >> $GITHUB_OUTPUT
+          echo "✅ Determined new objective: $NEW_OBJECTIVE"
+        else
+          echo "new_objective=" >> $GITHUB_OUTPUT
+          echo "❌ Could not determine new objective"
         fi
 
-    - name: Trigger Factory status update
-      if: steps.check_status.outputs.is_status_issue == 'true' && steps.determine_status.outputs.new_status != ''
+    - name: Update Factory Objective field
+      if: steps.check_status.outputs.is_status_issue == 'true' && steps.determine_objective.outputs.new_objective != ''
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.factory_org_token }}
       run: |
-        echo "🚀 Triggering Factory status update..."
+        echo "🚀 Updating Factory Objective field..."
         
         gh api repos/${{ github.repository_owner }}/Factory/dispatches \
           --method POST \
-          --field event_type='study-status-update' \
+          --field event_type='update-factory-objective' \
           --raw-field client_payload='{
             "factory_issue_number": "${{ inputs.factory_issue_number }}",
-            "new_status": "${{ steps.determine_status.outputs.new_status }}",
+            "new_objective": "${{ steps.determine_objective.outputs.new_objective }}",
             "study_repo": "${{ inputs.study_repo }}",
-            "closed_issue_title": "${{ inputs.closed_issue_title }}",
-            "closed_issue_url": "${{ inputs.closed_issue_url }}"
+            "issue_title": "${{ inputs.issue_title }}",
+            "issue_url": "${{ inputs.issue_url }}",
+            "issue_action": "${{ inputs.issue_action }}"
           }'
         
-        echo "✅ Successfully triggered Factory status update"
-        echo "   New Status: ${{ steps.determine_status.outputs.new_status }}"
+        echo "✅ Successfully triggered Factory Objective update"
+        echo "   New Objective: ${{ steps.determine_objective.outputs.new_objective }}"
         echo "   Factory Issue: #${{ inputs.factory_issue_number }}"

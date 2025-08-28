@@ -1,31 +1,34 @@
 {
-  "description": "Configuration for status issues created in study repositories. These issues track study progress and update Factory issue status when closed.",
-  "factory_status_mapping": {
-    "1": "Protocol Development",
-    "2": "Analysis Specifications", 
-    "3": "Network Execution"
+  "description": "Configuration for status issues created in study repositories. These issues track study progress and update Factory issue Objective field when closed or status changes.",
+  "factory_objective_mapping": {
+    "1": "Analysis Package Prototype",
+    "2": "Network Execution", 
+    "3": "Journal Submission"
   },
   "issues": [
     {
       "order": 1,
-      "title": "📋 Protocol Development Complete",
-      "body": "## Protocol Development Status\n\n**This is a placeholder issue for demo purposes**\n\nThis issue represents the completion of the protocol development phase.\n\n### Tasks (Demo Placeholders)\n- [ ] Protocol document drafted\n- [ ] Clinical review completed\n- [ ] Technical review completed\n- [ ] Final protocol approved\n\n### Notes\nWhen this issue is closed, the Factory tracking issue status will be updated to **Protocol Development**.\n\n---\n*This is a status tracking issue. Closing this issue will trigger an update to the Factory portfolio.*",
-      "labels": ["status-tracking", "protocol"],
-      "factory_status": "Protocol Development"
+      "title": "1) Analysis Package Prototype",
+      "body": "## Analysis Package Prototype\n\nThis issue tracks the development and completion of the analysis package prototype for this study.\n\n### Key Tasks\n- [ ] Statistical analysis plan developed\n- [ ] Code specifications defined\n- [ ] Analysis framework implemented\n- [ ] Validation criteria established\n- [ ] Prototype testing completed\n- [ ] Documentation finalized\n\n### Notes\nThis issue will start with status **In Progress**. When status changes or issue is closed, the Factory tracking issue Objective field will be updated.\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
+      "labels": ["status-tracking", "analysis-prototype"],
+      "factory_objective": "Analysis Package Prototype",
+      "initial_status": "In Progress"
     },
     {
       "order": 2,
-      "title": "📊 Analysis Specifications Finalized",
-      "body": "## Analysis Specifications Status\n\n**This is a placeholder issue for demo purposes**\n\nThis issue represents the completion of analysis specifications.\n\n### Tasks (Demo Placeholders)\n- [ ] Statistical analysis plan completed\n- [ ] Code specifications defined\n- [ ] Validation criteria established\n- [ ] Analysis framework approved\n\n### Notes\nWhen this issue is closed, the Factory tracking issue status will be updated to **Analysis Specifications**.\n\n---\n*This is a status tracking issue. Closing this issue will trigger an update to the Factory portfolio.*",
-      "labels": ["status-tracking", "analysis"],
-      "factory_status": "Analysis Specifications"
+      "title": "2) Network Execution",
+      "body": "## Network Execution\n\nThis issue tracks the network execution phase of the study.\n\n### Key Tasks\n- [ ] Network partners confirmed\n- [ ] Data partners onboarded\n- [ ] Execution timeline finalized\n- [ ] Analysis package deployed\n- [ ] Data collection initiated\n- [ ] Quality monitoring established\n- [ ] Results aggregation completed\n\n### Notes\nThis issue will start with status **Todo**. When status changes or issue is closed, the Factory tracking issue Objective field will be updated.\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
+      "labels": ["status-tracking", "network-execution"],
+      "factory_objective": "Network Execution",
+      "initial_status": "Todo"
     },
     {
       "order": 3,
-      "title": "🚀 Network Execution Started",
-      "body": "## Network Execution Status\n\n**This is a placeholder issue for demo purposes**\n\nThis issue represents the start of network execution phase.\n\n### Tasks (Demo Placeholders)\n- [ ] Network partners identified\n- [ ] Execution timeline confirmed\n- [ ] Data partners onboarded\n- [ ] Execution monitoring setup\n\n### Notes\nWhen this issue is closed, the Factory tracking issue status will be updated to **Network Execution**.\n\n---\n*This is a status tracking issue. Closing this issue will trigger an update to the Factory portfolio.*",
-      "labels": ["status-tracking", "execution"],
-      "factory_status": "Network Execution"
+      "title": "3) Journal Submission",
+      "body": "## Journal Submission\n\nThis issue tracks the preparation and submission of the study manuscript for journal publication.\n\n### Key Tasks\n- [ ] Results analysis completed\n- [ ] Manuscript draft prepared\n- [ ] Co-author review and approval\n- [ ] Journal selection finalized\n- [ ] Manuscript submitted\n- [ ] Peer review process managed\n- [ ] Publication finalized\n\n### Notes\nThis issue will start with status **Todo**. When status changes or issue is closed, the Factory tracking issue Objective field will be updated to **Complete**.\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
+      "labels": ["status-tracking", "journal-submission"],
+      "factory_objective": "Journal Submission",
+      "initial_status": "Todo"
     }
   ]
 }

@@ -14,7 +14,7 @@ Simply select the Study Lead's name & GitHub name from the list. The Study Lead 
 > If the Study Lead is an existing Collaborator, they'll be assigned to the study's Factory Issue.
 > If the Study Lead is _not_ an existing Collaborator, they'll receive a Collaborator invitation. Once they accept it, **Coordinator must manually assign Study Lead to the study's Factory Issue.**
 ### Study Status Syncing
-
+Upon creation, each Study Repository is populated with `status-tracking` Issues designed to guide the Study Lead through the process. When a Study Lead closes a `status-tracking` Issue, a GitHub Action modifies the study's `study-tracking` Factory Issue, providing Factory Portfolio with the study's updated status.
 
 ## Currently Built Functions ✅
 

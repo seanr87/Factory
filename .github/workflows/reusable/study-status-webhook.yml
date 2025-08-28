@@ -21,16 +21,17 @@ permissions:
   contents: read
 
 jobs:
-  update-factory-status:
+  update-factory-objective:
     runs-on: ubuntu-latest
-    if: github.event.action == 'closed' && contains(github.event.issue.labels.*.name, 'status-tracking')
+    if: contains(github.event.issue.labels.*.name, 'status-tracking')
     steps:
-      - name: Update Factory status
+      - name: Update Factory Objective field
         uses: seanr87/Factory/.github/actions/trigger-factory-status-update@main
         with:
-          closed_issue_title: ${{ github.event.issue.title }}
-          closed_issue_url: ${{ github.event.issue.html_url }}
-          closed_issue_labels: ${{ toJson(github.event.issue.labels) }}
+          issue_title: ${{ github.event.issue.title }}
+          issue_url: ${{ github.event.issue.html_url }}
+          issue_labels: ${{ toJson(github.event.issue.labels) }}
+          issue_action: ${{ github.event.action }}
           factory_issue_number: ${{ inputs.factory_issue_number }}
           study_repo: ${{ github.repository }}
           factory_org_token: ${{ secrets.FACTORY_ORG_TOKEN }}
