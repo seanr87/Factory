@@ -29,7 +29,7 @@ on:
         type: string
       target_date:
         description: 'Target completion date (YYYY-MM-DD)'
-        required: true
+        required: false
         type: string
 
 # Per briefing/actions/permissions.md - minimal permissions

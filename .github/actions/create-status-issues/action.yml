@@ -62,14 +62,7 @@ runs:
             
             for (const issueConfig of sortedIssues) {
               // Enhanced body with study context and factory link
-              const enhancedBody = `${issueConfig.body}
-              
-### Study Context
-**Study:** ${studyTitle}
-**Factory Tracking:** https://github.com/${{ github.repository }}/issues/${factoryIssueNumber}
-**Repository:** https://github.com/${repoOwner}/${repoName}
-
-*Created: ${new Date().toISOString().split('T')[0]}*`;
+              const enhancedBody = `${issueConfig.body}\n\n### Study Context\n**Study:** ${studyTitle}\n**Factory Tracking:** https://github.com/${{ github.repository }}/issues/${factoryIssueNumber}\n**Repository:** https://github.com/${repoOwner}/${repoName}\n\n*Created: ${new Date().toISOString().split('T')[0]}*`;
 
               // Create the issue
               const issueResponse = await github.rest.issues.create({
@@ -125,20 +118,7 @@ runs:
             createdIssues.sort((a, b) => a.order - b.order);
             
             // Create status update webhook workflow in the study repository
-            const workflowContent = `name: Status Update Webhook
-
-on:
-  issues:
-    types: [closed]
-
-jobs:
-  update-factory-status:
-    uses: ${{ github.repository_owner }}/Factory/.github/workflows/reusable/study-status-webhook.yml@main
-    with:
-      factory_issue_number: "${factoryIssueNumber}"
-    secrets:
-      FACTORY_ORG_TOKEN: \${{ secrets.FACTORY_ORG_TOKEN }}
-`;
+            const workflowContent = `name: Status Update Webhook\n\non:\n  issues:\n    types: [closed]\n\njobs:\n  update-factory-status:\n    uses: ${{ github.repository_owner }}/Factory/.github/workflows/reusable/study-status-webhook.yml@main\n    with:\n      factory_issue_number: "${factoryIssueNumber}"\n    secrets:\n      FACTORY_ORG_TOKEN: \\${{ secrets.FACTORY_ORG_TOKEN }}\n`;
 
             try {
               // Create .github/workflows directory structure if it doesn't exist

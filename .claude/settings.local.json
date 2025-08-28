@@ -19,7 +19,8 @@
       "Bash(fi)",
       "Bash(./.github/actions/update-workflow-dropdown/action.yml)",
       "Bash(jq:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(yamllint:*)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"
