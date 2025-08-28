@@ -145,6 +145,18 @@ jobs:
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
+      - name: Configure study repository secrets
+        run: |
+          echo "🔑 Setting up study repository secrets..."
+          
+          # Set the ORG_ADMIN_TOKEN secret so workflows can update Factory
+          echo "Setting ORG_ADMIN_TOKEN secret for Factory updates..."
+          gh secret set ORG_ADMIN_TOKEN \
+            --body "${{ secrets.ORG_ADMIN_TOKEN }}" \
+            --repo "${{ github.repository_owner }}/${{ steps.validate.outputs.repo_name }}"
+          
+          echo "✅ Study repository secrets configured"
+
       - name: Summary
         run: |
           echo "## ✅ Study Provisioned Successfully"
@@ -159,6 +171,7 @@ jobs:
           echo "- ✅ Status tracking issues created in study repository"
           echo "- ✅ Issues assigned to study project (ordered by priority)"
           echo "- ✅ Status feedback automation configured"
+          echo "- ✅ Repository secrets configured for Factory integration"
           echo "- 🔄 When issues are closed, Factory status will update automatically"
           echo ""
           echo "### Next Steps:"
