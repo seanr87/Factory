@@ -157,7 +157,17 @@ jobs:
             --body "${{ secrets.ORG_ADMIN_TOKEN }}" \
             --repo "${{ github.repository_owner }}/${{ steps.validate.outputs.repo_name }}"
           
-          echo "✅ Study repository secrets configured"
+          # Set Factory project URL variable for direct project access
+          echo "Setting FACTORY_PROJECT_URL variable for direct project access..."
+          if [[ -n "${{ vars.FACTORY_PROJECT_URL }}" ]]; then
+            gh variable set FACTORY_PROJECT_URL \
+              --body "${{ vars.FACTORY_PROJECT_URL }}" \
+              --repo "${{ github.repository_owner }}/${{ steps.validate.outputs.repo_name }}"
+          else
+            echo "⚠️ FACTORY_PROJECT_URL variable not set in Factory repo, using fallback method"
+          fi
+          
+          echo "✅ Study repository secrets and variables configured"
 
       - name: Summary
         run: |
