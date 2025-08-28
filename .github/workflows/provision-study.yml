@@ -146,6 +146,8 @@ jobs:
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Configure study repository secrets
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: |
           echo "🔑 Setting up study repository secrets..."
           
