@@ -13,6 +13,9 @@ inputs:
   lead_name:
     description: 'Study lead name for custom field'
     required: true
+  repo_url:
+    description: 'Study repository URL for custom field'
+    required: true
   org_token:
     description: 'Organization admin token'
     required: true
@@ -30,6 +33,7 @@ runs:
           const issueNodeId = "${{ inputs.issue_node_id }}";
           const studyTitle = "${{ inputs.study_title }}";
           const leadName = "${{ inputs.lead_name }}";
+          const repoUrl = "${{ inputs.repo_url }}";
           
           console.log(`🔍 Adding issue to Factory Portfolio project #${factoryNumber}`);
           
@@ -76,10 +80,15 @@ runs:
             
             console.log(`📋 Found project: ${project.title}`);
             
-            // Find Lead field
+            // Find Lead and Study Repo fields
             const leadField = project.fields.nodes.find(field => field.name === 'Lead');
+            const studyRepoField = project.fields.nodes.find(field => field.name === 'Study Repo');
+            
             if (!leadField) {
               console.log(`⚠️ 'Lead' custom field not found in project`);
+            }
+            if (!studyRepoField) {
+              console.log(`⚠️ 'Study Repo' custom field not found in project`);
             }
             
             // Add issue to project
@@ -125,6 +134,34 @@ runs:
                 console.log(`✅ Set Lead field to: ${leadName}`);
               } catch (fieldError) {
                 console.log(`⚠️ Failed to set Lead field: ${fieldError.message}`);
+              }
+            }
+            
+            // Set Study Repo field if it exists
+            if (studyRepoField) {
+              try {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: {
+                        text: $value
+                      }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: project.id,
+                  itemId: itemId,
+                  fieldId: studyRepoField.id,
+                  value: repoUrl
+                });
+                console.log(`✅ Set Study Repo field to: ${repoUrl}`);
+              } catch (fieldError) {
+                console.log(`⚠️ Failed to set Study Repo field: ${fieldError.message}`);
               }
             }
             

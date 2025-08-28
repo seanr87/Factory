@@ -125,6 +125,7 @@ jobs:
           study_title: ${{ inputs.study_title }}
           factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
+          repo_url: ${{ steps.repo.outputs.repo_url }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Extract Factory issue number
