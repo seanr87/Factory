@@ -52,6 +52,9 @@ runs:
           const factoryIssueNumber = "${{ inputs.factory_issue_number }}";
           
           console.log(`Creating ${configData.issues.length} status issues for ${repoName}`);
+          console.log(`Target project ID: ${projectId}`);
+          console.log(`Study lead: ${leadGithub}`);
+          console.log(`Factory issue: ${factoryIssueNumber}`);
           
           const createdIssues = [];
           let issuesCreated = 0;
@@ -79,7 +82,10 @@ runs:
               
               // Add issue to project
               try {
-                await github.graphql(`
+                console.log(`   🔄 Adding to project: ${projectId}`);
+                console.log(`   🔄 Issue node ID: ${issueResponse.data.node_id}`);
+                
+                const addResult = await github.graphql(`
                   mutation($projectId: ID!, $contentId: ID!) {
                     addProjectV2ItemByContentId(input: {
                       projectId: $projectId,
@@ -95,9 +101,14 @@ runs:
                   contentId: issueResponse.data.node_id
                 });
                 
-                console.log(`   ✅ Added to project`);
+                const itemId = addResult.addProjectV2ItemByContentId.item.id;
+                console.log(`   ✅ Added to project successfully (Item ID: ${itemId})`);
+                
               } catch (projectError) {
-                console.log(`   ⚠️ Failed to add to project: ${projectError.message}`);
+                console.log(`   ❌ Failed to add to project: ${projectError.message}`);
+                console.log(`   🔍 Project ID: ${projectId}`);
+                console.log(`   🔍 Issue Node ID: ${issueResponse.data.node_id}`);
+                console.log(`   🔍 Full error:`, projectError);
               }
               
               createdIssues.push({

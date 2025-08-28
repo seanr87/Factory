@@ -12,7 +12,9 @@ Simply select the Study Lead's name & GitHub name from the list. The Study Lead 
 * In the following fields, enter the new Study Lead's name and GitHub username.
 * The Study Lead will receive Admin permissions on the Study Project* and Study Repo.
 > If the Study Lead is an existing Collaborator, they'll be assigned to the study's Factory Issue.
-> If the Study Lead is _not_ an existing Collaborator, they'll receive a Collaborator invitation. Once they accept it, **Coordinator must manuallyassign Study Lead to the study's Factory Issue.**
+> If the Study Lead is _not_ an existing Collaborator, they'll receive a Collaborator invitation. Once they accept it, **Coordinator must manually assign Study Lead to the study's Factory Issue.**
+### Study Status Syncing
+
 
 ## Currently Built Functions ✅
 
