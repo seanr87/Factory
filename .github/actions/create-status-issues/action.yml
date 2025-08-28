@@ -87,7 +87,7 @@ runs:
                 
                 const addResult = await github.graphql(`
                   mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemByContentId(input: {
+                    addProjectV2ItemById(input: {
                       projectId: $projectId,
                       contentId: $contentId
                     }) {
@@ -101,7 +101,7 @@ runs:
                   contentId: issueResponse.data.node_id
                 });
                 
-                const itemId = addResult.addProjectV2ItemByContentId.item.id;
+                const itemId = addResult.addProjectV2ItemById.item.id;
                 console.log(`   ✅ Added to project successfully (Item ID: ${itemId})`);
                 
               } catch (projectError) {
