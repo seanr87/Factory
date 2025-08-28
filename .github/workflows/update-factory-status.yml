@@ -50,8 +50,7 @@ jobs:
               // Add activity log entry
               const activitySection = /### Activity\n(.*?)(\n---|\n\*This issue tracks|$)/s;
               const currentDate = new Date().toISOString().split('T')[0];
-              const newActivity = `Last updated: ${currentDate}
-Status updated to **${newStatus}** (triggered by: [${closedIssueTitle}](${closedIssueUrl}) in ${studyRepo})`;
+              const newActivity = `Last updated: ${currentDate}\nStatus updated to **${newStatus}** (triggered by: [${closedIssueTitle}](${closedIssueUrl}) in ${studyRepo})`;
               
               if (activitySection.test(updatedBody)) {
                 updatedBody = updatedBody.replace(
