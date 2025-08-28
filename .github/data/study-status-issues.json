@@ -1,0 +1,31 @@
+{
+  "description": "Configuration for status issues created in study repositories. These issues track study progress and update Factory issue status when closed.",
+  "factory_status_mapping": {
+    "1": "Protocol Development",
+    "2": "Analysis Specifications", 
+    "3": "Network Execution"
+  },
+  "issues": [
+    {
+      "order": 1,
+      "title": "📋 Protocol Development Complete",
+      "body": "## Protocol Development Status\n\n**This is a placeholder issue for demo purposes**\n\nThis issue represents the completion of the protocol development phase.\n\n### Tasks (Demo Placeholders)\n- [ ] Protocol document drafted\n- [ ] Clinical review completed\n- [ ] Technical review completed\n- [ ] Final protocol approved\n\n### Notes\nWhen this issue is closed, the Factory tracking issue status will be updated to **Protocol Development**.\n\n---\n*This is a status tracking issue. Closing this issue will trigger an update to the Factory portfolio.*",
+      "labels": ["status-tracking", "protocol"],
+      "factory_status": "Protocol Development"
+    },
+    {
+      "order": 2,
+      "title": "📊 Analysis Specifications Finalized",
+      "body": "## Analysis Specifications Status\n\n**This is a placeholder issue for demo purposes**\n\nThis issue represents the completion of analysis specifications.\n\n### Tasks (Demo Placeholders)\n- [ ] Statistical analysis plan completed\n- [ ] Code specifications defined\n- [ ] Validation criteria established\n- [ ] Analysis framework approved\n\n### Notes\nWhen this issue is closed, the Factory tracking issue status will be updated to **Analysis Specifications**.\n\n---\n*This is a status tracking issue. Closing this issue will trigger an update to the Factory portfolio.*",
+      "labels": ["status-tracking", "analysis"],
+      "factory_status": "Analysis Specifications"
+    },
+    {
+      "order": 3,
+      "title": "🚀 Network Execution Started",
+      "body": "## Network Execution Status\n\n**This is a placeholder issue for demo purposes**\n\nThis issue represents the start of network execution phase.\n\n### Tasks (Demo Placeholders)\n- [ ] Network partners identified\n- [ ] Execution timeline confirmed\n- [ ] Data partners onboarded\n- [ ] Execution monitoring setup\n\n### Notes\nWhen this issue is closed, the Factory tracking issue status will be updated to **Network Execution**.\n\n---\n*This is a status tracking issue. Closing this issue will trigger an update to the Factory portfolio.*",
+      "labels": ["status-tracking", "execution"],
+      "factory_status": "Network Execution"
+    }
+  ]
+}

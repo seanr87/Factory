@@ -1,0 +1,93 @@
+name: Update Factory Status
+
+on:
+  repository_dispatch:
+    types: [study-status-update]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  update-status:
+    runs-on: ubuntu-latest
+    if: github.event.client_payload.factory_issue_number && github.event.client_payload.new_status
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Factory issue status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          script: |
+            const factoryIssueNumber = "${{ github.event.client_payload.factory_issue_number }}";
+            const newStatus = "${{ github.event.client_payload.new_status }}";
+            const studyRepo = "${{ github.event.client_payload.study_repo }}";
+            const closedIssueTitle = "${{ github.event.client_payload.closed_issue_title }}";
+            const closedIssueUrl = "${{ github.event.client_payload.closed_issue_url }}";
+            
+            console.log(`Updating Factory issue #${factoryIssueNumber} to status: ${newStatus}`);
+            
+            try {
+              // Get current issue
+              const currentIssue = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parseInt(factoryIssueNumber)
+              });
+              
+              // Extract current body and update status section
+              let updatedBody = currentIssue.data.body;
+              
+              // Update the status in the body
+              updatedBody = updatedBody.replace(
+                /\*\*Status:\*\* [^\n]+/,
+                `**Status:** 🟡 ${newStatus}`
+              );
+              
+              // Add activity log entry
+              const activitySection = /### Activity\n(.*?)(\n---|\n\*This issue tracks|$)/s;
+              const newActivity = `Last updated: ${new Date().toISOString().split('T')[0]}
+📋 Status updated to **${newStatus}** (triggered by: [${closedIssueTitle}](${closedIssueUrl}) in ${studyRepo})`;
+              
+              if (activitySection.test(updatedBody)) {
+                updatedBody = updatedBody.replace(
+                  activitySection,
+                  `### Activity\n${newActivity}\n\n$2`
+                );
+              } else {
+                // If no activity section exists, add it before the footer
+                updatedBody = updatedBody.replace(
+                  /(---\n\*This issue tracks.*)/,
+                  `### Activity\n${newActivity}\n\n$1`
+                );
+              }
+              
+              // Update the issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parseInt(factoryIssueNumber),
+                body: updatedBody
+              });
+              
+              // Add a comment to the Factory issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parseInt(factoryIssueNumber),
+                body: `🎯 **Status Update:** ${newStatus}
+
+Study milestone completed in [${studyRepo}](https://github.com/${studyRepo}):
+- Closed: [${closedIssueTitle}](${closedIssueUrl})
+
+This status change was triggered automatically by the study status tracking system.`
+              });
+              
+              console.log(`✅ Successfully updated Factory issue #${factoryIssueNumber}`);
+              
+            } catch (error) {
+              console.error('Error updating Factory issue:', error);
+              core.setFailed(`Failed to update Factory issue: ${error.message}`);
+            }

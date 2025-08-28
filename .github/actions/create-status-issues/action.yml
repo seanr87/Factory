@@ -1,0 +1,172 @@
+name: 'Create Status Issues'
+description: 'Creates status tracking issues in study repository and assigns them to the project'
+inputs:
+  repo_name:
+    description: 'Study repository name'
+    required: true
+  study_title:
+    description: 'Study title for context'
+    required: true
+  project_id:
+    description: 'Study project ID to assign issues to'
+    required: true
+  lead_github:
+    description: 'Study lead GitHub username for assignment'
+    required: true
+  factory_issue_number:
+    description: 'Factory issue number for status updates'
+    required: true
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  status_issues_created:
+    description: 'Number of status issues created'
+    value: ${{ steps.create_issues.outputs.issues_created }}
+  issue_urls:
+    description: 'URLs of created status issues (JSON array)'
+    value: ${{ steps.create_issues.outputs.issue_urls }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create status issues
+      id: create_issues
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.org_token }}
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Load status issues configuration
+          const configPath = '.github/data/study-status-issues.json';
+          const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+          
+          const repoOwner = "${{ github.repository_owner }}";
+          const repoName = "${{ inputs.repo_name }}";
+          const studyTitle = "${{ inputs.study_title }}";
+          const projectId = "${{ inputs.project_id }}";
+          const leadGithub = "${{ inputs.lead_github }}";
+          const factoryIssueNumber = "${{ inputs.factory_issue_number }}";
+          
+          console.log(`Creating ${configData.issues.length} status issues for ${repoName}`);
+          
+          const createdIssues = [];
+          let issuesCreated = 0;
+          
+          try {
+            // Sort issues by order to ensure proper creation sequence
+            const sortedIssues = configData.issues.sort((a, b) => a.order - b.order);
+            
+            for (const issueConfig of sortedIssues) {
+              // Enhanced body with study context and factory link
+              const enhancedBody = `${issueConfig.body}
+              
+### Study Context
+**Study:** ${studyTitle}
+**Factory Tracking:** https://github.com/${{ github.repository }}/issues/${factoryIssueNumber}
+**Repository:** https://github.com/${repoOwner}/${repoName}
+
+*Created: ${new Date().toISOString().split('T')[0]}*`;
+
+              // Create the issue
+              const issueResponse = await github.rest.issues.create({
+                owner: repoOwner,
+                repo: repoName,
+                title: issueConfig.title,
+                body: enhancedBody,
+                labels: issueConfig.labels || [],
+                assignees: [leadGithub]
+              });
+              
+              console.log(`✅ Created issue: ${issueConfig.title}`);
+              console.log(`   URL: ${issueResponse.data.html_url}`);
+              
+              // Add issue to project
+              try {
+                await github.graphql(`
+                  mutation($projectId: ID!, $contentId: ID!) {
+                    addProjectV2ItemByContentId(input: {
+                      projectId: $projectId,
+                      contentId: $contentId
+                    }) {
+                      item {
+                        id
+                      }
+                    }
+                  }
+                `, {
+                  projectId: projectId,
+                  contentId: issueResponse.data.node_id
+                });
+                
+                console.log(`   ✅ Added to project`);
+              } catch (projectError) {
+                console.log(`   ⚠️ Failed to add to project: ${projectError.message}`);
+              }
+              
+              createdIssues.push({
+                number: issueResponse.data.number,
+                url: issueResponse.data.html_url,
+                title: issueConfig.title,
+                order: issueConfig.order,
+                factory_status: issueConfig.factory_status
+              });
+              
+              issuesCreated++;
+              
+              // Brief delay between issue creations
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Sort issues by order for proper display in project
+            createdIssues.sort((a, b) => a.order - b.order);
+            
+            // Create status update webhook workflow in the study repository
+            const workflowContent = `name: Status Update Webhook
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  update-factory-status:
+    uses: ${{ github.repository_owner }}/Factory/.github/workflows/reusable/study-status-webhook.yml@main
+    with:
+      factory_issue_number: "${factoryIssueNumber}"
+    secrets:
+      FACTORY_ORG_TOKEN: \${{ secrets.FACTORY_ORG_TOKEN }}
+`;
+
+            try {
+              // Create .github/workflows directory structure if it doesn't exist
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: repoOwner,
+                repo: repoName,
+                path: '.github/workflows/status-update.yml',
+                message: 'Add status update webhook workflow',
+                content: Buffer.from(workflowContent).toString('base64'),
+                committer: {
+                  name: 'GitHub Action',
+                  email: 'action@github.com'
+                }
+              });
+              
+              console.log('✅ Created status update webhook workflow');
+            } catch (workflowError) {
+              console.log(`⚠️ Failed to create webhook workflow: ${workflowError.message}`);
+            }
+            
+            console.log(`✅ Successfully created ${issuesCreated} status issues`);
+            console.log('Issues created:', createdIssues.map(i => `${i.order}. ${i.title}`).join(', '));
+            
+            // Set outputs
+            core.setOutput('issues_created', issuesCreated.toString());
+            core.setOutput('issue_urls', JSON.stringify(createdIssues.map(i => i.url)));
+            
+          } catch (error) {
+            console.error('Error creating status issues:', error);
+            core.setFailed(`Failed to create status issues: ${error.message}`);
+          }

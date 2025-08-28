@@ -127,6 +127,24 @@ jobs:
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
+      - name: Extract Factory issue number
+        id: extract_issue_number
+        run: |
+          ISSUE_URL="${{ steps.tracking.outputs.issue_url }}"
+          ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Create status tracking issues
+        id: status_issues
+        uses: ./.github/actions/create-status-issues
+        with:
+          repo_name: ${{ steps.validate.outputs.repo_name }}
+          study_title: ${{ inputs.study_title }}
+          project_id: ${{ steps.project.outputs.project_id }}
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
+          factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
       - name: Summary
         run: |
           echo "## ✅ Study Provisioned Successfully"
@@ -135,9 +153,16 @@ jobs:
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
           echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
+          echo "**Status Issues:** ${{ steps.status_issues.outputs.issues_created }} created"
+          echo ""
+          echo "### Status Tracking System"
+          echo "- ✅ Status tracking issues created in study repository"
+          echo "- ✅ Issues assigned to study project (ordered by priority)"
+          echo "- ✅ Status feedback automation configured"
+          echo "- 🔄 When issues are closed, Factory status will update automatically"
           echo ""
           echo "### Next Steps:"
           echo "1. Visit the repository and update the README"
-          echo "2. Check the linked project board for stage tracking"
-          echo "3. Begin Base Camp stage in the project"
-          echo "4. Add data partners as needed"
+          echo "2. Check the linked project board for status tracking issues"
+          echo "3. Close status issues as milestones are reached"
+          echo "4. Monitor Factory issue for status updates"

@@ -1,0 +1,111 @@
+name: 'Trigger Factory Status Update'
+description: 'Triggers status update in Factory repository when study status issues are closed'
+inputs:
+  closed_issue_title:
+    description: 'Title of the closed issue'
+    required: true
+  closed_issue_url:
+    description: 'URL of the closed issue'
+    required: true
+  closed_issue_labels:
+    description: 'Labels of the closed issue (JSON array)'
+    required: true
+  factory_issue_number:
+    description: 'Factory issue number to update'
+    required: true
+  study_repo:
+    description: 'Study repository name (owner/repo)'
+    required: true
+  factory_org_token:
+    description: 'Token for Factory repository access'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check if status tracking issue
+      id: check_status
+      shell: bash
+      run: |
+        LABELS='${{ inputs.closed_issue_labels }}'
+        if echo "$LABELS" | jq -e '.[] | select(.name == "status-tracking")' > /dev/null; then
+          echo "is_status_issue=true" >> $GITHUB_OUTPUT
+          echo "✅ This is a status tracking issue"
+        else
+          echo "is_status_issue=false" >> $GITHUB_OUTPUT
+          echo "ℹ️  Not a status tracking issue, skipping Factory update"
+        fi
+
+    - name: Load status mapping
+      id: load_config
+      if: steps.check_status.outputs.is_status_issue == 'true'
+      shell: bash
+      run: |
+        # Download status configuration from Factory repo
+        curl -H "Authorization: token ${{ inputs.factory_org_token }}" \
+             -H "Accept: application/vnd.github.v3.raw" \
+             -o /tmp/status-config.json \
+             "https://api.github.com/repos/${{ github.repository_owner }}/Factory/contents/.github/data/study-status-issues.json"
+        
+        if [ -f /tmp/status-config.json ]; then
+          echo "✅ Successfully downloaded status configuration"
+          cat /tmp/status-config.json
+        else
+          echo "❌ Failed to download status configuration"
+          exit 1
+        fi
+
+    - name: Determine new status
+      id: determine_status
+      if: steps.check_status.outputs.is_status_issue == 'true'
+      shell: bash
+      run: |
+        ISSUE_TITLE="${{ inputs.closed_issue_title }}"
+        
+        # Parse the configuration to find matching status
+        NEW_STATUS=$(jq -r --arg title "$ISSUE_TITLE" '
+          .issues[] | 
+          select(.title == $title) | 
+          .factory_status
+        ' /tmp/status-config.json)
+        
+        if [ "$NEW_STATUS" != "null" ] && [ -n "$NEW_STATUS" ]; then
+          echo "new_status=$NEW_STATUS" >> $GITHUB_OUTPUT
+          echo "✅ Determined new status: $NEW_STATUS"
+        else
+          echo "⚠️  Could not determine status from title: $ISSUE_TITLE"
+          # Fallback: try to extract status from title patterns
+          if [[ "$ISSUE_TITLE" =~ "Protocol Development" ]]; then
+            echo "new_status=Protocol Development" >> $GITHUB_OUTPUT
+          elif [[ "$ISSUE_TITLE" =~ "Analysis Specifications" ]]; then
+            echo "new_status=Analysis Specifications" >> $GITHUB_OUTPUT
+          elif [[ "$ISSUE_TITLE" =~ "Network Execution" ]]; then
+            echo "new_status=Network Execution" >> $GITHUB_OUTPUT
+          else
+            echo "new_status=" >> $GITHUB_OUTPUT
+            echo "❌ Could not determine status"
+          fi
+        fi
+
+    - name: Trigger Factory status update
+      if: steps.check_status.outputs.is_status_issue == 'true' && steps.determine_status.outputs.new_status != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.factory_org_token }}
+      run: |
+        echo "🚀 Triggering Factory status update..."
+        
+        gh api repos/${{ github.repository_owner }}/Factory/dispatches \
+          --method POST \
+          --field event_type='study-status-update' \
+          --raw-field client_payload='{
+            "factory_issue_number": "${{ inputs.factory_issue_number }}",
+            "new_status": "${{ steps.determine_status.outputs.new_status }}",
+            "study_repo": "${{ inputs.study_repo }}",
+            "closed_issue_title": "${{ inputs.closed_issue_title }}",
+            "closed_issue_url": "${{ inputs.closed_issue_url }}"
+          }'
+        
+        echo "✅ Successfully triggered Factory status update"
+        echo "   New Status: ${{ steps.determine_status.outputs.new_status }}"
+        echo "   Factory Issue: #${{ inputs.factory_issue_number }}"
