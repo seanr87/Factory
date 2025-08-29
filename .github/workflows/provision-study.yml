@@ -124,6 +124,8 @@ jobs:
           factory_project_number: ${{ vars.FACTORY_PROJECT_NUMBER }}
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           repo_url: ${{ steps.repo.outputs.repo_url }}
+          start_date: ${{ steps.validate.outputs.start_date }}
+          target_date: ${{ steps.validate.outputs.target_date }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Extract Factory issue number

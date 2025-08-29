@@ -16,6 +16,12 @@ inputs:
   repo_url:
     description: 'Study repository URL for custom field'
     required: true
+  start_date:
+    description: 'Study start date'
+    required: false
+  target_date:
+    description: 'Study target date'
+    required: false
   org_token:
     description: 'Organization admin token'
     required: true
@@ -34,6 +40,8 @@ runs:
           const studyTitle = "${{ inputs.study_title }}";
           const leadName = "${{ inputs.lead_name }}";
           const repoUrl = "${{ inputs.repo_url }}";
+          const startDate = "${{ inputs.start_date }}";
+          const targetDate = "${{ inputs.target_date }}";
           
           console.log(`🔍 Adding issue to Factory Portfolio project #${factoryNumber}`);
           
@@ -80,15 +88,23 @@ runs:
             
             console.log(`📋 Found project: ${project.title}`);
             
-            // Find Lead and Study Repo fields
+            // Find custom fields
             const leadField = project.fields.nodes.find(field => field.name === 'Lead');
             const studyRepoField = project.fields.nodes.find(field => field.name === 'Study Repo');
+            const startDateField = project.fields.nodes.find(field => field.name === 'Start Date');
+            const targetDateField = project.fields.nodes.find(field => field.name === 'Target Date');
             
             if (!leadField) {
               console.log(`⚠️ 'Lead' custom field not found in project`);
             }
             if (!studyRepoField) {
               console.log(`⚠️ 'Study Repo' custom field not found in project`);
+            }
+            if (!startDateField) {
+              console.log(`⚠️ 'Start Date' custom field not found in project`);
+            }
+            if (!targetDateField) {
+              console.log(`⚠️ 'Target Date' custom field not found in project`);
             }
             
             // Add issue to project
@@ -197,6 +213,62 @@ runs:
               }
             } else {
               console.log(`⚠️ Objective field not found in project`);
+            }
+            
+            // Set Start Date field if it exists and date is provided
+            if (startDateField && startDate) {
+              try {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: {
+                        date: $value
+                      }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: project.id,
+                  itemId: itemId,
+                  fieldId: startDateField.id,
+                  value: startDate
+                });
+                console.log(`✅ Set Start Date field to: ${startDate}`);
+              } catch (fieldError) {
+                console.log(`⚠️ Failed to set Start Date field: ${fieldError.message}`);
+              }
+            }
+            
+            // Set Target Date field if it exists and date is provided
+            if (targetDateField && targetDate) {
+              try {
+                await github.graphql(`
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId,
+                      itemId: $itemId,
+                      fieldId: $fieldId,
+                      value: {
+                        date: $value
+                      }
+                    }) {
+                      projectV2Item { id }
+                    }
+                  }
+                `, {
+                  projectId: project.id,
+                  itemId: itemId,
+                  fieldId: targetDateField.id,
+                  value: targetDate
+                });
+                console.log(`✅ Set Target Date field to: ${targetDate}`);
+              } catch (fieldError) {
+                console.log(`⚠️ Failed to set Target Date field: ${fieldError.message}`);
+              }
             }
             
           } catch (error) {
