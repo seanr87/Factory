@@ -219,13 +219,13 @@ runs:
             if (startDateField && startDate) {
               try {
                 await github.graphql(`
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!) {
                     updateProjectV2ItemFieldValue(input: {
                       projectId: $projectId,
                       itemId: $itemId,
                       fieldId: $fieldId,
                       value: {
-                        date: $value
+                        date: "${startDate}"
                       }
                     }) {
                       projectV2Item { id }
@@ -234,8 +234,7 @@ runs:
                 `, {
                   projectId: project.id,
                   itemId: itemId,
-                  fieldId: startDateField.id,
-                  value: startDate
+                  fieldId: startDateField.id
                 });
                 console.log(`✅ Set Start Date field to: ${startDate}`);
               } catch (fieldError) {
@@ -247,13 +246,13 @@ runs:
             if (targetDateField && targetDate) {
               try {
                 await github.graphql(`
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!) {
                     updateProjectV2ItemFieldValue(input: {
                       projectId: $projectId,
                       itemId: $itemId,
                       fieldId: $fieldId,
                       value: {
-                        date: $value
+                        date: "${targetDate}"
                       }
                     }) {
                       projectV2Item { id }
@@ -262,8 +261,7 @@ runs:
                 `, {
                   projectId: project.id,
                   itemId: itemId,
-                  fieldId: targetDateField.id,
-                  value: targetDate
+                  fieldId: targetDateField.id
                 });
                 console.log(`✅ Set Target Date field to: ${targetDate}`);
               } catch (fieldError) {
