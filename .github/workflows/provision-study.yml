@@ -22,6 +22,7 @@ on:
           - 'Add new study lead'
           - 'Sean|seanr87'
           - 'ben|benwmar'
+          - 'Resford Rouzer|resford'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
