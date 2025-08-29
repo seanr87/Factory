@@ -1,16 +1,3 @@
+
 {
-  "study_leads": [
-    {
-      "name": "Robert Barrett",
-      "github_username": "ultraub"
-    },
-    {
-      "name": "Sean O'Reilly",
-      "github_username": "seanr87"
-    },
-    {
-      "name": "Ben Martin",
-      "github_username": "benwmar"
-    }
-  ]
-}
+  "study_leads": []
