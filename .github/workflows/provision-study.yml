@@ -41,8 +41,17 @@ jobs:
   provision:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve study lead information
         id: resolve_lead
@@ -78,6 +87,8 @@ jobs:
 
       - name: Commit updated dropdown
         if: inputs.study_lead_selection == 'Add new study lead'
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
