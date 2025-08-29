@@ -68,6 +68,26 @@ jobs:
           git diff --staged --quiet || git commit -m "Add new study lead: ${{ inputs.new_lead_name }}"
           git push
 
+      - name: Update study leads dropdown
+        if: inputs.study_lead_selection == 'Add new study lead'
+        uses: ./.github/actions/update-workflow-dropdown
+        with:
+          workflow_path: .github/workflows/provision-study.yml
+
+      - name: Commit updated dropdown
+        if: inputs.study_lead_selection == 'Add new study lead'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/workflows/provision-study.yml
+          if git diff --staged --quiet; then
+            echo "No dropdown changes to commit"
+          else
+            git commit -m "Update study leads dropdown options"
+            git push
+            echo "✅ Updated workflow dropdown with current study leads"
+          fi
+
       - name: Validate inputs
         id: validate
         uses: ./.github/actions/validate-study-inputs
