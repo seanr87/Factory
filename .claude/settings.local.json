@@ -21,7 +21,10 @@
       "Bash(jq:*)",
       "Bash(cat:*)",
       "Bash(yamllint:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git log:*)",
+      "Bash(sudo apt-get:*)",
+      "Bash(sudo apt-get install:*)"
     ],
     "additionalDirectories": [
       "/mnt/c/Users/soreill5"
