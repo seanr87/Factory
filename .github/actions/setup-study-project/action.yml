@@ -104,6 +104,37 @@ runs:
             
             console.log('✅ Successfully linked project to repository');
             
+            // Create Data Partner Status field
+            const dataPartnerStatusOptions = [
+              { name: "Preparation", color: "GRAY", description: "Data preparation phase" },
+              { name: "Analysis", color: "ORANGE", description: "Analysis phase" },
+              { name: "Results", color: "GREEN", description: "Results phase" }
+            ];
+            
+            const dataPartnerStatusField = await github.graphql(`
+              mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+                createProjectV2Field(input: {
+                  projectId: $projectId,
+                  name: $name,
+                  dataType: SINGLE_SELECT,
+                  singleSelectOptions: $options
+                }) {
+                  projectV2Field {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            `, {
+              projectId: project.id,
+              name: "Data Partner Status",
+              options: dataPartnerStatusOptions
+            });
+            
+            console.log('✅ Created Data Partner Status field');
+            
             // Set outputs
             core.setOutput('project_id', project.id);
             core.setOutput('project_url', project.url);

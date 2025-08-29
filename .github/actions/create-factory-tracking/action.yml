@@ -13,6 +13,9 @@ inputs:
   target_date:
     description: 'Target completion date'
     required: true
+  start_date:
+    description: 'Study start date'
+    required: false
   repo_url:
     description: 'Study repository URL'
     required: true
@@ -61,6 +64,7 @@ runs:
         
         **Repository:** ${{ inputs.repo_url }}
         **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
+        **Start Date:** ${{ inputs.start_date }}
         **Target Date:** ${{ inputs.target_date }}
         **Status:** 🟢 Active
         

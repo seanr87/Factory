@@ -10,25 +10,22 @@ on:
         description: 'Study title'
         required: true
         type: string
+      target_date:
+        description: 'Target completion date (YYYY-MM-DD)'
+        required: false
+        type: string
       study_lead_selection:
-        description: 'Select existing study lead or add new'
+        description: 'Select Study Lead'
         required: true
         type: choice
         options:
-          - 'Add new study lead'
-          - 'Sean O''Reilly|seanr87'
-          - 'Ben Martin|benwmar'
-          - 'Resford Rouzer|resford'
+          - 'Add new Study Lead'
       new_lead_name:
-        description: 'New study lead name (only if adding new)'
+        description: 'New Study Lead name'
         required: false
         type: string
       new_lead_github:
-        description: 'New study lead GitHub username (only if adding new)'
-        required: false
-        type: string
-      target_date:
-        description: 'Target completion date (YYYY-MM-DD)'
+        description: 'New Study Lead GitHub sername'
         required: false
         type: string
 
@@ -78,7 +75,7 @@ jobs:
           study_title: ${{ inputs.study_title }}
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-          target_date: ${{ inputs.target_date }}
+          target_date: ${{ steps.validate.outputs.target_date }}
 
       - name: Create repository
         id: repo
@@ -112,7 +109,8 @@ jobs:
           study_title: ${{ inputs.study_title }}
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-          target_date: ${{ inputs.target_date }}
+          start_date: ${{ steps.validate.outputs.start_date }}
+          target_date: ${{ steps.validate.outputs.target_date }}
           repo_url: ${{ steps.repo.outputs.repo_url }}
           already_collaborator: ${{ steps.invite.outputs.already_collaborator }}
           invitation_sent: ${{ steps.invite.outputs.invitation_sent }}

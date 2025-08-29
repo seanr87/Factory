@@ -12,24 +12,46 @@ inputs:
     required: true
   target_date:
     description: 'Target date in YYYY-MM-DD format'
-    required: true
+    required: false
 
 outputs:
   repo_name:
     description: 'Generated repository name'
     value: ${{ steps.generate.outputs.repo_name }}
+  target_date:
+    description: 'Target date (either provided or default 6 months from provisioning)'
+    value: ${{ steps.dates.outputs.target_date }}
+  start_date:
+    description: 'Start date (day of provisioning)'
+    value: ${{ steps.dates.outputs.start_date }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Validate date format
+    - name: Set default dates
+      id: dates
       shell: bash
       run: |
-        if ! date -d "${{ inputs.target_date }}" >/dev/null 2>&1; then
-          echo "❌ Invalid date format. Use YYYY-MM-DD"
-          exit 1
+        # Set start date to today
+        START_DATE=$(date +"%Y-%m-%d")
+        echo "start_date=$START_DATE" >> $GITHUB_OUTPUT
+        echo "✅ Start date set: $START_DATE"
+        
+        # Set target date - use provided date or default to 6 months from today
+        if [[ -n "${{ inputs.target_date }}" ]]; then
+          # Validate provided date format
+          if ! date -d "${{ inputs.target_date }}" >/dev/null 2>&1; then
+            echo "❌ Invalid date format. Use YYYY-MM-DD"
+            exit 1
+          fi
+          TARGET_DATE="${{ inputs.target_date }}"
+          echo "✅ Using provided target date: $TARGET_DATE"
+        else
+          # Default to 6 months from today
+          TARGET_DATE=$(date -d "+6 months" +"%Y-%m-%d")
+          echo "✅ Using default target date (6 months from provisioning): $TARGET_DATE"
         fi
-        echo "✅ Date format validated"
+        echo "target_date=$TARGET_DATE" >> $GITHUB_OUTPUT
 
     - name: Validate GitHub username
       shell: bash
@@ -55,4 +77,5 @@ runs:
         echo "✅ All inputs validated successfully"
         echo "  Study: ${{ inputs.study_title }}"
         echo "  Lead: ${{ inputs.lead_name }} (@${{ inputs.lead_github }})"
-        echo "  Target: ${{ inputs.target_date }}"
+        echo "  Start Date: ${{ steps.dates.outputs.start_date }}"
+        echo "  Target Date: ${{ steps.dates.outputs.target_date }}"
