@@ -20,6 +20,8 @@ on:
         type: choice
         options:
           - 'Add new study lead'
+          - 'Robert Barrett|ultraub'
+          - 'Sean O''Reilly|seanr87'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
