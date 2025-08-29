@@ -23,8 +23,10 @@ Upon creation, each Study Repository is populated with `status-tracking` Issues 
 - **Template-Based Repository Creation**: New study repos created from predefined template
 - **Study Lead Admin Access**: Automatic admin privileges assignment to study leads
 - **Central Factory Tracking**: Issues created in Factory repo for each study
-- **Project Board Integration**: Per-study project boards linked to repositories
-- **Activity Monitoring**: Automated daily checks for inactive studies
+- **Factory Portfolio Integration**: Automatic population of Factory Portfolio Project with Lead, Study Repo, and Objective fields
+- **Project Board Integration**: Per-study project boards linked to repositories  
+- **Status Tracking Issues**: Configurable milestone issues created in study repositories
+- **Activity Monitoring**: Automated daily checks for inactive studies with emoji status indicators
 - **Study Lead Database**: JSON-based storage with GitHub App workflow modification
 - **Validation System**: Input validation for study titles, dates, and GitHub usernames
 - **Modular GitHub Actions**: Reusable actions for study management operations
@@ -33,16 +35,16 @@ Upon creation, each Study Repository is populated with `status-tracking` Issues 
 
 Based on SPEC-001 requirements, these functions should be incorporated next:
 
-- [ ] **Factory Portfolio Auto-Updates**: Central project updates based on individual study progress
-- [ ] **Last Activity Tracking**: Display last updated date and file/issue links for each study  
-- [ ] **Delinquent Study Detection**: Automatic "delinquent" tags for studies inactive >30 days
-- [ ] **Study Start Date Recording**: Automatic timestamp capture during repo creation
+- [x] **Factory Portfolio Auto-Updates**: Central project updates based on individual study progress ✅
+- [x] **Last Activity Tracking**: Display last updated date and file/issue links for each study ✅  
+- [x] **Delinquent Study Detection**: Automatic "delinquent" tags for studies inactive >30 days ✅
+- [x] **Study Start Date Recording**: Automatic timestamp capture during repo creation ✅
 - [ ] **Data Partner Progress Tracking**: Charts/lists showing individual data partner status
-- [ ] **Project Board Links**: Direct links from portfolio issues to study project boards
-- [ ] **Study Phase Ordering**: Issues displayed in order of study phases (Protocol → Results)
+- [x] **Project Board Links**: Direct links from portfolio issues to study project boards ✅
+- [x] **Study Phase Ordering**: Issues displayed in order of study phases (Protocol → Results) ✅
 - [ ] **Data Partner View**: Separate view for tracking data partner progress across studies
-- [ ] **Status Color Coding**: Appropriately colored statuses for studies and data partners
-- [ ] **Real-time Portfolio Updates**: GitHub App integration for live status synchronization
+- [x] **Status Color Coding**: Appropriately colored statuses for studies and data partners ✅
+- [x] **Real-time Portfolio Updates**: GitHub App integration for live status synchronization ✅
 
 ## Quick Start (15 minutes)
 
@@ -68,6 +70,8 @@ Done! You'll get:
 - New private study repository
 - Study lead added as admin
 - Tracking issue in Factory repo
+- Factory Portfolio Project updated with study details
+- Status tracking issues created in study repository
 
 ### Track Studies
 
@@ -81,18 +85,20 @@ All studies are tracked as issues in this repo with:
 ```
 Factory/
 ├── .github/workflows/
-│   ├── provision-study.yml    # Creates new studies
-│   └── factory-sync.yml       # Daily activity check
-├── app/                       # Optional GitHub App
-└── study-template/            # Template for new studies
+│   ├── provision-study.yml       # Creates new studies
+│   ├── activity-check.yml        # Daily activity monitoring
+│   └── factory-issue-updater.yml # Updates Factory issues
+├── .github/actions/              # Reusable actions
+├── .github/data/                # Configuration files
+└── study-template/              # Template for new studies
 ```
 
 ## Documentation
 
 - **[Setup Instructions](SETUP_INSTRUCTIONS.md)** - Start here!
+- **[Status Feedback System](.github/docs/status-feedback-system.md)** - How status tracking works
 - **[MVP Overview](README_MVP.md)** - Technical details
 - **[Implementation Plan](IMPLEMENTATION_PLAN.md)** - Roadmap
-- **[App Documentation](app/README.md)** - GitHub App details
 
 ## Status
 

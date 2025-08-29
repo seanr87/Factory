@@ -9,32 +9,25 @@
    https://github.com/YOUR_ORG/Factory/settings/secrets/actions
    ```
 
-2. **Add these secrets** (click "New repository secret" for each):
+2. **Add this secret** (click "New repository secret"):
    
-   **SECRET #1: `ORG_ADMIN_TOKEN`**
+   **SECRET: `ORG_ADMIN_TOKEN`**
    - Go to: https://github.com/settings/tokens/new
    - Name: "Factory Admin Token"
    - Expiration: 90 days (or longer)
    - Check these boxes:
      ✅ repo (all)
-     ✅ workflow
+     ✅ workflow  
      ✅ admin:org (if creating repos in an org)
+     ✅ project (for updating Factory Portfolio Project)
    - Click "Generate token"
    - Copy the token and save as `ORG_ADMIN_TOKEN` secret
-
-   **SECRET #2: `ORG_LOGIN`**
-   - Value: Your GitHub username or organization name
-   - Example: `seanr87` or `my-org-name`
-
-   **SECRET #3: `TEMPLATE_REPO`**
-   - Value: `study-template`
-   - This is the name of your template repository
 
 3. **Add this variable** (Go to Settings → Variables → New repository variable):
    
    **VARIABLE: `FACTORY_PROJECT_NUMBER`**
    - Value: Your Factory Portfolio project number (see Part 2.5 below)
-   - This enables automatic issue tracking in your portfolio
+   - This enables automatic issue tracking in your Factory Portfolio Project with populated "Lead", "Study Repo", and "Objective" fields
 
 ### Part 2: Create Template Repository (3 minutes)
 
@@ -100,8 +93,9 @@
 
 ### What's Working Now:
 - ✅ Create new studies with one click
-- ✅ Automatic tracking in Factory repo
-- ✅ Daily sync of study activity (runs at 9 AM UTC)
+- ✅ Automatic tracking in Factory repo and Factory Portfolio Project
+- ✅ Daily activity check with status emoji updates (runs at 9 AM UTC)
+- ✅ Factory Portfolio Project automatically populated with Lead, Study Repo, and Objective fields
 
 ### Optional: GitHub App (Advanced - 30 minutes)
 
@@ -130,8 +124,9 @@ If you want automatic stage tracking when issues are labeled:
 ## Troubleshooting
 
 **"Repository creation failed"**
-- Check your `ORG_ADMIN_TOKEN` has `repo` and `admin:org` permissions
+- Check your `ORG_ADMIN_TOKEN` has `repo`, `admin:org`, and `project` permissions
 - Make sure `study-template` repository exists and is set as template
+- Verify the template repository is accessible to your organization
 
 **"Workflow not showing up"**
 - Go to Actions tab → Look for "Provision New Study"

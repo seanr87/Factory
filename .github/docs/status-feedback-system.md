@@ -1,27 +1,27 @@
 # Study Status Feedback System
 
-This system provides automated status updates from Study Repositories back to the Factory Portfolio when study milestones are completed.
+This system creates status tracking issues in study repositories and updates the Factory Portfolio Project when study milestones are completed.
 
 ## How It Works
 
-1. **Status Issues Creation**: When a new study is provisioned, 3 placeholder status tracking issues are automatically created in the study repository
-2. **Project Assignment**: These issues are assigned to the study's project and ordered by priority
-3. **Status Monitoring**: When a status issue is closed, the Factory tracking issue is automatically updated
-4. **Feedback Loop**: The Factory issue status and activity log are updated in real-time
+1. **Status Issues Creation**: When a new study is provisioned, status tracking issues are automatically created in the study repository
+2. **Project Assignment**: These issues are assigned to the study's project and ordered by priority  
+3. **Factory Project Updates**: When status issues are updated, the Factory Portfolio Project "Objective" field is automatically updated
+4. **Activity Monitoring**: The daily activity check workflow monitors all studies and updates Factory issue status based on repository activity
 
 ## Status Issues Configuration
 
-Status issues are defined in `.github/data/study-status-issues.json`. This file can be easily edited to:
-- Change issue titles and descriptions
-- Modify the number of status milestones  
-- Update Factory status mappings
-- Add or remove status tracking points
+Status issues are defined in `.github/data/study-status-issues.json`. This file controls:
+- Issue titles, descriptions, and labels
+- Number of status milestones
+- Factory Project "Objective" field mappings
+- Initial status for each issue
 
 ### Current Default Status Issues
 
-1. **📋 Protocol Development Complete** → Updates Factory status to "Protocol Development"
-2. **📊 Analysis Specifications Finalized** → Updates Factory status to "Analysis Specifications"  
-3. **🚀 Network Execution Started** → Updates Factory status to "Network Execution"
+1. **1) Analysis Package Prototype** → Updates Factory Project Objective to "Analysis Package Prototype" (starts "In Progress")
+2. **2) Network Execution** → Updates Factory Project Objective to "Network Execution" (starts "Todo")
+3. **3) Journal Submission** → Updates Factory Project Objective to "Journal Submission" (starts "Todo")
 
 ## Editing Status Issues
 
@@ -29,7 +29,7 @@ To customize the status issues:
 
 1. Edit `.github/data/study-status-issues.json`
 2. Modify the `issues` array to add/remove/change status milestones
-3. Update `factory_status_mapping` for the corresponding status names
+3. Update `factory_objective` mapping for corresponding Project field values
 4. New studies will use the updated configuration
 
 ### Example Configuration Change
@@ -42,7 +42,8 @@ To customize the status issues:
       "title": "🎯 New Milestone Title",
       "body": "Custom milestone description...",
       "labels": ["status-tracking", "custom-label"],
-      "factory_status": "Custom Status Name"
+      "factory_objective": "Custom Objective Name",
+      "initial_status": "In Progress"
     }
   ]
 }
@@ -56,64 +57,70 @@ To customize the status issues:
 - **Features**: 
   - Reads configuration from `study-status-issues.json`
   - Creates issues with proper labels and assignments
-  - Assigns issues to study project
-  - Sets up webhook workflow in study repo
+  - Assigns issues to study project with correct priority order
+  - Links issues back to Factory tracking issue
 
-### 2. Factory Status Updates  
-- **Workflow**: `.github/workflows/update-factory-status.yml`
-- **Trigger**: Repository dispatch from study repositories
-- **Purpose**: Updates Factory issue status when study milestones are completed
+### 2. Factory Project Updates  
+- **Action**: `.github/actions/add-to-factory-project/action.yml`
+- **Purpose**: Adds Factory tracking issues to the Factory Portfolio Project
+- **Features**:
+  - Populates "Lead" field with study lead name
+  - Populates "Study Repo" field with repository URL
+  - Sets initial "Objective" field to "Analysis Package Prototype"
 
-### 3. Study Repository Webhooks
-- **Reusable Workflow**: `.github/workflows/reusable/study-status-webhook.yml`
-- **Trigger Action**: `.github/actions/trigger-factory-status-update/action.yml`
-- **Purpose**: Monitors study repository for closed status issues and triggers Factory updates
+### 3. Activity Monitoring
+- **Workflow**: `.github/workflows/activity-check.yml`
+- **Schedule**: Daily at 9 AM UTC
+- **Purpose**: Monitors all study repositories and updates Factory issue status based on activity
+- **Features**:
+  - Updates issue titles with status emojis (🟢 Active, 🟡 Low Activity, 🔴 Inactive)
+  - Calculates days since last repository activity
+  - Updates Factory issue body with timestamp and status
 
 ## Testing the System
 
 ### Manual Test Process
 
 1. **Create a test study** using the provision workflow
-2. **Verify status issues** are created in the study repository
-3. **Check project assignment** - issues should appear in study project
-4. **Close a status issue** to test the feedback loop
-5. **Verify Factory update** - check that the Factory issue status updated
+2. **Verify status issues** are created in the study repository with correct titles
+3. **Check Factory Project** - verify issue was added with "Lead", "Study Repo", and "Objective" fields populated
+4. **Check project assignment** - status issues should appear in study project in correct order
+5. **Wait for daily activity check** or manually run activity-check workflow to see status updates
 
 ### What to Verify
 
-- ✅ Status issues created with correct titles and content
-- ✅ Issues assigned to study project in correct order
-- ✅ Webhook workflow created in study repository  
-- ✅ Closing status issue triggers Factory status update
-- ✅ Factory issue body and activity log updated correctly
-- ✅ Status update comment added to Factory issue
+- ✅ Status issues created with correct titles and content from JSON config
+- ✅ Issues assigned to study project in priority order (1, 2, 3)
+- ✅ Factory issue added to Factory Portfolio Project
+- ✅ Factory Project fields populated: Lead, Study Repo, Objective
+- ✅ Activity check updates Factory issue titles with status emojis
+- ✅ Repository activity dates reflected in Factory issue body
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Webhook not triggering**: Check that `FACTORY_ORG_TOKEN` secret is set in study repository
-2. **Status not updating**: Verify issue has `status-tracking` label
-3. **Wrong status mapping**: Check configuration in `study-status-issues.json`
-4. **Project assignment failing**: Verify study project permissions
+1. **Status issues not created**: Check that `study-status-issues.json` file is valid JSON
+2. **Project assignment failing**: Verify study project permissions and that project exists
+3. **Factory Project not updating**: Check `FACTORY_PROJECT_NUMBER` variable is set correctly
+4. **Activity check not running**: Verify `ORG_ADMIN_TOKEN` secret has necessary permissions
 
 ### Logs and Debugging
 
-- Check workflow runs in both study and Factory repositories
-- Look for error messages in action outputs
-- Verify repository dispatch events are being sent
-- Check issue labels and Factory issue number references
+- Check workflow runs in Actions tab for detailed error messages
+- Look for GraphQL errors in action outputs
+- Verify repository dispatch events in workflow logs
+- Check issue labels and Factory issue references
 
 ## Demo Scenario
 
 **For demonstrating to colleagues:**
 
-1. Create a new study with placeholder data
-2. Show the 3 status issues in the study repository
-3. Show them in the study project (ordered correctly)  
-4. Close the first status issue
-5. Show the Factory issue updated automatically with new status
-6. Show the activity comment on the Factory issue
-7. Explain how easy it is to edit the status issue content via JSON config
+1. Create a new study using the provision workflow
+2. Show the 3 status issues created in the study repository
+3. Show them assigned to the study project in correct order  
+4. Show the Factory issue added to Factory Portfolio Project with populated fields
+5. Show how daily activity check updates Factory issue status with emojis
+6. Explain how the JSON configuration makes it easy to customize status milestones
 
-This provides a complete status feedback loop from study repositories back to the Factory portfolio management system.
+This provides automated status tracking from study repositories to the Factory portfolio management system through GitHub Projects integration.
