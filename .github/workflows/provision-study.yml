@@ -97,6 +97,7 @@ jobs:
             echo "No dropdown changes to commit"
           else
             git commit -m "Update study leads dropdown options"
+            git pull --rebase origin main
             git push
             echo "✅ Updated workflow dropdown with current study leads"
           fi
