@@ -109,7 +109,7 @@ jobs:
           study_title: ${{ inputs.study_title }}
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-          target_date: ${{ steps.validate.outputs.target_date }}
+          target_date: ${{ inputs.target_date }}
 
       - name: Create repository
         id: repo
