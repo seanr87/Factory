@@ -1,3 +1,8 @@
 {
-  "study_leads": []
+  "study_leads": [
+    {
+      "name": "Robert Barrett",
+      "github_username": "ultraub"
+    }
+  ]
 }
