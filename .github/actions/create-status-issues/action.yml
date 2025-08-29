@@ -73,8 +73,7 @@ runs:
                 repo: repoName,
                 title: issueConfig.title,
                 body: enhancedBody,
-                labels: issueConfig.labels || [],
-                assignees: [leadGithub]
+                labels: issueConfig.labels || []
               });
               
               console.log(`✅ Created issue: ${issueConfig.title}`);
