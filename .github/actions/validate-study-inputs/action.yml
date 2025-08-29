@@ -38,13 +38,15 @@ runs:
         echo "✅ Start date set: $START_DATE"
         
         # Set target date - use provided date or default to 6 months from today
-        if [[ -n "${{ inputs.target_date }}" ]]; then
+        TARGET_INPUT="${{ inputs.target_date }}"
+        TARGET_INPUT=$(echo "$TARGET_INPUT" | tr -d '[:space:]')  # Remove all whitespace
+        if [[ -n "$TARGET_INPUT" ]]; then
           # Validate provided date format
-          if ! date -d "${{ inputs.target_date }}" >/dev/null 2>&1; then
+          if ! date -d "$TARGET_INPUT" >/dev/null 2>&1; then
             echo "❌ Invalid date format. Use YYYY-MM-DD"
             exit 1
           fi
-          TARGET_DATE="${{ inputs.target_date }}"
+          TARGET_DATE="$TARGET_INPUT"
           echo "✅ Using provided target date: $TARGET_DATE"
         else
           # Default to 6 months from today
