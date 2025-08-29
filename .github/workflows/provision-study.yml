@@ -25,7 +25,7 @@ on:
         required: false
         type: string
       new_lead_github:
-        description: 'New Study Lead GitHub sername'
+        description: 'New Study Lead GitHub username'
         required: false
         type: string
 
@@ -52,7 +52,7 @@ jobs:
           lead_github: ${{ inputs.new_lead_github }}
 
       - name: Add new study lead to database
-        if: inputs.study_lead_selection == 'Add new Study Lead'
+        if: inputs.study_lead_selection == 'Add new study lead'
         uses: ./.github/actions/manage-study-leads
         with:
           operation: add
@@ -60,7 +60,7 @@ jobs:
           lead_github: ${{ inputs.new_lead_github }}
 
       - name: Commit updated study leads data
-        if: inputs.study_lead_selection == 'Add new Study Lead'
+        if: inputs.study_lead_selection == 'Add new study lead'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
