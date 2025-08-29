@@ -15,6 +15,8 @@ permissions:
 jobs:
   test_reminders:
     runs-on: ubuntu-latest
+    env:
+      FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,4 +25,4 @@ jobs:
         uses: ./.github/actions/test-reminder-system
         with:
           study_repo: ${{ inputs.study_repo }}
-          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }

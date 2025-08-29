@@ -25,43 +25,119 @@ runs:
           const factoryRepo = process.env.GITHUB_REPOSITORY;
           const [factoryOwner, factoryRepoName] = factoryRepo.split('/');
           const testStudyRepo = "${{ inputs.study_repo }}" || null;
+          const factoryProjectNumber = parseInt(process.env.FACTORY_PROJECT_NUMBER, 10);
           
           console.log('🧪 Testing bi-weekly reminder system...');
           console.log(`Factory repo: ${factoryRepo}`);
+          console.log(`Factory project number: ${factoryProjectNumber}`);
           if (testStudyRepo) {
             console.log(`Test study filter: ${testStudyRepo}`);
           }
           
+          if (!factoryProjectNumber) {
+            console.error('❌ FACTORY_PROJECT_NUMBER environment variable not set');
+            core.setFailed('FACTORY_PROJECT_NUMBER not available for testing');
+            return;
+          }
+          
           let testResults = {
-            factoryIssuesFound: 0,
+            projectItemsFound: 0,
             successfulProcessing: 0,
             errors: []
           };
           
           try {
-            // Get all open Factory issues with 'study' label
-            const factoryIssues = await github.rest.issues.listForRepo({
+            // Get Factory Portfolio Project
+            const project = await github.graphql(`
+              query($owner: String!, $number: Int!) {
+                user(login: $owner) {
+                  projectV2(number: $number) {
+                    id
+                    title
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content {
+                          ... on Issue {
+                            id
+                            number
+                            title
+                            state
+                            assignees(first: 10) {
+                              nodes {
+                                login
+                              }
+                            }
+                          }
+                        }
+                        fieldValues(first: 20) {
+                          nodes {
+                            ... on ProjectV2ItemFieldTextValue {
+                              text
+                              field {
+                                ... on ProjectV2FieldCommon {
+                                  name
+                                }
+                              }
+                            }
+                            ... on ProjectV2ItemFieldSingleSelectValue {
+                              name
+                              field {
+                                ... on ProjectV2FieldCommon {
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, {
               owner: factoryOwner,
-              repo: factoryRepoName,
-              labels: 'study',
-              state: 'open',
-              per_page: 100
+              number: factoryProjectNumber
             });
             
-            testResults.factoryIssuesFound = factoryIssues.data.length;
-            console.log(`Found ${factoryIssues.data.length} active study issues`);
+            const factoryProject = project.user.projectV2;
+            if (!factoryProject) {
+              throw new Error(`Factory project #${factoryProjectNumber} not found`);
+            }
             
-            for (const factoryIssue of factoryIssues.data) {
+            console.log(`Found Factory Portfolio Project: ${factoryProject.title}`);
+            const openItems = factoryProject.items.nodes.filter(item => 
+              item.content && item.content.state === 'open'
+            );
+            
+            testResults.projectItemsFound = openItems.length;
+            console.log(`Found ${openItems.length} open project items to test`);
+            
+            for (const projectItem of openItems) {
+              const factoryIssue = projectItem.content;
               console.log(`\n📋 Testing: ${factoryIssue.title} (#${factoryIssue.number})`);
               
               try {
-                // Extract study repo from issue body
-                const repoMatch = factoryIssue.body?.match(/\*\*Repository\*\*:.*?github\.com\/([^\/\s\)]+\/[^\/\s\)]+)/);
-                if (!repoMatch) {
-                  throw new Error('Could not find repository link in issue body');
+                // Extract Study Repo field from project item
+                let studyRepo = null;
+                let currentObjectiveField = null;
+                
+                for (const fieldValue of projectItem.fieldValues.nodes) {
+                  if (fieldValue.field?.name === 'Study Repo' && fieldValue.text) {
+                    const repoMatch = fieldValue.text.match(/github\.com\/([^\/\s\)]+\/[^\/\s\)]+)/);
+                    if (repoMatch) {
+                      studyRepo = repoMatch[1];
+                    }
+                  }
+                  if (fieldValue.field?.name === 'Objective' && fieldValue.name) {
+                    currentObjectiveField = fieldValue.name;
+                  }
                 }
                 
-                const studyRepo = repoMatch[1];
+                if (!studyRepo) {
+                  throw new Error('Could not find Study Repo field in project item');
+                }
+                
                 const [studyOwner, studyRepoName] = studyRepo.split('/');
                 
                 // If test study filter active, only process that one
@@ -124,18 +200,20 @@ runs:
                   }
                 }
                 
+                console.log(`🎯 Current objective from project: ${currentObjectiveField || 'None set'}`);
+                
                 // Check assignees
-                const assignees = factoryIssue.assignees || [];
+                const assignees = factoryIssue.assignees?.nodes || [];
                 console.log(`👥 Assignees: ${assignees.length > 0 ? assignees.map(u => u.login).join(', ') : 'None'}`);
                 
                 // Simulate comment generation (don't actually post)
                 console.log('💬 Reminder comment would be generated successfully');
-                console.log('✅ Test passed for this issue\n');
+                console.log('✅ Test passed for this project item\n');
                 
                 testResults.successfulProcessing++;
                 
               } catch (error) {
-                const errorMsg = `Issue #${factoryIssue.number}: ${error.message}`;
+                const errorMsg = `Project item #${factoryIssue.number}: ${error.message}`;
                 console.error(`❌ ${errorMsg}`);
                 testResults.errors.push(errorMsg);
               }
@@ -143,7 +221,7 @@ runs:
             
             // Summary
             console.log('📋 Test Summary:');
-            console.log(`   Factory issues found: ${testResults.factoryIssuesFound}`);
+            console.log(`   Project items found: ${testResults.projectItemsFound}`);
             console.log(`   Successfully processed: ${testResults.successfulProcessing}`);
             console.log(`   Errors: ${testResults.errors.length}`);
             

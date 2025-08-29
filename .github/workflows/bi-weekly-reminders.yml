@@ -37,33 +37,110 @@ jobs:
             const factoryRepo = process.env.FACTORY_REPO;
             const [factoryOwner, factoryRepoName] = factoryRepo.split('/');
             const specificStudy = "${{ inputs.specific_study }}" || null;
+            const factoryProjectNumber = parseInt("${{ vars.FACTORY_PROJECT_NUMBER }}", 10);
             
             console.log('🔔 Starting bi-weekly reminder system...');
+            console.log(`Factory project number: ${factoryProjectNumber}`);
+            
+            if (!factoryProjectNumber) {
+              console.error('❌ FACTORY_PROJECT_NUMBER variable not set');
+              core.setFailed('FACTORY_PROJECT_NUMBER variable not set');
+              return;
+            }
             
             try {
-              // Get all open Factory issues with 'study' label
-              const factoryIssues = await github.rest.issues.listForRepo({
+              // Get Factory Portfolio Project
+              const project = await github.graphql(`
+                query($owner: String!, $number: Int!) {
+                  user(login: $owner) {
+                    projectV2(number: $number) {
+                      id
+                      title
+                      items(first: 100) {
+                        nodes {
+                          id
+                          content {
+                            ... on Issue {
+                              id
+                              number
+                              title
+                              state
+                              assignees(first: 10) {
+                                nodes {
+                                  login
+                                }
+                              }
+                            }
+                          }
+                          fieldValues(first: 20) {
+                            nodes {
+                              ... on ProjectV2ItemFieldTextValue {
+                                text
+                                field {
+                                  ... on ProjectV2FieldCommon {
+                                    name
+                                  }
+                                }
+                              }
+                              ... on ProjectV2ItemFieldSingleSelectValue {
+                                name
+                                field {
+                                  ... on ProjectV2FieldCommon {
+                                    name
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `, {
                 owner: factoryOwner,
-                repo: factoryRepoName,
-                labels: 'study',
-                state: 'open',
-                per_page: 100
+                number: factoryProjectNumber
               });
               
-              console.log(`Found ${factoryIssues.data.length} active study issues`);
+              const factoryProject = project.user.projectV2;
+              if (!factoryProject) {
+                throw new Error(`Factory project #${factoryProjectNumber} not found`);
+              }
               
-              for (const factoryIssue of factoryIssues.data) {
-                console.log(`\n📋 Processing: ${factoryIssue.title}`);
+              console.log(`Found Factory Portfolio Project: ${factoryProject.title}`);
+              console.log(`Processing ${factoryProject.items.nodes.length} project items`);
+              
+              for (const projectItem of factoryProject.items.nodes) {
+                if (!projectItem.content || projectItem.content.state !== 'open') {
+                  continue; // Skip non-issue items or closed issues
+                }
+                
+                const factoryIssue = projectItem.content;
+                console.log(`\n📋 Processing: ${factoryIssue.title} (#${factoryIssue.number})`);
                 
                 try {
-                  // Extract study repo from issue body
-                  const repoMatch = factoryIssue.body?.match(/\*\*Repository\*\*:.*?github\.com\/([^\/\s\)]+\/[^\/\s\)]+)/);
-                  if (!repoMatch) {
-                    console.log('⚠️ Could not find repository link in issue body');
+                  // Extract Study Repo field from project item
+                  let studyRepo = null;
+                  let currentObjectiveField = null;
+                  
+                  for (const fieldValue of projectItem.fieldValues.nodes) {
+                    if (fieldValue.field?.name === 'Study Repo' && fieldValue.text) {
+                      // Extract repo from URL like https://github.com/owner/repo
+                      const repoMatch = fieldValue.text.match(/github\.com\/([^\/\s\)]+\/[^\/\s\)]+)/);
+                      if (repoMatch) {
+                        studyRepo = repoMatch[1];
+                      }
+                    }
+                    if (fieldValue.field?.name === 'Objective' && fieldValue.name) {
+                      currentObjectiveField = fieldValue.name;
+                    }
+                  }
+                  
+                  if (!studyRepo) {
+                    console.log('⚠️ Could not find Study Repo field in project item');
                     continue;
                   }
                   
-                  const studyRepo = repoMatch[1];
                   const [studyOwner, studyRepoName] = studyRepo.split('/');
                   
                   // If specific study requested, only process that one
@@ -72,19 +149,30 @@ jobs:
                     continue;
                   }
                   
-                  // Get current status-tracking issues from study repo
-                  const statusIssues = await github.rest.issues.listForRepo({
-                    owner: studyOwner,
-                    repo: studyRepoName,
-                    labels: 'status-tracking',
-                    state: 'all',
-                    per_page: 10
-                  });
+                  console.log(`🔍 Study repo: ${studyRepo}`);
+                  console.log(`🎯 Current objective from project: ${currentObjectiveField || 'None set'}`);
                   
-                  // Find current active objective (most recent open issue or most recently updated)
+                  // Get current status-tracking issues from study repo
+                  let statusIssues = { data: [] };
                   let currentObjective = null;
                   let objectiveDuration = null;
                   
+                  try {
+                    statusIssues = await github.rest.issues.listForRepo({
+                      owner: studyOwner,
+                      repo: studyRepoName,
+                      labels: 'status-tracking',
+                      state: 'all',
+                      per_page: 10
+                    });
+                    
+                    console.log(`📊 Found ${statusIssues.data.length} status-tracking issues`);
+                  } catch (repoError) {
+                    console.log(`⚠️ Could not access study repo ${studyRepo}: ${repoError.message}`);
+                    console.log('   Continuing with project objective info only...');
+                  }
+                  
+                  // Find current active objective
                   if (statusIssues.data.length > 0) {
                     // Sort by order (extract number from title like "1) Analysis Package Prototype")
                     const sortedIssues = statusIssues.data.sort((a, b) => {
@@ -109,11 +197,16 @@ jobs:
                       } else {
                         objectiveDuration = `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
                       }
+                      
+                      console.log(`📅 Objective duration: ${objectiveDuration}`);
                     }
+                  } else if (currentObjectiveField) {
+                    // Use project field if no status issues found
+                    console.log('📋 Using objective from Factory project field');
                   }
                   
                   // Get assignees from Factory issue  
-                  const assignees = factoryIssue.assignees || [];
+                  const assignees = factoryIssue.assignees?.nodes || [];
                   const assigneeList = assignees.map(user => `@${user.login}`).join(' ');
                   
                   // Build reminder comment
@@ -124,6 +217,7 @@ jobs:
                     reminderComment += `${assigneeList} - hope you're doing well!\n\n`;
                   }
                   
+                  // Display current objective info
                   if (currentObjective) {
                     const objectiveName = currentObjective.title.replace(/^\d+\)\s*/, ''); // Remove order number
                     const status = currentObjective.state === 'closed' ? '✅ Complete' : '🔄 In Progress';
@@ -132,9 +226,13 @@ jobs:
                     reminderComment += `**${objectiveName}** (${status})\n`;
                     reminderComment += `📅 Working on this objective for: **${objectiveDuration}**\n`;
                     reminderComment += `🔗 [View objective details](${currentObjective.html_url})\n\n`;
+                  } else if (currentObjectiveField) {
+                    reminderComment += `### 🎯 Current Objective\n`;
+                    reminderComment += `**${currentObjectiveField}** (from Factory project)\n`;
+                    reminderComment += `🔗 [View study repository](https://github.com/${studyRepo})\n\n`;
                   } else {
                     reminderComment += `### ⚠️ No Current Objective Found\n`;
-                    reminderComment += `It looks like status-tracking issues may not be set up yet for this study.\n\n`;
+                    reminderComment += `It looks like objectives may not be set up yet for this study.\n\n`;
                   }
                   
                   reminderComment += `### 💬 How Can We Help?\n`;
