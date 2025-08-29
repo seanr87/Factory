@@ -1,0 +1,172 @@
+name: Bi-Weekly Study Reminders
+
+on:
+  # Run every two weeks on Monday at 9 AM UTC
+  schedule:
+    - cron: "0 9 * * 1/14"
+  
+  # Manual trigger for testing and maintenance
+  workflow_dispatch:
+    inputs:
+      specific_study:
+        description: 'Test with specific study (format: owner/repo, optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  send_reminders:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+      ORG_LOGIN: ${{ github.repository_owner }}
+      FACTORY_REPO: ${{ github.repository }}
+    
+    steps:
+      - name: Checkout Factory repository
+        uses: actions/checkout@v4
+
+      - name: Send bi-weekly reminders
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.GH_TOKEN }}
+          script: |
+            const factoryRepo = process.env.FACTORY_REPO;
+            const [factoryOwner, factoryRepoName] = factoryRepo.split('/');
+            const specificStudy = "${{ inputs.specific_study }}" || null;
+            
+            console.log('🔔 Starting bi-weekly reminder system...');
+            
+            try {
+              // Get all open Factory issues with 'study' label
+              const factoryIssues = await github.rest.issues.listForRepo({
+                owner: factoryOwner,
+                repo: factoryRepoName,
+                labels: 'study',
+                state: 'open',
+                per_page: 100
+              });
+              
+              console.log(`Found ${factoryIssues.data.length} active study issues`);
+              
+              for (const factoryIssue of factoryIssues.data) {
+                console.log(`\n📋 Processing: ${factoryIssue.title}`);
+                
+                try {
+                  // Extract study repo from issue body
+                  const repoMatch = factoryIssue.body?.match(/\*\*Repository\*\*:.*?github\.com\/([^\/\s\)]+\/[^\/\s\)]+)/);
+                  if (!repoMatch) {
+                    console.log('⚠️ Could not find repository link in issue body');
+                    continue;
+                  }
+                  
+                  const studyRepo = repoMatch[1];
+                  const [studyOwner, studyRepoName] = studyRepo.split('/');
+                  
+                  // If specific study requested, only process that one
+                  if (specificStudy && studyRepo !== specificStudy) {
+                    console.log(`⏩ Skipping ${studyRepo} (specific study filter active)`);
+                    continue;
+                  }
+                  
+                  // Get current status-tracking issues from study repo
+                  const statusIssues = await github.rest.issues.listForRepo({
+                    owner: studyOwner,
+                    repo: studyRepoName,
+                    labels: 'status-tracking',
+                    state: 'all',
+                    per_page: 10
+                  });
+                  
+                  // Find current active objective (most recent open issue or most recently updated)
+                  let currentObjective = null;
+                  let objectiveDuration = null;
+                  
+                  if (statusIssues.data.length > 0) {
+                    // Sort by order (extract number from title like "1) Analysis Package Prototype")
+                    const sortedIssues = statusIssues.data.sort((a, b) => {
+                      const aOrder = parseInt(a.title.match(/^(\d+)\)/) ? a.title.match(/^(\d+)\)/)[1] : 999);
+                      const bOrder = parseInt(b.title.match(/^(\d+)\)/) ? b.title.match(/^(\d+)\)/)[1] : 999);
+                      return aOrder - bOrder;
+                    });
+                    
+                    // Find current objective (first open issue in sequence, or last updated if all closed)
+                    currentObjective = sortedIssues.find(issue => issue.state === 'open') || sortedIssues[sortedIssues.length - 1];
+                    
+                    if (currentObjective) {
+                      // Calculate how long they've been on this objective
+                      const objectiveStartDate = new Date(currentObjective.created_at);
+                      const now = new Date();
+                      const diffTime = Math.abs(now - objectiveStartDate);
+                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                      const diffWeeks = Math.floor(diffDays / 7);
+                      
+                      if (diffWeeks > 0) {
+                        objectiveDuration = `${diffWeeks} week${diffWeeks !== 1 ? 's' : ''}`;
+                      } else {
+                        objectiveDuration = `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+                      }
+                    }
+                  }
+                  
+                  // Get assignees from Factory issue  
+                  const assignees = factoryIssue.assignees || [];
+                  const assigneeList = assignees.map(user => `@${user.login}`).join(' ');
+                  
+                  // Build reminder comment
+                  let reminderComment = `## 🔔 Bi-Weekly Study Check-In\n\n`;
+                  reminderComment += `Hi there! 👋 This is your friendly bi-weekly reminder to check in on study progress.\n\n`;
+                  
+                  if (assigneeList) {
+                    reminderComment += `${assigneeList} - hope you're doing well!\n\n`;
+                  }
+                  
+                  if (currentObjective) {
+                    const objectiveName = currentObjective.title.replace(/^\d+\)\s*/, ''); // Remove order number
+                    const status = currentObjective.state === 'closed' ? '✅ Complete' : '🔄 In Progress';
+                    
+                    reminderComment += `### 🎯 Current Objective\n`;
+                    reminderComment += `**${objectiveName}** (${status})\n`;
+                    reminderComment += `📅 Working on this objective for: **${objectiveDuration}**\n`;
+                    reminderComment += `🔗 [View objective details](${currentObjective.html_url})\n\n`;
+                  } else {
+                    reminderComment += `### ⚠️ No Current Objective Found\n`;
+                    reminderComment += `It looks like status-tracking issues may not be set up yet for this study.\n\n`;
+                  }
+                  
+                  reminderComment += `### 💬 How Can We Help?\n`;
+                  reminderComment += `- Are you blocked on anything?\n`;
+                  reminderComment += `- Do you need additional resources or support?\n`;
+                  reminderComment += `- Any questions about the current objective or next steps?\n\n`;
+                  reminderComment += `Feel free to comment below or reach out to the Factory team if you need assistance! 🚀\n\n`;
+                  reminderComment += `---\n`;
+                  reminderComment += `*This is an automated bi-weekly check-in. You can view all study progress in the [Factory Project](https://github.com/${factoryOwner}/${factoryRepoName}/projects).*`;
+                  
+                  // Add the comment to the Factory issue
+                  await github.rest.issues.createComment({
+                    owner: factoryOwner,
+                    repo: factoryRepoName,
+                    issue_number: factoryIssue.number,
+                    body: reminderComment
+                  });
+                  
+                  console.log(`✅ Posted reminder comment to Factory issue #${factoryIssue.number}`);
+                  
+                  // Brief delay between comments to be nice to the API
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  
+                } catch (error) {
+                  console.error(`❌ Failed to process Factory issue #${factoryIssue.number}:`, error.message);
+                  // Continue with other issues rather than failing
+                }
+              }
+              
+              console.log('\n🎉 Bi-weekly reminder system completed successfully!');
+              
+            } catch (error) {
+              console.error('❌ Failed to run bi-weekly reminders:', error);
+              core.setFailed(`Failed to send bi-weekly reminders: ${error.message}`);
+            }

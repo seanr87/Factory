@@ -1,0 +1,168 @@
+name: 'Test Reminder System'
+description: 'Test the reminder system logic without sending actual comments'
+inputs:
+  study_repo:
+    description: 'Specific study repo to test with (format: owner/repo)'
+    required: false
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  test_results:
+    description: 'Test results summary'
+    value: ${{ steps.test_reminder.outputs.results }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Test reminder logic
+      id: test_reminder
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.org_token }}
+        script: |
+          const factoryRepo = process.env.GITHUB_REPOSITORY;
+          const [factoryOwner, factoryRepoName] = factoryRepo.split('/');
+          const testStudyRepo = "${{ inputs.study_repo }}" || null;
+          
+          console.log('🧪 Testing bi-weekly reminder system...');
+          console.log(`Factory repo: ${factoryRepo}`);
+          if (testStudyRepo) {
+            console.log(`Test study filter: ${testStudyRepo}`);
+          }
+          
+          let testResults = {
+            factoryIssuesFound: 0,
+            successfulProcessing: 0,
+            errors: []
+          };
+          
+          try {
+            // Get all open Factory issues with 'study' label
+            const factoryIssues = await github.rest.issues.listForRepo({
+              owner: factoryOwner,
+              repo: factoryRepoName,
+              labels: 'study',
+              state: 'open',
+              per_page: 100
+            });
+            
+            testResults.factoryIssuesFound = factoryIssues.data.length;
+            console.log(`Found ${factoryIssues.data.length} active study issues`);
+            
+            for (const factoryIssue of factoryIssues.data) {
+              console.log(`\n📋 Testing: ${factoryIssue.title} (#${factoryIssue.number})`);
+              
+              try {
+                // Extract study repo from issue body
+                const repoMatch = factoryIssue.body?.match(/\*\*Repository\*\*:.*?github\.com\/([^\/\s\)]+\/[^\/\s\)]+)/);
+                if (!repoMatch) {
+                  throw new Error('Could not find repository link in issue body');
+                }
+                
+                const studyRepo = repoMatch[1];
+                const [studyOwner, studyRepoName] = studyRepo.split('/');
+                
+                // If test study filter active, only process that one
+                if (testStudyRepo && studyRepo !== testStudyRepo) {
+                  console.log(`⏩ Skipping ${studyRepo} (test filter active)`);
+                  continue;
+                }
+                
+                console.log(`🔍 Checking study repo: ${studyRepo}`);
+                
+                // Test access to study repo
+                try {
+                  await github.rest.repos.get({
+                    owner: studyOwner,
+                    repo: studyRepoName
+                  });
+                  console.log('✅ Study repo accessible');
+                } catch (repoError) {
+                  throw new Error(`Cannot access study repo: ${repoError.message}`);
+                }
+                
+                // Get current status-tracking issues from study repo
+                const statusIssues = await github.rest.issues.listForRepo({
+                  owner: studyOwner,
+                  repo: studyRepoName,
+                  labels: 'status-tracking',
+                  state: 'all',
+                  per_page: 10
+                });
+                
+                console.log(`📊 Found ${statusIssues.data.length} status-tracking issues`);
+                
+                // Find current objective
+                let currentObjective = null;
+                let objectiveDuration = null;
+                
+                if (statusIssues.data.length > 0) {
+                  // Sort by order (extract number from title like "1) Analysis Package Prototype")
+                  const sortedIssues = statusIssues.data.sort((a, b) => {
+                    const aOrder = parseInt(a.title.match(/^(\d+)\)/) ? a.title.match(/^(\d+)\)/)[1] : 999);
+                    const bOrder = parseInt(b.title.match(/^(\d+)\)/) ? b.title.match(/^(\d+)\)/)[1] : 999);
+                    return aOrder - bOrder;
+                  });
+                  
+                  // Find current objective
+                  currentObjective = sortedIssues.find(issue => issue.state === 'open') || sortedIssues[sortedIssues.length - 1];
+                  
+                  if (currentObjective) {
+                    const objectiveStartDate = new Date(currentObjective.created_at);
+                    const now = new Date();
+                    const diffTime = Math.abs(now - objectiveStartDate);
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    const diffWeeks = Math.floor(diffDays / 7);
+                    
+                    objectiveDuration = diffWeeks > 0 ? `${diffWeeks} week${diffWeeks !== 1 ? 's' : ''}` : `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+                    
+                    console.log(`🎯 Current objective: ${currentObjective.title.replace(/^\d+\)\s*/, '')}`);
+                    console.log(`📅 Duration: ${objectiveDuration}`);
+                    console.log(`📈 Status: ${currentObjective.state === 'closed' ? 'Complete' : 'In Progress'}`);
+                  }
+                }
+                
+                // Check assignees
+                const assignees = factoryIssue.assignees || [];
+                console.log(`👥 Assignees: ${assignees.length > 0 ? assignees.map(u => u.login).join(', ') : 'None'}`);
+                
+                // Simulate comment generation (don't actually post)
+                console.log('💬 Reminder comment would be generated successfully');
+                console.log('✅ Test passed for this issue\n');
+                
+                testResults.successfulProcessing++;
+                
+              } catch (error) {
+                const errorMsg = `Issue #${factoryIssue.number}: ${error.message}`;
+                console.error(`❌ ${errorMsg}`);
+                testResults.errors.push(errorMsg);
+              }
+            }
+            
+            // Summary
+            console.log('📋 Test Summary:');
+            console.log(`   Factory issues found: ${testResults.factoryIssuesFound}`);
+            console.log(`   Successfully processed: ${testResults.successfulProcessing}`);
+            console.log(`   Errors: ${testResults.errors.length}`);
+            
+            if (testResults.errors.length > 0) {
+              console.log('\n❌ Errors encountered:');
+              testResults.errors.forEach(error => console.log(`   - ${error}`));
+            }
+            
+            core.setOutput('results', JSON.stringify(testResults));
+            
+            if (testResults.errors.length > 0 && testResults.successfulProcessing === 0) {
+              core.setFailed('All test attempts failed');
+            } else if (testResults.errors.length > 0) {
+              console.log(`\n⚠️ ${testResults.errors.length} errors but ${testResults.successfulProcessing} successful - partial success`);
+            } else {
+              console.log('\n🎉 All tests passed!');
+            }
+            
+          } catch (error) {
+            console.error('❌ Test failed:', error);
+            core.setFailed(`Test failed: ${error.message}`);
+          }

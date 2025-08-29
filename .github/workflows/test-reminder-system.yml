@@ -1,0 +1,26 @@
+name: Test Reminder System
+
+on:
+  workflow_dispatch:
+    inputs:
+      study_repo:
+        description: 'Test with specific study (format: owner/repo, optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  test_reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Test reminder system
+        uses: ./.github/actions/test-reminder-system
+        with:
+          study_repo: ${{ inputs.study_repo }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
