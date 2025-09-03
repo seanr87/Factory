@@ -23,6 +23,7 @@ on:
           - 'Sean|seanr87'
           - 'ben|benwmar'
           - 'Resford Rouzer|resford'
+          - 'Hannah Lee|hlee110123'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
