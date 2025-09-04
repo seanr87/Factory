@@ -25,6 +25,7 @@ on:
           - 'Resford Rouzer|resford'
           - 'Hannah Lee|hlee110123'
           - 'Paul|paulnagy'
+          - 'robert|rtmill'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
