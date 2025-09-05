@@ -210,3 +210,29 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# === DEVELOPMENT FILES (Keep local, hide from public fork) ===
+
+# Development documentation directories
+/briefing/
+/vendor/
+/docs/
+/archive/
+
+# Development and testing files
+/tools/
+Makefile
+test_workflow*.yml
+test_workflows.sh
+Factory.code-workspace
+briefing.zip
+
+# Development documentation files  
+README_MVP.md
+README_PROGRESS.md
+IMPLEMENTATION_PLAN.md
+
+# Personal/temporary development files
+/temp/
+/local/
+/dev/
