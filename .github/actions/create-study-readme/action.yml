@@ -58,16 +58,39 @@ runs:
           try {
             issuesData = JSON.parse(issuesDataJson);
             console.log(`✅ Parsed ${issuesData.length} status issues data`);
+            
+            // Validate issues data structure
+            if (!Array.isArray(issuesData)) {
+              throw new Error('Issues data must be an array');
+            }
+            
+            for (const issue of issuesData) {
+              if (!issue.number || !issue.title || !issue.order) {
+                throw new Error(`Invalid issue data: missing required fields (number: ${issue.number}, title: ${issue.title}, order: ${issue.order})`);
+              }
+              if (typeof issue.number !== 'number') {
+                throw new Error(`Issue number must be a number, got: ${typeof issue.number}`);
+              }
+              if (typeof issue.title !== 'string') {
+                throw new Error(`Issue title must be a string, got: ${typeof issue.title}`);
+              }
+              if (typeof issue.order !== 'number') {
+                throw new Error(`Issue order must be a number, got: ${typeof issue.order}`);
+              }
+            }
+            
+            console.log(`✅ Validated ${issuesData.length} issues data structure`);
+            
           } catch (parseError) {
-            console.error(`❌ Failed to parse issues data: ${parseError.message}`);
-            core.setFailed(`Invalid issues data JSON: ${parseError.message}`);
+            console.error(`❌ Failed to parse/validate issues data: ${parseError.message}`);
+            core.setFailed(`Invalid issues data: ${parseError.message}`);
             return;
           }
           
           // Generate objectives checklist with actual issue links
           const objectivesChecklist = issuesData
             .sort((a, b) => a.order - b.order)
-            .map(issue => `- [ ] **${issue.title}** #${issue.number}`)
+            .map(issue => '- [ ] **' + issue.title + '** #' + issue.number)
             .join('\n');
           
           console.log(`✅ Generated objectives checklist with ${issuesData.length} linked issues`);
