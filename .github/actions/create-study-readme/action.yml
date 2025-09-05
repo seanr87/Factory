@@ -57,7 +57,7 @@ runs:
           let issuesData;
           try {
             issuesData = JSON.parse(issuesDataJson);
-            console.log(`✅ Parsed ${issuesData.length} status issues data`);
+            console.log('✅ Parsed ' + issuesData.length + ' status issues data');
             
             // Validate issues data structure
             if (!Array.isArray(issuesData)) {
@@ -66,24 +66,24 @@ runs:
             
             for (const issue of issuesData) {
               if (!issue.number || !issue.title || !issue.order) {
-                throw new Error(`Invalid issue data: missing required fields (number: ${issue.number}, title: ${issue.title}, order: ${issue.order})`);
+                throw new Error('Invalid issue data: missing required fields (number: ' + issue.number + ', title: ' + issue.title + ', order: ' + issue.order + ')');
               }
               if (typeof issue.number !== 'number') {
-                throw new Error(`Issue number must be a number, got: ${typeof issue.number}`);
+                throw new Error('Issue number must be a number, got: ' + typeof issue.number);
               }
               if (typeof issue.title !== 'string') {
-                throw new Error(`Issue title must be a string, got: ${typeof issue.title}`);
+                throw new Error('Issue title must be a string, got: ' + typeof issue.title);
               }
               if (typeof issue.order !== 'number') {
-                throw new Error(`Issue order must be a number, got: ${typeof issue.order}`);
+                throw new Error('Issue order must be a number, got: ' + typeof issue.order);
               }
             }
             
-            console.log(`✅ Validated ${issuesData.length} issues data structure`);
+            console.log('✅ Validated ' + issuesData.length + ' issues data structure');
             
           } catch (parseError) {
-            console.error(`❌ Failed to parse/validate issues data: ${parseError.message}`);
-            core.setFailed(`Invalid issues data: ${parseError.message}`);
+            console.error('❌ Failed to parse/validate issues data: ' + parseError.message);
+            core.setFailed('Invalid issues data: ' + parseError.message);
             return;
           }
           
@@ -93,7 +93,7 @@ runs:
             .map(issue => '- [ ] **' + issue.title + '** #' + issue.number)
             .join('\n');
           
-          console.log(`✅ Generated objectives checklist with ${issuesData.length} linked issues`);
+          console.log('✅ Generated objectives checklist with ' + issuesData.length + ' linked issues');
           
           // Read the template file
           const templatePath = '.github/templates/study-readme.md';
@@ -113,11 +113,11 @@ runs:
               .replace(/\{\{LEAD_NAME\}\}/g, leadName)
               .replace(/\{\{CREATION_DATE\}\}/g, new Date().toISOString().split('T')[0]);
               
-            console.log(`✅ Loaded README template from ${templatePath}`);
+            console.log('✅ Loaded README template from ' + templatePath);
             
           } catch (templateError) {
-            console.error(`❌ Failed to load template: ${templateError.message}`);
-            core.setFailed(`Template file not found: ${templatePath}`);
+            console.error('❌ Failed to load template: ' + templateError.message);
+            core.setFailed('Template file not found: ' + templatePath);
             return;
           }
 
@@ -139,12 +139,12 @@ runs:
               }
             });
             
-            console.log(`✅ Created .github/README.md for ${repoName}`);
-            console.log(`   File URL: ${createResponse.data.content.html_url}`);
+            console.log('✅ Created .github/README.md for ' + repoName);
+            console.log('   File URL: ' + createResponse.data.content.html_url);
             
             core.setOutput('readme_created', 'true');
             
           } catch (error) {
             console.error('Error creating README:', error);
-            core.setFailed(`Failed to create README: ${error.message}`);
+            core.setFailed('Failed to create README: ' + error.message);
           }
