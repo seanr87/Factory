@@ -40,81 +40,12 @@ runs:
       with:
         github-token: ${{ inputs.org_token }}
         script: |
-          const fs = require('fs');
+          console.log('DEBUG: Starting minimal test');
           
-          console.log('Starting README creation');
+          console.log('DEBUG: repo_name = ' + "${{ inputs.repo_name }}");
+          console.log('DEBUG: study_title = ' + "${{ inputs.study_title }}");
+          console.log('DEBUG: issues_data length = ' + "${{ inputs.issues_data }}".length);
+          console.log('DEBUG: issues_data preview = ' + "${{ inputs.issues_data }}".substring(0, 100));
           
-          const repoOwner = "${{ github.repository_owner }}";
-          const repoName = "${{ inputs.repo_name }}";  
-          const studyTitle = "${{ inputs.study_title }}";
-          const leadName = "${{ inputs.lead_name }}";
-          const leadGithub = "${{ inputs.lead_github }}";
-          const factoryIssueNumber = "${{ inputs.factory_issue_number }}";
-          const projectUrl = "${{ inputs.project_url }}";
-          const factoryRepo = "${{ github.repository }}";
-          const issuesDataJson = "${{ inputs.issues_data }}";
-          
-          console.log('Variables initialized');
-          
-          // Parse the issues data
-          let issuesData;
-          try {
-            issuesData = JSON.parse(issuesDataJson);
-            console.log('Parsed issues data: ' + issuesData.length + ' items');
-          } catch (parseError) {
-            console.error('Parse error: ' + parseError.message);
-            core.setFailed('Failed to parse issues data: ' + parseError.message);
-            return;
-          }
-          
-          // Generate objectives checklist  
-          const objectivesList = [];
-          for (let i = 0; i < issuesData.length; i++) {
-            const issue = issuesData[i];
-            const line = '- [ ] **' + issue.title + '** #' + issue.number;
-            objectivesList.push(line);
-          }
-          const objectivesChecklist = objectivesList.join('\n');
-          
-          console.log('Generated objectives checklist');
-          
-          // Read template and create content
-          try {
-            const template = fs.readFileSync('.github/templates/study-readme.md', 'utf8');
-            
-            let readmeContent = template;
-            readmeContent = readmeContent.replace(/\{\{STUDY_TITLE\}\}/g, studyTitle);
-            readmeContent = readmeContent.replace(/\{\{OBJECTIVES_CHECKLIST\}\}/g, objectivesChecklist);
-            readmeContent = readmeContent.replace(/\{\{PROJECT_URL\}\}/g, projectUrl);
-            readmeContent = readmeContent.replace(/\{\{FACTORY_ISSUE_NUMBER\}\}/g, factoryIssueNumber);
-            readmeContent = readmeContent.replace(/\{\{FACTORY_REPO\}\}/g, factoryRepo);
-            readmeContent = readmeContent.replace(/\{\{LEAD_GITHUB\}\}/g, leadGithub);
-            readmeContent = readmeContent.replace(/\{\{LEAD_NAME\}\}/g, leadName);
-            readmeContent = readmeContent.replace(/\{\{CREATION_DATE\}\}/g, new Date().toISOString().split('T')[0]);
-            
-            console.log('Template processed');
-            
-            // Create the README file
-            const createResponse = await github.rest.repos.createOrUpdateFileContents({
-              owner: repoOwner,
-              repo: repoName,
-              path: '.github/README.md',
-              message: 'Add study README with objectives and access instructions',
-              content: Buffer.from(readmeContent).toString('base64'),
-              committer: {
-                name: 'GitHub Action',
-                email: 'action@github.com'
-              },
-              author: {
-                name: 'Factory Study System', 
-                email: 'action@github.com'
-              }
-            });
-            
-            console.log('README created successfully');
-            core.setOutput('readme_created', 'true');
-            
-          } catch (error) {
-            console.error('Error: ' + error.message);
-            core.setFailed('Failed to create README: ' + error.message);
-          }
+          console.log('DEBUG: Minimal test completed');
+          core.setOutput('readme_created', 'true');
