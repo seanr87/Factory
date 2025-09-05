@@ -41,10 +41,11 @@ runs:
         github-token: ${{ inputs.org_token }}
         script: |
           const fs = require('fs');
-          const path = require('path');
+          
+          console.log('Starting README creation');
           
           const repoOwner = "${{ github.repository_owner }}";
-          const repoName = "${{ inputs.repo_name }}";
+          const repoName = "${{ inputs.repo_name }}";  
           const studyTitle = "${{ inputs.study_title }}";
           const leadName = "${{ inputs.lead_name }}";
           const leadGithub = "${{ inputs.lead_github }}";
@@ -53,75 +54,46 @@ runs:
           const factoryRepo = "${{ github.repository }}";
           const issuesDataJson = "${{ inputs.issues_data }}";
           
+          console.log('Variables initialized');
+          
           // Parse the issues data
           let issuesData;
           try {
             issuesData = JSON.parse(issuesDataJson);
-            console.log('✅ Parsed ' + issuesData.length + ' status issues data');
-            
-            // Validate issues data structure
-            if (!Array.isArray(issuesData)) {
-              throw new Error('Issues data must be an array');
-            }
-            
-            for (const issue of issuesData) {
-              if (!issue.number || !issue.title || !issue.order) {
-                throw new Error('Invalid issue data: missing required fields (number: ' + issue.number + ', title: ' + issue.title + ', order: ' + issue.order + ')');
-              }
-              if (typeof issue.number !== 'number') {
-                throw new Error('Issue number must be a number, got: ' + typeof issue.number);
-              }
-              if (typeof issue.title !== 'string') {
-                throw new Error('Issue title must be a string, got: ' + typeof issue.title);
-              }
-              if (typeof issue.order !== 'number') {
-                throw new Error('Issue order must be a number, got: ' + typeof issue.order);
-              }
-            }
-            
-            console.log('✅ Validated ' + issuesData.length + ' issues data structure');
-            
+            console.log('Parsed issues data: ' + issuesData.length + ' items');
           } catch (parseError) {
-            console.error('❌ Failed to parse/validate issues data: ' + parseError.message);
-            core.setFailed('Invalid issues data: ' + parseError.message);
+            console.error('Parse error: ' + parseError.message);
+            core.setFailed('Failed to parse issues data: ' + parseError.message);
             return;
           }
           
-          // Generate objectives checklist with actual issue links
-          const objectivesChecklist = issuesData
-            .sort((a, b) => a.order - b.order)
-            .map(issue => '- [ ] **' + issue.title + '** #' + issue.number)
-            .join('\n');
-          
-          console.log('✅ Generated objectives checklist with ' + issuesData.length + ' linked issues');
-          
-          // Read the template file
-          const templatePath = '.github/templates/study-readme.md';
-          let readmeContent;
-          
-          try {
-            const template = fs.readFileSync(templatePath, 'utf8');
-            
-            // Replace placeholders with actual values
-            readmeContent = template
-              .replace(/\{\{STUDY_TITLE\}\}/g, studyTitle)
-              .replace(/\{\{OBJECTIVES_CHECKLIST\}\}/g, objectivesChecklist)
-              .replace(/\{\{PROJECT_URL\}\}/g, projectUrl)
-              .replace(/\{\{FACTORY_ISSUE_NUMBER\}\}/g, factoryIssueNumber)
-              .replace(/\{\{FACTORY_REPO\}\}/g, factoryRepo)
-              .replace(/\{\{LEAD_GITHUB\}\}/g, leadGithub)
-              .replace(/\{\{LEAD_NAME\}\}/g, leadName)
-              .replace(/\{\{CREATION_DATE\}\}/g, new Date().toISOString().split('T')[0]);
-              
-            console.log('✅ Loaded README template from ' + templatePath);
-            
-          } catch (templateError) {
-            console.error('❌ Failed to load template: ' + templateError.message);
-            core.setFailed('Template file not found: ' + templatePath);
-            return;
+          // Generate objectives checklist  
+          const objectivesList = [];
+          for (let i = 0; i < issuesData.length; i++) {
+            const issue = issuesData[i];
+            const line = '- [ ] **' + issue.title + '** #' + issue.number;
+            objectivesList.push(line);
           }
-
+          const objectivesChecklist = objectivesList.join('\n');
+          
+          console.log('Generated objectives checklist');
+          
+          // Read template and create content
           try {
+            const template = fs.readFileSync('.github/templates/study-readme.md', 'utf8');
+            
+            let readmeContent = template;
+            readmeContent = readmeContent.replace(/\{\{STUDY_TITLE\}\}/g, studyTitle);
+            readmeContent = readmeContent.replace(/\{\{OBJECTIVES_CHECKLIST\}\}/g, objectivesChecklist);
+            readmeContent = readmeContent.replace(/\{\{PROJECT_URL\}\}/g, projectUrl);
+            readmeContent = readmeContent.replace(/\{\{FACTORY_ISSUE_NUMBER\}\}/g, factoryIssueNumber);
+            readmeContent = readmeContent.replace(/\{\{FACTORY_REPO\}\}/g, factoryRepo);
+            readmeContent = readmeContent.replace(/\{\{LEAD_GITHUB\}\}/g, leadGithub);
+            readmeContent = readmeContent.replace(/\{\{LEAD_NAME\}\}/g, leadName);
+            readmeContent = readmeContent.replace(/\{\{CREATION_DATE\}\}/g, new Date().toISOString().split('T')[0]);
+            
+            console.log('Template processed');
+            
             // Create the README file
             const createResponse = await github.rest.repos.createOrUpdateFileContents({
               owner: repoOwner,
@@ -134,17 +106,15 @@ runs:
                 email: 'action@github.com'
               },
               author: {
-                name: 'Factory Study System',
+                name: 'Factory Study System', 
                 email: 'action@github.com'
               }
             });
             
-            console.log('✅ Created .github/README.md for ' + repoName);
-            console.log('   File URL: ' + createResponse.data.content.html_url);
-            
+            console.log('README created successfully');
             core.setOutput('readme_created', 'true');
             
           } catch (error) {
-            console.error('Error creating README:', error);
+            console.error('Error: ' + error.message);
             core.setFailed('Failed to create README: ' + error.message);
           }
