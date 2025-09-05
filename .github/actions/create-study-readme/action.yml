@@ -1,0 +1,120 @@
+name: 'Create Study README'
+description: 'Creates .github/README.md for study repository with objectives checklist and access instructions'
+inputs:
+  repo_name:
+    description: 'Study repository name'
+    required: true
+  study_title:
+    description: 'Study title for context'
+    required: true
+  lead_name:
+    description: 'Study lead name'
+    required: true
+  lead_github:
+    description: 'Study lead GitHub username'
+    required: true
+  factory_issue_number:
+    description: 'Factory issue number for status updates'
+    required: true
+  project_url:
+    description: 'Study project URL'
+    required: true
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  readme_created:
+    description: 'Whether README was successfully created'
+    value: ${{ steps.create_readme.outputs.readme_created }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create study README
+      id: create_readme
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.org_token }}
+        script: |
+          const repoOwner = "${{ github.repository_owner }}";
+          const repoName = "${{ inputs.repo_name }}";
+          const studyTitle = "${{ inputs.study_title }}";
+          const leadName = "${{ inputs.lead_name }}";
+          const leadGithub = "${{ inputs.lead_github }}";
+          const factoryIssueNumber = "${{ inputs.factory_issue_number }}";
+          const projectUrl = "${{ inputs.project_url }}";
+          
+          const readmeContent = `# ${studyTitle}
+
+## Objectives
+
+Track study progress using the objectives below. These map directly to status issues in this repository:
+
+- [ ] **1) Analysis Package Prototype** - Development and completion of the analysis package prototype
+- [ ] **2) Network Execution** - Network execution phase including partner coordination and data collection  
+- [ ] **3) Journal Submission** - Manuscript preparation and journal submission process
+
+## Quick Access
+
+### Status & Progress
+- **Project Board**: [Study Project](${projectUrl}) - View all status tracking issues and current progress
+- **Factory Tracking**: [Factory Issue #${factoryIssueNumber}](https://github.com/${{ github.repository }}/issues/${factoryIssueNumber}) - Overall study tracking and portfolio updates
+
+### Team
+- **Study Lead**: @${leadGithub} (${leadName})
+
+## Repository Usage
+
+This repository is part of the Factory study management system. Here's how to use it effectively:
+
+### Status Tracking
+1. **Objective Issues**: Each objective above corresponds to a status tracking issue in this repository
+2. **Project Board**: All issues are automatically assigned to the study project board for easy tracking
+3. **Factory Integration**: Issue status changes automatically update the Factory portfolio
+
+### Workflow
+1. **Start**: Objectives begin as GitHub issues with appropriate status (In Progress/Todo)
+2. **Progress**: Update issue status on the project board as work progresses
+3. **Complete**: Close issues when objectives are finished
+4. **Factory Updates**: Changes automatically sync to Factory tracking issue
+
+### Getting Started
+1. Review the [project board](${projectUrl}) to see current status
+2. Check individual objective issues for detailed task breakdowns  
+3. Update status as work progresses
+4. Monitor Factory integration for portfolio-level tracking
+
+---
+
+*Repository created: ${new Date().toISOString().split('T')[0]}*
+*Factory Study Management System*
+`;
+
+          try {
+            // Create the README file
+            const createResponse = await github.rest.repos.createOrUpdateFileContents({
+              owner: repoOwner,
+              repo: repoName,
+              path: '.github/README.md',
+              message: 'Add study README with objectives and access instructions',
+              content: Buffer.from(readmeContent).toString('base64'),
+              committer: {
+                name: 'GitHub Action',
+                email: 'action@github.com'
+              },
+              author: {
+                name: 'Factory Study System',
+                email: 'action@github.com'
+              }
+            });
+            
+            console.log(`✅ Created .github/README.md for ${repoName}`);
+            console.log(`   File URL: ${createResponse.data.content.html_url}`);
+            
+            core.setOutput('readme_created', 'true');
+            
+          } catch (error) {
+            console.error('Error creating README:', error);
+            core.setFailed(`Failed to create README: ${error.message}`);
+          }

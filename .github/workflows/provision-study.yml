@@ -184,6 +184,18 @@ jobs:
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
+      - name: Create study README
+        id: readme
+        uses: ./.github/actions/create-study-readme
+        with:
+          repo_name: ${{ steps.validate.outputs.repo_name }}
+          study_title: ${{ inputs.study_title }}
+          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
+          factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
+          project_url: ${{ steps.project.outputs.project_url }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
       - name: Configure study repository secrets
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
@@ -217,16 +229,18 @@ jobs:
           echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
           echo "**Status Issues:** ${{ steps.status_issues.outputs.issues_created }} created"
+          echo "**README:** Created with objectives checklist and access instructions"
           echo ""
           echo "### Status Tracking System"
           echo "- ✅ Status tracking issues created in study repository"
           echo "- ✅ Issues assigned to study project (ordered by priority)"
           echo "- ✅ Status feedback automation configured"
           echo "- ✅ Repository secrets configured for Factory integration"
+          echo "- ✅ Study README created with objectives checklist and quick access links"
           echo "- 🔄 When issues are closed, Factory status will update automatically"
           echo ""
           echo "### Next Steps:"
-          echo "1. Visit the repository and update the README"
-          echo "2. Check the linked project board for status tracking issues"
-          echo "3. Close status issues as milestones are reached"
-          echo "4. Monitor Factory issue for status updates"
+          echo "1. Visit the repository README for objectives overview and quick access"
+          echo "2. Check the linked project board for detailed status tracking"
+          echo "3. Update status and close issues as milestones are reached"
+          echo "4. Monitor Factory issue for portfolio-level status updates"
