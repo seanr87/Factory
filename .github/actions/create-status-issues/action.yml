@@ -27,6 +27,9 @@ outputs:
   issue_urls:
     description: 'URLs of created status issues (JSON array)'
     value: ${{ steps.create_issues.outputs.issue_urls }}
+  issues_data:
+    description: 'Structured data of created issues (JSON array with numbers, titles, orders)'
+    value: ${{ steps.create_issues.outputs.issues_data }}
 
 runs:
   using: 'composite'
