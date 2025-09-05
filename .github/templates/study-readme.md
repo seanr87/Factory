@@ -2,7 +2,7 @@
 
 ## Objectives
 
-Track study progress using the objectives below. These map directly to status issues in this repository:
+Track study progress using the objectives below:
 
 {{OBJECTIVES_CHECKLIST}}
 
