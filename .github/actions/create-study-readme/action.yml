@@ -37,6 +37,9 @@ runs:
       with:
         github-token: ${{ inputs.org_token }}
         script: |
+          const fs = require('fs');
+          const path = require('path');
+          
           const repoOwner = "${{ github.repository_owner }}";
           const repoName = "${{ inputs.repo_name }}";
           const studyTitle = "${{ inputs.study_title }}";
@@ -46,52 +49,30 @@ runs:
           const projectUrl = "${{ inputs.project_url }}";
           const factoryRepo = "${{ github.repository }}";
           
-          const readmeContent = [
-            `# ${studyTitle}`,
-            ``,
-            `## Objectives`,
-            ``,
-            `Track study progress using the objectives below. These map directly to status issues in this repository:`,
-            ``,
-            `- [ ] **1) Analysis Package Prototype** - Development and completion of the analysis package prototype`,
-            `- [ ] **2) Network Execution** - Network execution phase including partner coordination and data collection`,
-            `- [ ] **3) Journal Submission** - Manuscript preparation and journal submission process`,
-            ``,
-            `## Quick Access`,
-            ``,
-            `### Status & Progress`,
-            `- **Project Board**: [Study Project](${projectUrl}) - View all status tracking issues and current progress`,
-            `- **Factory Tracking**: [Factory Issue #${factoryIssueNumber}](https://github.com/${factoryRepo}/issues/${factoryIssueNumber}) - Overall study tracking and portfolio updates`,
-            ``,
-            `### Team`,
-            `- **Study Lead**: @${leadGithub} (${leadName})`,
-            ``,
-            `## Repository Usage`,
-            ``,
-            `This repository is part of the Factory study management system. Here's how to use it effectively:`,
-            ``,
-            `### Status Tracking`,
-            `1. **Objective Issues**: Each objective above corresponds to a status tracking issue in this repository`,
-            `2. **Project Board**: All issues are automatically assigned to the study project board for easy tracking`,
-            `3. **Factory Integration**: Issue status changes automatically update the Factory portfolio`,
-            ``,
-            `### Workflow`,
-            `1. **Start**: Objectives begin as GitHub issues with appropriate status (In Progress/Todo)`,
-            `2. **Progress**: Update issue status on the project board as work progresses`,
-            `3. **Complete**: Close issues when objectives are finished`,
-            `4. **Factory Updates**: Changes automatically sync to Factory tracking issue`,
-            ``,
-            `### Getting Started`,
-            `1. Review the [project board](${projectUrl}) to see current status`,
-            `2. Check individual objective issues for detailed task breakdowns`,
-            `3. Update status as work progresses`,
-            `4. Monitor Factory integration for portfolio-level tracking`,
-            ``,
-            `---`,
-            ``,
-            `*Repository created: ${new Date().toISOString().split('T')[0]}*`,
-            `*Factory Study Management System*`
-          ].join('\n');
+          // Read the template file
+          const templatePath = '.github/templates/study-readme.md';
+          let readmeContent;
+          
+          try {
+            const template = fs.readFileSync(templatePath, 'utf8');
+            
+            // Replace placeholders with actual values
+            readmeContent = template
+              .replace(/\{\{STUDY_TITLE\}\}/g, studyTitle)
+              .replace(/\{\{PROJECT_URL\}\}/g, projectUrl)
+              .replace(/\{\{FACTORY_ISSUE_NUMBER\}\}/g, factoryIssueNumber)
+              .replace(/\{\{FACTORY_REPO\}\}/g, factoryRepo)
+              .replace(/\{\{LEAD_GITHUB\}\}/g, leadGithub)
+              .replace(/\{\{LEAD_NAME\}\}/g, leadName)
+              .replace(/\{\{CREATION_DATE\}\}/g, new Date().toISOString().split('T')[0]);
+              
+            console.log(`✅ Loaded README template from ${templatePath}`);
+            
+          } catch (templateError) {
+            console.error(`❌ Failed to load template: ${templateError.message}`);
+            core.setFailed(`Template file not found: ${templatePath}`);
+            return;
+          }
 
           try {
             // Create the README file
