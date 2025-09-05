@@ -79,7 +79,7 @@ runs:
           const objectivesList = [];
           for (let i = 0; i < issuesData.length; i++) {
             const issue = issuesData[i];
-            const line = '- [ ] **' + issue.title + '** #' + issue.number;
+            const line = '- [ ] #' + issue.number;
             objectivesList.push(line);
           }
           const objectivesChecklist = objectivesList.join('\n');
