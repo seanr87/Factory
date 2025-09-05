@@ -204,6 +204,7 @@ runs:
             // Set outputs
             core.setOutput('issues_created', issuesCreated.toString());
             core.setOutput('issue_urls', JSON.stringify(createdIssues.map(i => i.url)));
+            core.setOutput('issues_data', JSON.stringify(createdIssues));
             
           } catch (error) {
             console.error('Error creating status issues:', error);

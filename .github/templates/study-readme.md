@@ -4,9 +4,7 @@
 
 Track study progress using the objectives below. These map directly to status issues in this repository:
 
-- [ ] **1) Analysis Package Prototype** - Development and completion of the analysis package prototype
-- [ ] **2) Network Execution** - Network execution phase including partner coordination and data collection
-- [ ] **3) Journal Submission** - Manuscript preparation and journal submission process
+{{OBJECTIVES_CHECKLIST}}
 
 ## Quick Access
 

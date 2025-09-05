@@ -194,6 +194,7 @@ jobs:
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           project_url: ${{ steps.project.outputs.project_url }}
+          issues_data: ${{ steps.status_issues.outputs.issues_data }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Configure study repository secrets
