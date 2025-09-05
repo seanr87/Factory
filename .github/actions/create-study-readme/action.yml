@@ -50,7 +50,9 @@ runs:
       with:
         github-token: ${{ inputs.org_token }}
         script: |
-          console.log('DEBUG: Starting with environment variables');
+          const fs = require('fs');
+          
+          console.log('Starting README creation');
           
           const repoName = process.env.REPO_NAME;
           const studyTitle = process.env.STUDY_TITLE;
@@ -62,8 +64,68 @@ runs:
           const factoryRepo = process.env.FACTORY_REPO;
           const repoOwner = process.env.REPO_OWNER;
           
-          console.log('DEBUG: repo_name = ' + repoName);
-          console.log('DEBUG: study_title = ' + studyTitle);
-          console.log('DEBUG: issues_data length = ' + issuesDataJson.length);
+          // Parse the issues data
+          let issuesData;
+          try {
+            issuesData = JSON.parse(issuesDataJson);
+            console.log('Parsed ' + issuesData.length + ' status issues');
+          } catch (parseError) {
+            console.error('Failed to parse issues data: ' + parseError.message);
+            core.setFailed('Invalid JSON in issues data: ' + parseError.message);
+            return;
+          }
           
-          core.setOutput('readme_created', 'true');
+          // Generate objectives checklist with issue links
+          const objectivesList = [];
+          for (let i = 0; i < issuesData.length; i++) {
+            const issue = issuesData[i];
+            const line = '- [ ] **' + issue.title + '** #' + issue.number;
+            objectivesList.push(line);
+          }
+          const objectivesChecklist = objectivesList.join('\n');
+          
+          console.log('Generated objectives checklist with ' + issuesData.length + ' linked issues');
+          
+          // Read template and process it
+          try {
+            const template = fs.readFileSync('.github/templates/study-readme.md', 'utf8');
+            console.log('Loaded README template');
+            
+            let readmeContent = template;
+            readmeContent = readmeContent.replace(/\{\{STUDY_TITLE\}\}/g, studyTitle);
+            readmeContent = readmeContent.replace(/\{\{OBJECTIVES_CHECKLIST\}\}/g, objectivesChecklist);
+            readmeContent = readmeContent.replace(/\{\{PROJECT_URL\}\}/g, projectUrl);
+            readmeContent = readmeContent.replace(/\{\{FACTORY_ISSUE_NUMBER\}\}/g, factoryIssueNumber);
+            readmeContent = readmeContent.replace(/\{\{FACTORY_REPO\}\}/g, factoryRepo);
+            readmeContent = readmeContent.replace(/\{\{LEAD_GITHUB\}\}/g, leadGithub);
+            readmeContent = readmeContent.replace(/\{\{LEAD_NAME\}\}/g, leadName);
+            readmeContent = readmeContent.replace(/\{\{CREATION_DATE\}\}/g, new Date().toISOString().split('T')[0]);
+            
+            console.log('Processed template with all placeholders');
+            
+            // Create the README file in the target repository
+            const createResponse = await github.rest.repos.createOrUpdateFileContents({
+              owner: repoOwner,
+              repo: repoName,
+              path: '.github/README.md',
+              message: 'Add study README with objectives checklist and access instructions',
+              content: Buffer.from(readmeContent).toString('base64'),
+              committer: {
+                name: 'GitHub Action',
+                email: 'action@github.com'
+              },
+              author: {
+                name: 'Factory Study System',
+                email: 'action@github.com'
+              }
+            });
+            
+            console.log('Successfully created .github/README.md');
+            console.log('README URL: ' + createResponse.data.content.html_url);
+            
+            core.setOutput('readme_created', 'true');
+            
+          } catch (error) {
+            console.error('Error creating README: ' + error.message);
+            core.setFailed('Failed to create README: ' + error.message);
+          }
