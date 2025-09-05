@@ -37,15 +37,33 @@ runs:
     - name: Create study README
       id: create_readme
       uses: actions/github-script@v7
+      env:
+        REPO_NAME: ${{ inputs.repo_name }}
+        STUDY_TITLE: ${{ inputs.study_title }}
+        LEAD_NAME: ${{ inputs.lead_name }}
+        LEAD_GITHUB: ${{ inputs.lead_github }}
+        FACTORY_ISSUE_NUMBER: ${{ inputs.factory_issue_number }}
+        PROJECT_URL: ${{ inputs.project_url }}
+        ISSUES_DATA: ${{ inputs.issues_data }}
+        FACTORY_REPO: ${{ github.repository }}
+        REPO_OWNER: ${{ github.repository_owner }}
       with:
         github-token: ${{ inputs.org_token }}
         script: |
-          console.log('DEBUG: Starting minimal test');
+          console.log('DEBUG: Starting with environment variables');
           
-          console.log('DEBUG: repo_name = ' + "${{ inputs.repo_name }}");
-          console.log('DEBUG: study_title = ' + "${{ inputs.study_title }}");
-          console.log('DEBUG: issues_data length = ' + "${{ inputs.issues_data }}".length);
-          console.log('DEBUG: issues_data preview = ' + "${{ inputs.issues_data }}".substring(0, 100));
+          const repoName = process.env.REPO_NAME;
+          const studyTitle = process.env.STUDY_TITLE;
+          const leadName = process.env.LEAD_NAME;
+          const leadGithub = process.env.LEAD_GITHUB;
+          const factoryIssueNumber = process.env.FACTORY_ISSUE_NUMBER;
+          const projectUrl = process.env.PROJECT_URL;
+          const issuesDataJson = process.env.ISSUES_DATA;
+          const factoryRepo = process.env.FACTORY_REPO;
+          const repoOwner = process.env.REPO_OWNER;
           
-          console.log('DEBUG: Minimal test completed');
+          console.log('DEBUG: repo_name = ' + repoName);
+          console.log('DEBUG: study_title = ' + studyTitle);
+          console.log('DEBUG: issues_data length = ' + issuesDataJson.length);
+          
           core.setOutput('readme_created', 'true');
