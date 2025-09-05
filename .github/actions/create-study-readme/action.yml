@@ -44,6 +44,7 @@ runs:
           const leadGithub = "${{ inputs.lead_github }}";
           const factoryIssueNumber = "${{ inputs.factory_issue_number }}";
           const projectUrl = "${{ inputs.project_url }}";
+          const factoryRepo = "${{ github.repository }}";
           
           const readmeContent = `# ${studyTitle}
 
@@ -59,7 +60,7 @@ Track study progress using the objectives below. These map directly to status is
 
 ### Status & Progress
 - **Project Board**: [Study Project](${projectUrl}) - View all status tracking issues and current progress
-- **Factory Tracking**: [Factory Issue #${factoryIssueNumber}](https://github.com/${{ github.repository }}/issues/${factoryIssueNumber}) - Overall study tracking and portfolio updates
+- **Factory Tracking**: [Factory Issue #${factoryIssueNumber}](https://github.com/${factoryRepo}/issues/${factoryIssueNumber}) - Overall study tracking and portfolio updates
 
 ### Team
 - **Study Lead**: @${leadGithub} (${leadName})
