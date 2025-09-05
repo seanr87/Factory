@@ -75,11 +75,13 @@ runs:
             return;
           }
           
-          // Generate objectives checklist with issue links
+          // Generate objectives list with issue links
           const objectivesList = [];
           for (let i = 0; i < issuesData.length; i++) {
             const issue = issuesData[i];
-            const line = '- [ ] #' + issue.number;
+            // Extract the objective name from the title (remove the number prefix)
+            const objectiveName = issue.title.replace(/^\d+\)\s*/, '');
+            const line = (i + 1) + '. [' + objectiveName + '](#' + issue.number + ')';
             objectivesList.push(line);
           }
           const objectivesChecklist = objectivesList.join('\n');
