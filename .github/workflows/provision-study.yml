@@ -184,6 +184,49 @@ jobs:
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
+      - name: Update Factory issue with objective links
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          script: |
+            const factoryIssueNumber = ${{ steps.extract_issue_number.outputs.issue_number }};
+            const issuesData = JSON.parse('${{ steps.status_issues.outputs.issues_data }}');
+            
+            console.log('Updating Factory issue with objective links...');
+            console.log('Issues data:', issuesData);
+            
+            // Get current Factory issue
+            const factoryIssue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: factoryIssueNumber
+            });
+            
+            let updatedBody = factoryIssue.data.body;
+            
+            // Update each objective row with links
+            for (const issue of issuesData) {
+              const objectiveName = issue.factory_objective;
+              const issueUrl = issue.url;
+              
+              // Replace unlinked objective with linked version
+              const oldRow = `| ${objectiveName} | — |`;
+              const newRow = `| [${objectiveName}](${issueUrl}) | — |`;
+              
+              console.log(`Updating: "${oldRow}" -> "${newRow}"`);
+              updatedBody = updatedBody.replace(oldRow, newRow);
+            }
+            
+            // Update the Factory issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: factoryIssueNumber,
+              body: updatedBody
+            });
+            
+            console.log('✅ Factory issue updated with objective links');
+
       - name: Populate study template files
         id: populate_files
         uses: ./.github/actions/populate-study-template-files
