@@ -203,6 +203,10 @@ jobs:
             });
             
             let updatedBody = factoryIssue.data.body;
+            console.log('Original Factory issue body:');
+            console.log('---START BODY---');
+            console.log(updatedBody);
+            console.log('---END BODY---');
             
             // Update each objective row with links
             for (const issue of issuesData) {
@@ -213,9 +217,22 @@ jobs:
               const oldRow = `| ${objectiveName} | — |`;
               const newRow = `| [${objectiveName}](${issueUrl}) | — |`;
               
-              console.log(`Updating: "${oldRow}" -> "${newRow}"`);
+              console.log(`Looking for: "${oldRow}"`);
+              console.log(`Replacing with: "${newRow}"`);
+              
+              const beforeReplace = updatedBody.includes(oldRow);
+              console.log(`Found old row: ${beforeReplace}`);
+              
               updatedBody = updatedBody.replace(oldRow, newRow);
+              
+              const afterReplace = updatedBody.includes(newRow);
+              console.log(`New row present: ${afterReplace}`);
             }
+            
+            console.log('Updated Factory issue body:');
+            console.log('---START UPDATED BODY---');
+            console.log(updatedBody);
+            console.log('---END UPDATED BODY---');
             
             // Update the Factory issue
             await github.rest.issues.update({
