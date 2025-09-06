@@ -106,9 +106,9 @@ runs:
             
             // Create Data Partner Status field
             const dataPartnerStatusOptions = [
-              { name: "Preparation", color: "GRAY", description: "Data preparation phase" },
-              { name: "Analysis", color: "ORANGE", description: "Analysis phase" },
-              { name: "Results", color: "GREEN", description: "Results phase" }
+              { name: "Preparation", color: "GRAY", description: "Study preparation phase" },
+              { name: "Analysis", color: "ORANGE", description: "Analysis package execution phase" },
+              { name: "Results", color: "GREEN", description: "Results sent" }
             ];
             
             const dataPartnerStatusField = await github.graphql(`
