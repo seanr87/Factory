@@ -68,13 +68,12 @@ runs:
         **Target Date:** ${{ inputs.target_date }}
         **Status:** 🟢 Active
         
-        ### Current Stage
-        - [x] Base Camp
-        - [ ] Protocol Development
-        - [ ] Phenotype Development
-        - [ ] Analysis Specifications
-        - [ ] Network Execution
-        - [ ] Results Evaluation
+        ### Study History
+        | Objective | Date Complete |
+        |-----------|---------------|
+        | Analysis Package Prototype | — |
+        | Network Execution | — |
+        | Journal Submission | — |
         
         ### Activity
         Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
