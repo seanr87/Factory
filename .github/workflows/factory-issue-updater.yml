@@ -106,17 +106,7 @@ jobs:
                   per_page: 100
                 });
                 
-                // Get stage checklist status
-                const stageIssues = await github.rest.issues.listForRepo({
-                  owner: studyOwner,
-                  repo: studyRepo,
-                  state: 'all',
-                  per_page: 100
-                }).then(response => 
-                  response.data.filter(issue => 
-                    issue.labels.some(label => label.name.startsWith('stage:'))
-                  )
-                );
+                // Note: Legacy stage-based system removed in favor of objective-based tracking
                 
                 // Build status tracking section
                 let statusSection = "## 🎯 Study Progress\n\n";
@@ -150,9 +140,8 @@ jobs:
                 const checklistItems = [
                   { name: "Study repository created from template", check: () => true }, // If we're here, repo exists
                   { name: "Per-study project created and linked", check: () => true }, // TODO: Could validate this
-                  { name: "Stage checklist issues created (9 stages)", check: () => stageIssues.length >= 9 },
+                  { name: "Status tracking issues created (3 objectives)", check: () => statusIssues.data.length >= 3 },
                   { name: "Repository permissions configured", check: () => true }, // TODO: Could validate this
-                  { name: "Status tracking issues created", check: () => statusIssues.data.length >= 3 },
                   { name: "Factory automation workflows active", check: () => true }, // TODO: Could check workflow files
                   { name: "Study lead has admin access", check: () => true }, // TODO: Could validate permissions
                 ];
@@ -162,54 +151,50 @@ jobs:
                   checklistSection += `- [${checked}] ${item.name}\n`;
                 }
                 
-                // Build stage progress section
-                let stageSection = "\n## 📋 Stage Progress\n\n";
+                // Build study history section based on objectives
+                let historySection = "\n## 📊 Study History\n\n";
                 
-                const stageOrder = [
-                  'initiation',
-                  'protocol-development',
-                  'data-diagnostics', 
-                  'phenotype-development',
-                  'phenotype-evaluation',
-                  'analysis-specifications',
-                  'network-execution',
-                  'study-diagnostics',
-                  'evidence-synthesis',
-                  'results-evaluation'
-                ];
-                
-                let currentStage = 'Initiation';
-                for (const stageName of stageOrder) {
-                  const stageIssue = stageIssues.find(issue => 
-                    issue.labels.some(label => label.name === `stage:${stageName}`)
-                  );
+                // Get objectives configuration from study-status-issues.json
+                let objectives = [];
+                try {
+                  const configResponse = await github.rest.repos.getContent({
+                    owner: factoryOwner,
+                    repo: factoryRepoName,
+                    path: '.github/data/study-status-issues.json'
+                  });
                   
-                  if (stageIssue && stageIssue.state === 'closed') {
-                    currentStage = stageName.split('-').map(word => 
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ');
-                  } else {
-                    break; // Stop at first open stage
-                  }
+                  const configContent = Buffer.from(configResponse.data.content, 'base64').toString('utf-8');
+                  const config = JSON.parse(configContent);
+                  objectives = config.issues.sort((a, b) => a.order - b.order);
+                } catch (error) {
+                  console.log('Could not load objectives configuration:', error.message);
+                  // Fallback to hardcoded objectives
+                  objectives = [
+                    { order: 1, title: "1) Analysis Package Prototype", factory_objective: "Analysis Package Prototype" },
+                    { order: 2, title: "2) Network Execution", factory_objective: "Network Execution" },
+                    { order: 3, title: "3) Journal Submission", factory_objective: "Journal Submission" }
+                  ];
                 }
                 
-                stageSection += `**Current Stage**: ${currentStage}\n\n`;
+                historySection += "| Objective | Date Complete |\n";
+                historySection += "|-----------|---------------|\n";
                 
-                for (const stageName of stageOrder) {
-                  const stageIssue = stageIssues.find(issue => 
-                    issue.labels.some(label => label.name === `stage:${stageName}`)
+                for (const objective of objectives) {
+                  // Find corresponding status-tracking issue in study repo
+                  const statusIssue = statusIssues.data.find(issue => 
+                    issue.title === objective.title || 
+                    issue.title.includes(objective.factory_objective)
                   );
                   
-                  const displayName = stageName.split('-').map(word => 
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(' ');
-                  
-                  if (stageIssue) {
-                    const status = stageIssue.state === 'closed' ? '✅' : '🔄';
-                    const link = `[${displayName}](${stageIssue.html_url})`;
-                    stageSection += `${status} ${link}\n`;
+                  if (statusIssue) {
+                    const objectiveLink = `[${objective.factory_objective}](${statusIssue.html_url})`;
+                    const dateComplete = statusIssue.state === 'closed' 
+                      ? new Date(statusIssue.closed_at).toLocaleDateString()
+                      : '—';
+                    
+                    historySection += `| ${objectiveLink} | ${dateComplete} |\n`;
                   } else {
-                    stageSection += `⚪ ${displayName} *(not created)*\n`;
+                    historySection += `| ${objective.factory_objective} | — |\n`;
                   }
                 }
                 
@@ -224,7 +209,7 @@ jobs:
                 
                 const footer = footerMatch ? footerMatch[1] : "\n\n---\n*This issue is automatically maintained by Factory automation workflows.*";
                 
-                const newBody = header + statusSection + checklistSection + stageSection + footer;
+                const newBody = header + statusSection + checklistSection + historySection + footer;
                 
                 // Update the Factory issue
                 await github.rest.issues.update({
