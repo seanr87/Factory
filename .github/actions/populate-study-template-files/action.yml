@@ -1,0 +1,135 @@
+name: 'Populate Study Template Files'
+description: 'Populates template files from study-template repository with provisioning workflow data'
+inputs:
+  repo_name:
+    description: 'Study repository name'
+    required: true
+  study_title:
+    description: 'Study title for population'
+    required: true
+  lead_name:
+    description: 'Study lead name'
+    required: true
+  lead_github:
+    description: 'Study lead GitHub username'
+    required: true
+  start_date:
+    description: 'Study start date'
+    required: true
+  target_date:
+    description: 'Study target completion date'
+    required: true
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  files_populated:
+    description: 'Number of template files populated'
+    value: ${{ steps.populate.outputs.files_populated }}
+  files_processed:
+    description: 'List of files processed (JSON array)'
+    value: ${{ steps.populate.outputs.files_processed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Populate study template files
+      id: populate
+      uses: actions/github-script@v7
+      env:
+        REPO_NAME: ${{ inputs.repo_name }}
+        STUDY_TITLE: ${{ inputs.study_title }}
+        LEAD_NAME: ${{ inputs.lead_name }}
+        LEAD_GITHUB: ${{ inputs.lead_github }}
+        START_DATE: ${{ inputs.start_date }}
+        TARGET_DATE: ${{ inputs.target_date }}
+        REPO_OWNER: ${{ github.repository_owner }}
+      with:
+        github-token: ${{ inputs.org_token }}
+        script: |
+          console.log('Starting study template file population');
+          
+          const repoOwner = process.env.REPO_OWNER;
+          const repoName = process.env.REPO_NAME;
+          const studyTitle = process.env.STUDY_TITLE;
+          const leadName = process.env.LEAD_NAME;
+          const leadGithub = process.env.LEAD_GITHUB;
+          const startDate = process.env.START_DATE;
+          const targetDate = process.env.TARGET_DATE;
+          
+          const filesProcessed = [];
+          let filesPopulated = 0;
+          
+          try {
+            // Process main README.md file
+            console.log('Processing main README.md file');
+            
+            // Get the current README.md content from the study repository
+            let readmeResponse;
+            try {
+              readmeResponse = await github.rest.repos.getContent({
+                owner: repoOwner,
+                repo: repoName,
+                path: 'README.md'
+              });
+            } catch (error) {
+              if (error.status === 404) {
+                console.log('README.md not found in repository, skipping');
+                return;
+              }
+              throw error;
+            }
+            
+            // Decode the current content
+            const currentContent = Buffer.from(readmeResponse.data.content, 'base64').toString('utf8');
+            console.log('Retrieved current README.md content');
+            
+            // Replace template placeholders with actual values
+            let updatedContent = currentContent;
+            updatedContent = updatedContent.replace(/\{\{STUDY_TITLE\}\}/g, studyTitle);
+            updatedContent = updatedContent.replace(/\{\{LEAD_NAME\}\}/g, leadName);
+            updatedContent = updatedContent.replace(/\{\{LEAD_GITHUB\}\}/g, leadGithub);
+            updatedContent = updatedContent.replace(/\{\{START_DATE\}\}/g, startDate);
+            updatedContent = updatedContent.replace(/\{\{TARGET_DATE\}\}/g, targetDate);
+            
+            // Check if any replacements were made
+            if (updatedContent !== currentContent) {
+              // Update the file in the repository
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: repoOwner,
+                repo: repoName,
+                path: 'README.md',
+                message: 'Populate README.md with study provisioning data',
+                content: Buffer.from(updatedContent).toString('base64'),
+                sha: readmeResponse.data.sha,
+                committer: {
+                  name: 'GitHub Action',
+                  email: 'action@github.com'
+                },
+                author: {
+                  name: 'Factory Study System',
+                  email: 'action@github.com'
+                }
+              });
+              
+              console.log('✅ Successfully populated README.md');
+              filesProcessed.push('README.md');
+              filesPopulated++;
+            } else {
+              console.log('ℹ️ No template placeholders found in README.md, skipping update');
+            }
+            
+            // Future: Add processing for additional template files here
+            // Example: process other files like CONTRIBUTING.md, etc.
+            
+            console.log(`✅ Template file population completed. ${filesPopulated} files populated.`);
+            
+            // Set outputs
+            core.setOutput('files_populated', filesPopulated.toString());
+            core.setOutput('files_processed', JSON.stringify(filesProcessed));
+            
+          } catch (error) {
+            console.error('Error populating template files:', error);
+            core.setFailed(`Failed to populate template files: ${error.message}`);
+          }
