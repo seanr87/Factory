@@ -64,16 +64,18 @@ runs:
         
         **Repository:** ${{ inputs.repo_url }}
         **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
-        **Start Date:** ${{ inputs.start_date }}
-        **Target Date:** ${{ inputs.target_date }}
         **Status:** 🟢 Active
         
         ### Study History
+        **Start Date:** ${{ inputs.start_date }}
+        
         | Objective | Date Complete |
         |-----------|---------------|
         | Analysis Package Prototype | — |
         | Network Execution | — |
         | Journal Submission | — |
+        
+        **Target Date:** ${{ inputs.target_date }}
         
         ### Activity
         Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
