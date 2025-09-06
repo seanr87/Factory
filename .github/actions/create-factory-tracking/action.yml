@@ -67,15 +67,13 @@ runs:
         **Status:** 🟢 Active
         
         ### Study History
-        **Start Date:** ${{ inputs.start_date }}
-        
         | Objective | Date Complete |
         |-----------|---------------|
+        | **Study Start** | ${{ inputs.start_date }} |
         | Analysis Package Prototype | — |
         | Network Execution | — |
         | Journal Submission | — |
-        
-        **Target Date:** ${{ inputs.target_date }}
+        | **Target Completion** | ${{ inputs.target_date }} |
         
         ### Activity
         Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
