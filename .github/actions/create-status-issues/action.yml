@@ -67,8 +67,9 @@ runs:
             const sortedIssues = configData.issues.sort((a, b) => a.order - b.order);
             
             for (const issueConfig of sortedIssues) {
-              // Use body as-is without additional context
-              const enhancedBody = issueConfig.body;
+              // Add Factory issue link to body for automation
+              const factoryLink = `\n\n## Study Context\nStudy: ${studyTitle}\nFactory Tracking: https://github.com/${repoOwner}/Factory/issues/${factoryIssueNumber}\nRepository: https://github.com/${repoOwner}/${repoName}`;
+              const enhancedBody = issueConfig.body + factoryLink;
 
               // Create the issue
               const issueResponse = await github.rest.issues.create({
