@@ -9,7 +9,7 @@
     {
       "order": 1,
       "title": "1) Analysis Package Prototype",
-      "body": "## Analysis Package Prototype\n\nThis issue tracks the development and completion of the analysis package prototype for this study.\n\n### Key Tasks\n- [ ] Statistical analysis plan developed\n- [ ] Code specifications defined\n- [ ] Analysis framework implemented\n- [ ] Validation criteria established\n- [ ] Prototype testing completed\n- [ ] Documentation finalized\n\n### Notes\nThis issue will start with status **In Progress**. When status changes or issue is closed, the Factory tracking issue Objective field will be updated.\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
+      "body": "## Analysis Package Prototype\n\n### Key Tasks\n- [ ] Protocol Development\n- [ ] Data Diagnostics\n- [ ] Phenotype Development\n- [ ] Analysis Specifications\n\n### Next Steps\n- [ ] ENTER FIRST TASK HERE\n- [ ] ENTER SECOND TASK HERE\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
       "labels": ["status-tracking", "analysis-prototype"],
       "factory_objective": "Analysis Package Prototype",
       "initial_status": "In Progress"
@@ -17,7 +17,7 @@
     {
       "order": 2,
       "title": "2) Network Execution",
-      "body": "## Network Execution\n\nThis issue tracks the network execution phase of the study.\n\n### Key Tasks\n- [ ] Network partners confirmed\n- [ ] Data partners onboarded\n- [ ] Execution timeline finalized\n- [ ] Analysis package deployed\n- [ ] Data collection initiated\n- [ ] Quality monitoring established\n- [ ] Results aggregation completed\n\n### Notes\nThis issue will start with status **Todo**. When status changes or issue is closed, the Factory tracking issue Objective field will be updated.\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
+      "body": "## Network Execution\n\n### Key Tasks\n- [ ] Recruit and finalize data partners\n- [ ] Study diagnostics\n\n### Next Steps\n- [ ] ENTER FIRST TASK HERE\n- [ ] ENTER SECOND TASK HERE\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
       "labels": ["status-tracking", "network-execution"],
       "factory_objective": "Network Execution",
       "initial_status": "Todo"
@@ -25,7 +25,7 @@
     {
       "order": 3,
       "title": "3) Journal Submission",
-      "body": "## Journal Submission\n\nThis issue tracks the preparation and submission of the study manuscript for journal publication.\n\n### Key Tasks\n- [ ] Results analysis completed\n- [ ] Manuscript draft prepared\n- [ ] Co-author review and approval\n- [ ] Journal selection finalized\n- [ ] Manuscript submitted\n- [ ] Peer review process managed\n- [ ] Publication finalized\n\n### Notes\nThis issue will start with status **Todo**. When status changes or issue is closed, the Factory tracking issue Objective field will be updated to **Complete**.\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
+      "body": "## Journal Submission\n\n### Key Tasks\n- [ ] Evidence synthesis\n- [ ] Results interpretation\n- [ ] Manuscript drafted\n- [ ] Manuscript submitted\n\n### Next Steps\n- [ ] ENTER FIRST TASK HERE\n- [ ] ENTER SECOND TASK HERE\n\n---\n*This is a status tracking issue. Changes to this issue will trigger updates to the Factory portfolio.*",
       "labels": ["status-tracking", "journal-submission"],
       "factory_objective": "Journal Submission",
       "initial_status": "Todo"

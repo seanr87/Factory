@@ -67,8 +67,8 @@ runs:
             const sortedIssues = configData.issues.sort((a, b) => a.order - b.order);
             
             for (const issueConfig of sortedIssues) {
-              // Enhanced body with study context and factory link
-              const enhancedBody = `${issueConfig.body}\n\n### Study Context\n**Study:** ${studyTitle}\n**Factory Tracking:** https://github.com/${{ github.repository }}/issues/${factoryIssueNumber}\n**Repository:** https://github.com/${repoOwner}/${repoName}\n\n*Created: ${new Date().toISOString().split('T')[0]}*`;
+              // Use body as-is without additional context
+              const enhancedBody = issueConfig.body;
 
               // Create the issue
               const issueResponse = await github.rest.issues.create({
