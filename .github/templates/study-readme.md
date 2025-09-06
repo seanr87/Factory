@@ -15,26 +15,12 @@ Track study progress using the objectives below:
 ### Team
 - **Study Lead**: @{{LEAD_GITHUB}} ({{LEAD_NAME}})
 
-## Repository Usage
+## Getting Started
 
-This repository is part of the Factory study management system. Here's how to use it effectively:
-
-### Status Tracking
-1. **Objective Issues**: Each objective above corresponds to a status tracking issue in this repository
-2. **Project Board**: All issues are automatically assigned to the study project board for easy tracking
-3. **Factory Integration**: Issue status changes automatically update the Factory portfolio
-
-### Workflow
-1. **Start**: Objectives begin as GitHub issues with appropriate status (In Progress/Todo)
-2. **Progress**: Update issue status on the project board as work progresses
-3. **Complete**: Close issues when objectives are finished
-4. **Factory Updates**: Changes automatically sync to Factory tracking issue
-
-### Getting Started
 1. Review the [project board]({{PROJECT_URL}}) to see current status
-2. Check individual objective issues for detailed task breakdowns
-3. Update status as work progresses
-4. Monitor Factory integration for portfolio-level tracking
+2. Check individual objective issues for tasks & requirements
+3. Close issues when objectives are finished
+4. Your study status will automatically syncs back to Factory Portfolio
 
 ---
 
