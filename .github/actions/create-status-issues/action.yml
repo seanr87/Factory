@@ -68,7 +68,7 @@ runs:
             
             for (const issueConfig of sortedIssues) {
               // Add Factory issue link to body for automation
-              const factoryLink = `\n\n## Study Context\nStudy: ${studyTitle}\nFactory Tracking: https://github.com/${repoOwner}/Factory/issues/${factoryIssueNumber}\nRepository: https://github.com/${repoOwner}/${repoName}`;
+              const factoryLink = `\n\n### Please do not edit the links below.\nStudy: ${studyTitle}\nFactory Tracking: https://github.com/${repoOwner}/Factory/issues/${factoryIssueNumber}\nRepository: https://github.com/${repoOwner}/${repoName}`;
               const enhancedBody = issueConfig.body + factoryLink;
 
               // Create the issue
