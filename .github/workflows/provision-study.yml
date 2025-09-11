@@ -27,6 +27,7 @@ on:
           - 'Paul|paulnagy'
           - 'robert|rtmill'
           - 'Robert Barrett|ultraub'
+          - 'Jeff Weaver|jweavr27'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
