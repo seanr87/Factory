@@ -81,7 +81,7 @@ runs:
             const issue = issuesData[i];
             // Extract the objective name from the title (remove the number prefix)
             const objectiveName = issue.title.replace(/^\d+\)\s*/, '');
-            const line = (i + 1) + '. [' + objectiveName + '](#' + issue.number + ')';
+            const line = (i + 1) + '. [' + objectiveName + '](https://github.com/' + repoOwner + '/' + repoName + '/issues/' + issue.number + ')';
             objectivesList.push(line);
           }
           const objectivesChecklist = objectivesList.join('\n');
