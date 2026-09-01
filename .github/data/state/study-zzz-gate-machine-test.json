@@ -1,0 +1,70 @@
+{
+  "study_repo": "seanr87/study-zzz-gate-machine-test",
+  "factory_repo": "seanr87/Factory",
+  "factory_issue": 144,
+  "study_project_id": "PVT_kwHOCRKm2M4BiEp8",
+  "current_gate": -1,
+  "gate_entered_at": null,
+  "stall_threshold_days": 21,
+  "gates": {
+    "0": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 1,
+      "evidenced_by": []
+    },
+    "1": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 2,
+      "evidenced_by": []
+    },
+    "2": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 3,
+      "evidenced_by": []
+    },
+    "3": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 4,
+      "evidenced_by": []
+    },
+    "4": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 5,
+      "evidenced_by": []
+    },
+    "5": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 6,
+      "evidenced_by": []
+    },
+    "6": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 7,
+      "evidenced_by": []
+    },
+    "7": {
+      "status": "not_started",
+      "entered_at": null,
+      "issue": 8,
+      "evidenced_by": []
+    }
+  },
+  "gate_issues": {
+    "0": 1,
+    "1": 2,
+    "2": 3,
+    "3": 4,
+    "4": 5,
+    "5": 6,
+    "6": 7,
+    "7": 8
+  },
+  "history": []
+}
