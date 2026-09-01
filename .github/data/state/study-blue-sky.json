@@ -24,10 +24,22 @@
       ]
     },
     "2": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-01T20:48:08+00:00",
       "issue": 3,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "Rationale and Background",
+        "Study Objectives",
+        "Study Design",
+        "Data Sources",
+        "Study Population",
+        "Outcomes",
+        "Analysis",
+        "Strengths and Limitations",
+        "Protection of Human Subjects",
+        "Plans for Disseminating and Communicating Study Results"
+      ]
     },
     "3": {
       "status": "not_started",
