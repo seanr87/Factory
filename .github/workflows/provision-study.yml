@@ -20,15 +20,6 @@ on:
         type: choice
         options:
           - 'Add new study lead'
-          - 'Sean|seanr87'
-          - 'ben|benwmar'
-          - 'Resford Rouzer|resford'
-          - 'Hannah Lee|hlee110123'
-          - 'Paul|paulnagy'
-          - 'robert|rtmill'
-          - 'Robert Barrett|ultraub'
-          - 'Jeff Weaver|jweavr27'
-          - 'Sean O''Reilly|'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
@@ -72,6 +63,16 @@ jobs:
           lead_name: ${{ inputs.new_lead_name }}
           lead_github: ${{ inputs.new_lead_github }}
 
+      - name: Validate inputs
+        id: validate
+        uses: ./.github/actions/validate-study-inputs
+        with:
+          study_title: ${{ inputs.study_title }}
+          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
+          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
+          target_date: ${{ inputs.target_date }}
+          repo_prefix: ${{ vars.STUDY_REPO_PREFIX || 'study-' }}
+
       - name: Add new study lead to database
         if: inputs.study_lead_selection == 'Add new study lead'
         uses: ./.github/actions/manage-study-leads
@@ -111,16 +112,6 @@ jobs:
             git push
             echo "✅ Updated workflow dropdown with current study leads"
           fi
-
-      - name: Validate inputs
-        id: validate
-        uses: ./.github/actions/validate-study-inputs
-        with:
-          study_title: ${{ inputs.study_title }}
-          lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
-          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
-          target_date: ${{ inputs.target_date }}
-          repo_prefix: ${{ vars.STUDY_REPO_PREFIX || 'study-' }}
 
       - name: Create repository
         id: repo

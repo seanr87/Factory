@@ -49,6 +49,16 @@ runs:
       if: inputs.operation == 'add'
       shell: bash
       run: |
+        # Refuse to persist an incomplete lead. Provisioning validates these too,
+        # but this file is committed to the default branch, so anything written
+        # here outlives the run that wrote it — a rejected provision must not
+        # leave a permanent entry behind.
+        if [[ -z "${{ inputs.lead_name }}" || -z "${{ inputs.lead_github }}" ]]; then
+          echo "::error::Both a name and a GitHub username are required to add a study lead."
+          echo "::error::Got name='${{ inputs.lead_name }}' github='${{ inputs.lead_github }}'."
+          exit 1
+        fi
+
         # Ensure directory exists
         mkdir -p .github/data
         
