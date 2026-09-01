@@ -30,6 +30,10 @@ import pathlib
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from gatelib import gate_option  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GATES = ROOT / ".github" / "data" / "gates.json"
 DASHBOARD_LABEL = "portfolio-status"
@@ -286,7 +290,7 @@ def update_portfolio_fields(summary, gates_config, project_number, now):
     gate_name_str = gate_name(gates_config, summary["current_gate"])
     gate_field = fields.get("Gate")
     if gate_field and gate_field.get("options"):
-        opt = next((o for o in gate_field["options"] if o["name"] == gate_name_str), None)
+        opt = gate_option(gate_field["options"], gate_name_str)
         if opt:
             set_field("Gate", ("String!", "singleSelectOptionId:$v"), ["-f", f"v={opt['id']}"])
 

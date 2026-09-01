@@ -41,6 +41,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 
 from gate_machine import DONE, READY, evaluate
+from gatelib import gate_option  # noqa: E402
 from sections import outstanding_sections  # noqa: E402
 
 
@@ -366,11 +367,13 @@ def update_portfolio_gate(state, gate_title, project_number):
         return
 
 
-    option = next((o for o in project["field"]["options"]
-                   if o["name"] == gate_title), None)
+    option = gate_option(project["field"]["options"], gate_title)
     if not option:
         print(f"  portfolio: no option matching '{gate_title}', skipping")
         return
+    if option["name"] != gate_title:
+        print(f"  portfolio: option '{option['name']}' is out of date; "
+              f"rename it to '{gate_title}' on the board")
 
 
     gh("api", "graphql", "-f",

@@ -15,7 +15,7 @@ writing the pattern expects.
 
 import fnmatch
 
-__all__ = ["variants", "matches", "expand"]
+__all__ = ["variants", "matches", "expand", "gate_option"]
 
 
 def variants(pattern):
@@ -38,8 +38,43 @@ def expand(pattern, paths):
     return [p for p in paths if matches(pattern, p)]
 
 
+def gate_option(options, title):
+    """The board's single-select option for a gate title, tolerating a rename.
+
+    Exact match first. Failing that, the option that shares the gate's number
+    ("Gate 1 — ..."), so renaming a gate in its template does not silently stop
+    the portfolio board's Gate field updating until somebody remembers to rename
+    the option to match. Options without a gate number ("Complete") never match
+    by prefix.
+    """
+    exact = next((o for o in options if o["name"] == title), None)
+    if exact:
+        return exact
+    prefix = title.split(" — ")[0]
+    if not prefix.startswith("Gate "):
+        return None
+    return next((o for o in options if o["name"].split(" — ")[0] == prefix), None)
+
+
 def _self_test():
-    """Guards the `/**/` behaviour this module exists for."""
+    """Guards the `/**/` behaviour this module exists for, and option matching."""
+    options = [{"name": "Gate 0 — Get oriented in GitHub"},
+               {"name": "Gate 1 — Research question locked"},
+               {"name": "Complete"}]
+    option_cases = [
+        ("Gate 0 — Get oriented in GitHub", "Gate 0 — Get oriented in GitHub"),
+        ("Gate 1 — Research question developed", "Gate 1 — Research question locked"),
+        ("Gate 9 — Nothing", None),
+        ("Complete", "Complete"),
+    ]
+    option_failures = [
+        f"  gate_option({title!r}): expected {want!r}, got {got!r}"
+        for title, want in option_cases
+        for got in [(gate_option(options, title) or {}).get("name")]
+        if got != want
+    ]
+    if option_failures:
+        raise AssertionError("gatelib self-test failed:\n" + "\n".join(option_failures))
     cases = [
         # (pattern, path, expected)
         ("inst/cohorts/**/*.json", "inst/cohorts/11.json", True),
@@ -59,7 +94,7 @@ def _self_test():
     ]
     if failures:
         raise AssertionError("gatelib self-test failed:\n" + "\n".join(failures))
-    return len(cases)
+    return len(cases) + len(option_cases)
 
 
 if __name__ == "__main__":
