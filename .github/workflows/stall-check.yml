@@ -1,0 +1,53 @@
+# Finds studies and partners that have gone quiet.
+#
+# A stalled study never announces itself, it just goes quiet. Nothing arrives to
+# tell you one is stuck, so this goes looking on a schedule and says so out loud.
+#
+# Replaces activity-check.yml, which measured repository `pushed_at` — a README
+# typo counted as progress there. The clock here is time-in-gate, which cannot be
+# reset by activity that is not progress.
+
+name: Stall Check
+
+on:
+  schedule:
+    # 07:30 UTC daily, just after Path Contract Check.
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+    inputs:
+      threshold_days:
+        description: 'Override the stall threshold for this run'
+        required: false
+        type: string
+      dry_run:
+        description: 'Print the dashboard without writing anything'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for stalls
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          ARGS=(--factory-repo "${{ github.repository }}")
+          if [[ -n "${{ inputs.threshold_days }}" ]]; then
+            ARGS+=(--threshold "${{ inputs.threshold_days }}")
+          fi
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ARGS+=(--dry-run)
+          fi
+
+          python3 .github/scripts/stall_check.py "${ARGS[@]}"

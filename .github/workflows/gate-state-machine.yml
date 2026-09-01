@@ -93,6 +93,38 @@ jobs:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: python3 .github/scripts/run_gate_machine.py --payload payload.json
 
+      # partners.csv rides in on the same dispatch, so partner tracking needs no
+      # separate trigger. Gate 5 stays manual — committing a CSV is not the same
+      # as having recruited anyone — but the issues it creates are what Gate 6 and
+      # the stall roll-up read.
+      - name: Sync data partners
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if ! python3 -c "
+          import json,sys
+          p=json.load(open('payload.json'))
+          sys.exit(0 if 'partners.csv' in p.get('paths',[]) else 1)"; then
+            echo "partners.csv unchanged — nothing to sync"
+            exit 0
+          fi
+
+          STUDY=$(python3 -c "import json;print(json.load(open('payload.json'))['study_repo'])")
+          SHA=$(python3 -c "import json;print(json.load(open('payload.json'))['commit_sha'])")
+          SLUG="${STUDY##*/}"
+
+          PROJECT=""
+          if [[ -f ".github/data/state/${SLUG}.json" ]]; then
+            PROJECT=$(python3 -c "
+          import json
+          print(json.load(open('.github/data/state/${SLUG}.json')).get('study_project_id') or '')")
+          fi
+
+          python3 .github/scripts/sync_partners.py \
+            --repo "$STUDY" --ref "$SHA" --project-id "$PROJECT"
+
       - name: Commit gate state
         if: steps.apply.outputs.advanced == 'true'
         env:
