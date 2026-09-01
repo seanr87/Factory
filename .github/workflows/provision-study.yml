@@ -21,6 +21,7 @@ on:
         options:
           - 'Add new study lead'
           - 'Sean O''Reilly|seanr87'
+          - 'Danielle|boycelab'
       new_lead_name:
         description: 'New Study Lead name'
         required: false
