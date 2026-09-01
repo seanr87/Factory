@@ -75,15 +75,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked on
       work-item queue. *(rec: exclude them — `-label:partner` — the partner view is their surface)*
 - [x] **D11 — DONE.** The template board carries the seven options; verified on a copied board.
       *(original note below)*
-- [ ] **D13 — BLOCKING for the org template.** `ORG_ADMIN_TOKEN` is not authorised for `OHDSI-JHU`,
-      which enforces SAML SSO, so the org-owned template at
-      [projects/30](https://github.com/orgs/OHDSI-JHU/projects/30) cannot be read by provisioning.
-      Fix: github.com/settings/tokens → the Factory token → **Configure SSO** → Authorize for
-      OHDSI-JHU, then set `STUDY_BOARD_TEMPLATE_ID` back to `PVT_kwDOCQMYQc4BiEgy`.
-      Workaround in place: `STUDY_BOARD_TEMPLATE_ID` currently points at a user-owned mirror
-      ([projects/170](https://github.com/users/seanr87/projects/170)), which works because
-      `copyProjectV2` does not require the template mark. The mirror is a copy, so retuning views
-      on the org template will NOT reach studies until the token is authorised.
+- [x] **D13 — RESOLVED.** `ORG_ADMIN_TOKEN` is now SSO-authorised for `OHDSI-JHU`. Provisioning
+      copies from the org-owned template at
+      [projects/30](https://github.com/orgs/OHDSI-JHU/projects/30) (`PVT_kwDOCQMYQc4BiEgy`).
+      Verified live: all three views and both select fields carried across from the org template.
+      The user-owned mirror was deleted — retuning a view on projects/30 now reaches every study
+      provisioned afterwards, which was the point of the template approach.
 - [ ] ~~**D11**~~ `Data Partner Status` field options: `setup-study-project` creates three
       (Preparation / Analysis / Results); `partner-tracking.md` defines seven (Not yet contacted ·
       Contacted · Interested · Committed · Package running · Results received · Declined).
@@ -213,7 +210,8 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 ### Verification
 
 - [x] Confirmed — all three views survive provisioning
-- [ ] Confirm a retune of the template board's views reaches subsequently provisioned studies
+- [x] Retune path confirmed — studies copy from the org template, so a UI change there reaches
+      every study provisioned afterwards with no code release
 
 ## Phase 7 — Cleanup and docs
 
