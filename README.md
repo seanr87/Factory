@@ -149,8 +149,8 @@ Everything tied to a particular installation is a repository variable or secret,
 copy of this repository runs elsewhere without editing code. The gates themselves stay
 OHDSI-specific — this tracks Strategus network studies, not projects in general.
 
-Secrets: `ORG_ADMIN_TOKEN` (scopes `repo`, `workflow`, `project`, `admin:org`, and
-SSO-authorised if your org enforces SAML), `APP_ID`, `APP_PRIVATE_KEY`.
+Secret: `ORG_ADMIN_TOKEN` (scopes `repo`, `workflow`, `project`, `admin:org`, and
+SSO-authorised if your org enforces SAML). It is the only one.
 
 | Variable | Required | Default |
 |---|---|---|
