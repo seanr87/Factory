@@ -3,9 +3,16 @@ gate: 4
 title: "Gate 4 — Analysis specification built"
 labels: ["gate", "milestone"]
 detection:
+  # Both are needed before the specification exists in any real sense: the script
+  # is what a designer edits, and the JSON it generates is what sites actually
+  # run. Either one alone is work in progress, not a built specification.
+  require: all
   paths:
-    - "inst/analysisSpecifications.json"
     - "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
+    - "inst/analysisSpecifications.json"
+  # Inputs the script reads. Reported when they change, never sufficient on their
+  # own — a design without negative controls is a legitimate design.
+  supporting_paths:
     - "inst/negativeControlOutcomes.csv"
     - "inst/covariateConceptsToExclude.csv"
   event: content_changed

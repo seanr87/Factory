@@ -57,11 +57,14 @@ def build():
 
     # Every path a gate can be evidenced by, deduplicated. The path-contract
     # check walks this list against upstream to catch a template restructure.
+    # Supporting paths need baselines too: they are reported on, so their
+    # template SHAs must be recorded at provisioning like any other watched path.
     detected = sorted({
         p
         for g in gates
         if g["detection"].get("event") == "content_changed"
-        for p in g["detection"].get("paths", [])
+        for key in ("paths", "supporting_paths")
+        for p in g["detection"].get(key, [])
     })
 
     return {

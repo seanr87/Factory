@@ -1,20 +1,33 @@
 #!/usr/bin/env python3
+
 """Apply one study_push dispatch to a study's gate state.
 
+
 All the I/O around gate_machine.evaluate(): read state and baseline, fetch the
+
 blob SHAs the decision needs, then write the result to the study's gate issue,
+
 the Factory tracking issue, and the state file.
 
+
 Nothing here decides anything. The rules — advance only, propose don't close,
+
 manual gates — live in gate_machine.py so they can be tested without a network.
 
+
 Every change posts a comment saying what was seen, in which commit. People stop
+
 trusting automation the first time it is wrong and unexplained, so a silent flip
+
 is never acceptable, even when the change is obviously right.
 
+
 Usage:
+
     run_gate_machine.py --payload payload.json
+
 """
+
 
 import argparse
 import datetime as dt
@@ -23,11 +36,19 @@ import pathlib
 import subprocess
 import sys
 
+
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from gate_machine import DONE, READY, evaluate  # noqa: E402
+
+from gate_machine import DONE, READY, evaluate
+from sections import outstanding_sections  # noqa: E402
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+
+NEWLINE = chr(10)
+
 GATES = ROOT / ".github" / "data" / "gates.json"
 
 
@@ -39,20 +60,78 @@ def gh(*args, check=True):
 
 
 def now():
+
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
 
-def fetch_blobs(repo, sha, paths):
-    """Blob SHAs for `paths` at `sha`. Missing paths were deleted."""
+def fetch_blobs(repo, sha):
+
+    """Blob SHAs for every file at `sha`.
+
+
+    The whole tree, not just the pushed paths. A gate with `require: all` has to
+    answer "is the other required file still identical to the template?" — and
+    that file will usually not be in the push being evaluated. Filtering to the
+    changed paths made every absent file look deleted.
+    """
     tree = json.loads(gh("api", f"repos/{repo}/git/trees/{sha}?recursive=1"))
-    wanted = set(paths)
     return {n["path"]: n["sha"] for n in tree.get("tree", [])
-            if n["type"] == "blob" and n["path"] in wanted}
+            if n["type"] == "blob"}
+
+
+def section_state(gates_config, baseline, study_repo, sha):
+    """Outstanding sections per gate, for gates that measure completeness.
+
+    Reads the study's file and the template's version of it at the commit the
+    study was scaffolded from, so boilerplate the lead never touched does not
+    count as written. A file that cannot be read is reported as fully
+    outstanding rather than assumed complete.
+    """
+    out = {}
+    upstream = baseline.get("upstream_template")
+    upstream_sha = baseline.get("upstream_sha")
+
+    for gate in gates_config["gates"]:
+        detection = gate["detection"]
+        if detection.get("require") != "all_sections":
+            continue
+        required = detection.get("sections", [])
+        path = (detection.get("paths") or [None])[0]
+        if not path or not required:
+            continue
+
+        study_text = read_file(study_repo, path, sha)
+        template_text = (read_file(upstream, path, upstream_sha)
+                         if upstream and upstream_sha else "")
+        if study_text is None:
+            out[gate["gate"]] = list(required)
+            continue
+        out[gate["gate"]] = outstanding_sections(study_text, template_text or "",
+                                                  required)
+    return out
+
+
+def read_file(repo, path, ref):
+    """File contents at a ref, or None if it is not there."""
+    if not repo:
+        return None
+    raw = gh("api", f"repos/{repo}/contents/{path}?ref={ref}",
+             "--jq", ".content", check=False)
+    if not raw:
+        return None
+    import base64
+    try:
+        return base64.b64decode(raw).decode("utf-8", errors="replace")
+    except Exception:
+        return None
 
 
 def comment(repo, issue, body):
+
     subprocess.run(
+
         ["gh", "issue", "comment", str(issue), "--repo", repo, "--body", body],
+
         check=False, capture_output=True, text=True)
 
 
@@ -74,11 +153,46 @@ def evidence_comment(decision, payload, gate_title):
         "Detecting a file is not the same as the file being any good, so this "
         "issue is **not** closed. Someone reviews it and closes it by hand.",
     ]
+    if decision.supporting:
+        lines += ["", "Supporting files also changed:"]
+        lines += [f"- `{p}`" for p in decision.supporting]
+    if decision.outstanding:
+        lines += ["",
+                  ("Sections still to write, in case that matters when you "
+                   "review this:") if decision.section_mode else
+                  ("Still identical to the Strategus template, in case that "
+                   "matters when you review this:")]
+        lines += [f"- `{p}`" for p in decision.outstanding]
     if decision.ignored:
         lines += ["", "Also changed, for gates already passed:"]
         lines += [f"- gate {g}: " + ", ".join(f"`{p}`" for p in ps)
                   for g, ps in decision.ignored]
     return "\n".join(lines)
+
+
+def progress_comment(decision, payload, gate_title):
+    """A gate that needs several files, with only some of them done."""
+    short = payload["commit_sha"][:7]
+    lines = [
+        f"**In progress** — {gate_title}",
+        "",
+        "Factory saw these paths change:",
+        "",
+    ]
+    lines += [f"- `{p}`" for p in decision.evidence]
+    lines += [
+        "",
+        f"in [`{short}`]({payload['commit_url']})"
+        + (f" by @{payload['author']}" if payload.get("author") else "")
+        + ".",
+        "",
+        f"**This gate moves to Ready for review once all of the following are "
+        f"{'written' if decision.section_mode else 'changed from the Strategus template'}.** "
+        f"Still outstanding:",
+        "",
+    ]
+    lines += [f"- `{p}`" for p in decision.outstanding]
+    return NEWLINE.join(lines)
 
 
 def held_comment(decision, payload):
@@ -108,6 +222,7 @@ def update_factory_issue(state, gates_config, payload):
         delta = dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(entered)
         days = f" · {delta.days} day(s) in this gate"
 
+
     block = (
         "<!--factory:status-->\n"
         f"**Current gate:** {title}\n"
@@ -117,8 +232,11 @@ def update_factory_issue(state, gates_config, payload):
         "<!--/factory:status-->"
     )
 
+
     repo, num = state["factory_repo"], state["factory_issue"]
+
     body = json.loads(gh("api", f"repos/{repo}/issues/{num}", "--jq", "{body:.body}"))["body"] or ""
+
 
     start, end = "<!--factory:status-->", "<!--/factory:status-->"
     if start in body and end in body:
@@ -126,17 +244,25 @@ def update_factory_issue(state, gates_config, payload):
     else:
         body = body.rstrip() + "\n\n" + block + "\n"
 
+
     subprocess.run(["gh", "issue", "edit", str(num), "--repo", repo,
+
                     "--body", body], check=False, capture_output=True, text=True)
 
 
 def update_study_board_status(state, gate_number, status_name="Ready for review"):
+
     """Move the gate's card on the study's own board.
 
+
     On the study board each item is a gate, so the axis that matters is how far
+
     along that gate is — which is what the Milestones view groups by. The
+
     portfolio board is the other way round: each item is a whole study, so it
+
     carries a Gate field instead.
+
 
     Best-effort. A board that cannot be written must never fail a gate advance;
     the issue comment and the state file are the record.
@@ -145,6 +271,7 @@ def update_study_board_status(state, gate_number, status_name="Ready for review"
     issue = state.get("gate_issues", {}).get(str(gate_number))
     if not project_id or not issue:
         return
+
 
     raw = gh("api", "graphql", "-f",
              "query=query($p:ID!){node(id:$p){... on ProjectV2{"
@@ -161,11 +288,13 @@ def update_study_board_status(state, gate_number, status_name="Ready for review"
         print("  study board: no Status field, skipping")
         return
 
+
     item = next((i for i in project["items"]["nodes"]
                  if (i.get("content") or {}).get("number") == issue), None)
     if not item:
         print(f"  study board: gate issue #{issue} is not on the board, skipping")
         return
+
 
     option = next((o for o in project["field"]["options"]
                    if o["name"].lower() == status_name.lower()), None)
@@ -173,6 +302,7 @@ def update_study_board_status(state, gate_number, status_name="Ready for review"
         names = ", ".join(o["name"] for o in project["field"]["options"])
         print(f"  study board: no '{status_name}' option on Status (have: {names})")
         return
+
 
     gh("api", "graphql", "-f",
        "query=mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue("
@@ -184,12 +314,18 @@ def update_study_board_status(state, gate_number, status_name="Ready for review"
 
 
 def update_portfolio_gate(state, gate_title, project_number):
+
     """Set the study's Gate field on the Factory portfolio board.
 
+
     The board previously carried an Objective field from the three-milestone v1
+
     model, set once at provisioning and never again — so every study sat under
+
     "Analysis Package Prototype" forever. This is the same idea told truthfully:
+
     one field, kept current, that the board can group and filter by.
+
 
     Best-effort. A board that cannot be updated must not fail a gate advance;
     the issue comment and the state file are the record.
@@ -200,6 +336,7 @@ def update_portfolio_gate(state, gate_title, project_number):
     issue = state.get("factory_issue")
     if not issue:
         return
+
 
     try:
         data = json.loads(gh(
@@ -212,10 +349,15 @@ def update_portfolio_gate(state, gate_title, project_number):
     except Exception:
         return
 
+
     project = ((data.get("data") or {}).get("repositoryOwner") or {}).get("projectV2")
+
     if not project or not project.get("field"):
+
         print("  portfolio: no Gate field on the board, skipping")
+
         return
+
 
     item = next((i for i in project["items"]["nodes"]
                  if (i.get("content") or {}).get("number") == issue), None)
@@ -223,11 +365,13 @@ def update_portfolio_gate(state, gate_title, project_number):
         print(f"  portfolio: issue #{issue} is not on the board, skipping")
         return
 
+
     option = next((o for o in project["field"]["options"]
                    if o["name"] == gate_title), None)
     if not option:
         print(f"  portfolio: no option matching '{gate_title}', skipping")
         return
+
 
     gh("api", "graphql", "-f",
        "query=mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue("
@@ -245,14 +389,21 @@ def main():
     ap.add_argument("--baseline-dir", default=".github/data/baselines")
     args = ap.parse_args()
 
+
     payload = json.loads(pathlib.Path(args.payload).read_text(encoding="utf-8"))
+
     study_repo = payload["study_repo"]
+
     slug = study_repo.split("/")[-1]
+
 
     gates_config = json.loads(GATES.read_text(encoding="utf-8"))
 
+
     state_path = ROOT / args.state_dir / f"{slug}.json"
+
     baseline_path = ROOT / args.baseline_dir / f"{slug}.json"
+
 
     if not state_path.exists():
         print(f"::warning::No gate state for {study_repo} — not a tracked study. "
@@ -263,15 +414,68 @@ def main():
               f"edits from template content. Skipping.")
         return 0
 
+
     state = json.loads(state_path.read_text(encoding="utf-8"))
+
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
 
-    paths = payload.get("paths", [])
-    current_blobs = fetch_blobs(study_repo, payload["commit_sha"], paths) if paths else {}
 
-    decision = evaluate(gates_config, baseline, state, paths, current_blobs)
+    paths = payload.get("paths", [])
+
+    current_blobs = fetch_blobs(study_repo, payload["commit_sha"]) if paths else {}
+
+
+    sections = section_state(gates_config, baseline, study_repo,
+                             payload["commit_sha"])
+    decision = evaluate(gates_config, baseline, state, paths, current_blobs,
+                        section_outstanding=sections)
+
     print(f"decision: {decision}")
+
     print(f"reason:   {decision.reason}")
+
+
+    if not decision.advance and decision.partial_gate is not None:
+        # Real work on a gate that needs more than one file. Show it on the board
+        # as In Progress and say what is still missing — otherwise a lead who has
+        # done half the work sees nothing happen at all.
+        target = str(decision.partial_gate)
+        rec = state["gates"].setdefault(target, {"status": "not_started",
+                                                 "entered_at": None,
+                                                 "issue": state["gate_issues"].get(target),
+                                                 "evidenced_by": []})
+        gate_title = next((g["title"] for g in gates_config["gates"]
+                           if g["gate"] == decision.partial_gate),
+                          f"Gate {target}")
+        already = rec.get("status") == "in_progress"
+        same = rec.get("outstanding") == decision.outstanding
+
+
+        if rec.get("status") not in (READY, DONE):
+            rec["status"] = "in_progress"
+            rec["outstanding"] = decision.outstanding
+            rec["entered_at"] = rec.get("entered_at") or now()
+            state_path.write_text(json.dumps(state, indent=2) + NEWLINE, encoding="utf-8")
+            update_study_board_status(state, decision.partial_gate, "In progress")
+
+
+            # Re-comment only when the outstanding set changes. A lead pushing
+            # five times while building a specification should not collect five
+            # identical comments.
+            issue_no = state["gate_issues"].get(target)
+            if issue_no and not (already and same):
+                comment(study_repo, issue_no,
+                        progress_comment(decision, payload, gate_title))
+
+
+            with open(subprocess.os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+                fh.write("advanced=true" + NEWLINE)
+                fh.write(f"to_gate={decision.partial_gate}" + NEWLINE)
+                fh.write(f"state_path={state_path.relative_to(ROOT).as_posix()}" + NEWLINE)
+        print(f"in progress on gate {decision.partial_gate}; "
+              f"outstanding: {decision.outstanding}")
+        return 0
+
 
     if not decision.advance:
         # Only speak up when something matched. Commenting on every unrelated
@@ -283,10 +487,15 @@ def main():
         print("no advance")
         return 0
 
+
     target = str(decision.to_gate)
+
     stamp = now()
+
     gate_title = next((g["title"] for g in gates_config["gates"]
+
                        if g["gate"] == decision.to_gate), f"Gate {target}")
+
 
     rec = state["gates"].setdefault(target, {"status": "not_started",
                                              "entered_at": None,
@@ -298,6 +507,7 @@ def main():
     rec["entered_at"] = rec.get("entered_at") or stamp
     rec["evidenced_by"] = decision.evidence
 
+
     state["current_gate"] = decision.to_gate
     state["gate_entered_at"] = stamp
     state["history"].append({
@@ -308,18 +518,25 @@ def main():
         "evidence": decision.evidence,
     })
 
+
     state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
 
+
     gate_issue = state["gate_issues"].get(target)
+
     if gate_issue:
+
         comment(study_repo, gate_issue, evidence_comment(decision, payload, gate_title))
+
         print(f"commented on {study_repo}#{gate_issue}")
+
 
     update_study_board_status(state, decision.to_gate)
     update_factory_issue(state, gates_config, payload)
     update_portfolio_gate(state, gate_title,
                           subprocess.os.environ.get("FACTORY_PROJECT_NUMBER"))
     print(f"advanced {decision.from_gate} -> {decision.to_gate}")
+
 
     with open(subprocess.os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
         fh.write(f"advanced=true\n")
@@ -329,4 +546,6 @@ def main():
 
 
 if __name__ == "__main__":
+
     sys.exit(main())
+

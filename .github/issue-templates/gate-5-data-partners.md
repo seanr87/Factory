@@ -4,9 +4,15 @@ title: "Gate 5 — Data partners recruited"
 labels: ["gate", "milestone"]
 detection:
   paths: ["partners.csv"]
-  event: advisory_only
-  note: "Paths are advisory. This gate never auto-advances; partner issues are the evidence."
-advance_rule: manual_only
+  event: derived_from_partners
+  # In progress once anyone is being tracked at all. Ready for review once at
+  # least one institution has actually agreed to run the study — "enough
+  # partners to be worth running" is a judgement, so a human still closes it.
+  in_progress_when: any_partner
+  ready_when: minimum_committed
+  minimum_partners: 3
+  note: "Derived from partner issues, never from a push. Committing partners.csv creates the issues; it does not recruit anyone."
+advance_rule: derived_manual_close
 ---
 
 **What this gate means.** You've identified the institutions you're asking to run your study, each one has an issue in this repository, and you've made contact. The gate closes when you have enough committed partners for the study to be worth running.

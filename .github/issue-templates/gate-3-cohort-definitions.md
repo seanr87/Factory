@@ -3,9 +3,15 @@ gate: 3
 title: "Gate 3 — Cohort definitions committed"
 labels: ["gate", "milestone"]
 detection:
+  # A cohort exists when it is both defined and registered: the JSON is the
+  # definition, and Cohorts.csv is what the analysis specification resolves cohort
+  # IDs against. One without the other is half a cohort.
+  require: all
   paths:
     - "inst/cohorts/**/*.json"
     - "inst/Cohorts.csv"
+  # Exported from Atlas alongside the JSON rather than authored separately.
+  supporting_paths:
     - "inst/sql/sql_server/**/*.sql"
   event: content_changed
   baseline: upstream

@@ -6,6 +6,26 @@ detection:
   paths: ["Documents/Protocol.Rmd"]
   event: content_changed
   baseline: upstream
+  # "The file changed" is a poor proxy here: a sentence added to a 16-section
+  # protocol makes the file differ from the template without the protocol being
+  # drafted. A section counts as written when its body differs from the body the
+  # template shipped, so untouched boilerplate never counts.
+  require: all_sections
+  # The subset that applies to a characterization study. Exposure Comparators,
+  # Sample Size and Study Power, and Adverse Events are deliberately absent —
+  # requiring them would leave a legitimate characterization study permanently
+  # in progress. Add them back for an estimation programme.
+  sections:
+    - "Rationale and Background"
+    - "Study Objectives"
+    - "Study Design"
+    - "Data Sources"
+    - "Study Population"
+    - "Outcomes"
+    - "Analysis"
+    - "Strengths and Limitations"
+    - "Protection of Human Subjects"
+    - "Plans for Disseminating and Communicating Study Results"
 advance_rule: auto_advance_to_review
 ---
 
