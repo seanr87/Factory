@@ -127,9 +127,12 @@
         "milestone"
       ],
       "detection": {
+        "require": "all",
         "paths": [
-          "inst/analysisSpecifications.json",
           "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R",
+          "inst/analysisSpecifications.json"
+        ],
+        "supporting_paths": [
           "inst/negativeControlOutcomes.csv",
           "inst/covariateConceptsToExclude.csv"
         ],
