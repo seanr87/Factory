@@ -3,8 +3,8 @@
   "factory_repo": "seanr87/Factory",
   "factory_issue": 149,
   "study_project_id": "PVT_kwHOCRKm2M4BiE3B",
-  "current_gate": -1,
-  "gate_entered_at": null,
+  "current_gate": 6,
+  "gate_entered_at": "2026-09-01T05:06:19+00:00",
   "stall_threshold_days": 21,
   "gates": {
     "0": {
@@ -44,10 +44,12 @@
       "evidenced_by": []
     },
     "6": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "ready_for_review",
+      "entered_at": "2026-09-01T05:06:19+00:00",
       "issue": 7,
-      "evidenced_by": []
+      "evidenced_by": [
+        "2 partner(s) at status:results-received"
+      ]
     },
     "7": {
       "status": "not_started",
@@ -66,5 +68,16 @@
     "6": 7,
     "7": 8
   },
-  "history": []
+  "history": [
+    {
+      "at": "2026-09-01T05:06:19+00:00",
+      "from_gate": -1,
+      "to_gate": 6,
+      "commit": null,
+      "evidence": [
+        "Data partner \u2014 Stanford Medicine",
+        "Data partner \u2014 Johns Hopkins Medicine"
+      ]
+    }
+  ]
 }
