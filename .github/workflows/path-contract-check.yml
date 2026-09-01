@@ -1,0 +1,187 @@
+# Verifies that gate detection paths still exist in the upstream Strategus template.
+#
+# Studies are scaffolded from upstream `main` at provision time (decision D1, option A),
+# so upstream can restructure without warning. It has done so twice in nine months:
+# v2.0.0 on 2026-05-21 reorganised the whole template, and December 2025 moved cohorts
+# out of inst/sampleStudy/. Either change would have silently broken Gate 3 and Gate 4
+# for every study provisioned afterwards.
+#
+# Detection is a contract with upstream's file layout. This job is what makes a break
+# in that contract announce itself instead of going quiet — which is the same principle
+# the rest of the system runs on.
+
+name: Path Contract Check
+
+on:
+  schedule:
+    # Daily at 07:00 UTC, ahead of the working day in US and EU timezones.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/issue-templates/**'
+      - '.github/data/gates.json'
+      - '.github/scripts/**'
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  UPSTREAM: ohdsi-studies/StrategusStudyRepoTemplate
+  ISSUE_LABEL: path-contract
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify gates.json matches the issue templates
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 .github/scripts/gatelib.py
+          python3 .github/scripts/build_gates.py --check
+
+      - name: Check detection paths against upstream
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          gh api "repos/${UPSTREAM}/git/trees/HEAD?recursive=1" > upstream-tree.json
+          gh api "repos/${UPSTREAM}/commits/HEAD" \
+            --jq '{sha: .sha, date: .commit.author.date}' > upstream-head.json
+
+          python3 - <<'PY'
+          import json, os, sys
+
+          sys.path.insert(0, ".github/scripts")
+          from gatelib import expand
+
+          gates = json.load(open(".github/data/gates.json", encoding="utf-8"))
+          tree = json.load(open("upstream-tree.json", encoding="utf-8"))
+          head = json.load(open("upstream-head.json", encoding="utf-8"))
+
+          paths = [n["path"] for n in tree.get("tree", []) if n["type"] == "blob"]
+
+          broken, ok = [], []
+          for gate in gates["gates"]:
+              detection = gate["detection"]
+              # Overlay-supplied paths (TEAM.md, the Documents/ stubs) are Factory's
+              # own files. Upstream has never had them and never will.
+              if detection.get("baseline") != "upstream":
+                  continue
+              for pattern in detection.get("paths", []):
+                  if expand(pattern, paths):
+                      ok.append((gate["gate"], pattern))
+                  else:
+                      broken.append((gate["gate"], gate["title"], pattern))
+
+          for gate_no, pattern in ok:
+              print(f"  ok      gate {gate_no}  {pattern}")
+          for gate_no, _, pattern in broken:
+              print(f"  BROKEN  gate {gate_no}  {pattern}")
+
+          summary = "\n".join(
+              f"- **Gate {g}** — `{p}` no longer matches anything upstream ({t})"
+              for g, t, p in broken
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"broken_count={len(broken)}\n")
+              fh.write(f"checked_count={len(ok) + len(broken)}\n")
+              fh.write(f"upstream_sha={head['sha']}\n")
+              fh.write(f"upstream_date={head['date']}\n")
+              fh.write("summary<<EOF\n" + summary + "\nEOF\n")
+          PY
+
+      - name: Open or update contract-break issue
+        if: steps.check.outputs.broken_count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BROKEN: ${{ steps.check.outputs.broken_count }}
+          CHECKED: ${{ steps.check.outputs.checked_count }}
+          SUMMARY: ${{ steps.check.outputs.summary }}
+          UPSTREAM_SHA: ${{ steps.check.outputs.upstream_sha }}
+          UPSTREAM_DATE: ${{ steps.check.outputs.upstream_date }}
+        run: |
+          set -euo pipefail
+
+          gh label create "$ISSUE_LABEL" \
+            --description "Gate detection paths no longer match the upstream template" \
+            --color "d93f0b" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+
+          TITLE="Gate detection paths no longer match upstream ($BROKEN of $CHECKED)"
+
+          BODY=$(cat <<EOF
+          The upstream Strategus template has changed in a way that breaks gate detection.
+          Studies provisioned from now on will not advance through the affected gates.
+
+          $SUMMARY
+
+          **Upstream:** [\`${UPSTREAM_SHA:0:7}\`](https://github.com/${UPSTREAM}/commit/${UPSTREAM_SHA}) — committed ${UPSTREAM_DATE}
+
+          ### What to do
+
+          1. Compare the current upstream layout against the paths in \`.github/issue-templates/\`.
+          2. Correct the \`detection.paths\` front matter, and any path named in the gate prose.
+          3. Run \`python .github/scripts/build_gates.py\` and commit the regenerated \`gates.json\`.
+          4. Studies already provisioned keep the layout recorded in their baseline file under
+             \`.github/data/baselines/\` — check whether any of them straddle the change.
+
+          ---
+          *Opened automatically by [Path Contract Check](https://github.com/${{ github.repository }}/actions/workflows/path-contract-check.yml). Updated in place rather than reopened.*
+          EOF
+          )
+
+          EXISTING=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "$ISSUE_LABEL" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [[ -n "$EXISTING" ]]; then
+            gh issue edit "$EXISTING" \
+              --repo "${{ github.repository }}" \
+              --title "$TITLE" \
+              --body "$BODY"
+            echo "::warning::Updated existing contract-break issue #$EXISTING"
+          else
+            URL=$(gh issue create \
+              --repo "${{ github.repository }}" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label "$ISSUE_LABEL")
+            echo "::warning::Opened contract-break issue $URL"
+          fi
+
+      - name: Close contract-break issue when paths are healthy
+        if: steps.check.outputs.broken_count == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_SHA: ${{ steps.check.outputs.upstream_sha }}
+        run: |
+          set -euo pipefail
+
+          EXISTING=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "$ISSUE_LABEL" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [[ -n "$EXISTING" ]]; then
+            gh issue close "$EXISTING" \
+              --repo "${{ github.repository }}" \
+              --comment "All gate detection paths match upstream again as of \`${UPSTREAM_SHA:0:7}\`."
+            echo "✅ Closed #$EXISTING — contract restored"
+          else
+            echo "✅ All ${{ steps.check.outputs.checked_count }} detection paths match upstream"
+          fi

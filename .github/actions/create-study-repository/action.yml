@@ -1,5 +1,22 @@
 name: 'Create Study Repository'
-description: 'Creates study repository from template and sets up permissions'
+description: 'Scaffolds a study repository from the upstream Strategus template and records its baseline'
+
+# Scaffolds directly from ohdsi-studies/StrategusStudyRepoTemplate at provision time
+# (decision D1, option A) rather than from a maintained fork. Factory's own files are
+# applied afterwards by the push-study-overlay action.
+#
+# Because upstream can restructure at any time — it did so in v2.0.0 on 2026-05-21 —
+# two things are recorded per study and are not optional:
+#
+#   1. the upstream commit SHA the study was scaffolded from, so Factory knows which
+#      layout that study has; and
+#   2. a blob SHA per detected path, so gate detection can tell "the lead changed this"
+#      from "the template always shipped this".
+#
+# Without (2), five of the six auto-detected gates would fire on provisioning, because
+# the template already ships Protocol.Rmd, the sample cohorts, Cohorts.csv and
+# analysisSpecifications.json.
+
 inputs:
   repo_name:
     description: 'Repository name'
@@ -13,6 +30,10 @@ inputs:
   org_token:
     description: 'Organization admin token'
     required: true
+  upstream_template:
+    description: 'Upstream Strategus template repository'
+    required: false
+    default: 'ohdsi-studies/StrategusStudyRepoTemplate'
 
 outputs:
   repo_url:
@@ -21,37 +42,140 @@ outputs:
   repo_full_name:
     description: 'Full name (owner/repo) of repository'
     value: ${{ steps.create.outputs.repo_full_name }}
+  upstream_sha:
+    description: 'Upstream template commit SHA this study was scaffolded from'
+    value: ${{ steps.upstream.outputs.upstream_sha }}
+  baseline_path:
+    description: 'Path to the written baseline file, relative to the Factory checkout'
+    value: ${{ steps.baseline.outputs.baseline_path }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Create repository from template
+    - name: Resolve upstream template commit
+      id: upstream
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+        UPSTREAM: ${{ inputs.upstream_template }}
+      run: |
+        set -euo pipefail
+
+        if ! gh api "repos/${UPSTREAM}" --jq '.is_template' | grep -qx true; then
+          echo "::error::${UPSTREAM} is not a template repository"
+          exit 1
+        fi
+
+        SHA=$(gh api "repos/${UPSTREAM}/commits/HEAD" --jq '.sha')
+        DATE=$(gh api "repos/${UPSTREAM}/commits/HEAD" --jq '.commit.author.date')
+
+        echo "upstream_sha=$SHA" >> "$GITHUB_OUTPUT"
+        echo "upstream_date=$DATE" >> "$GITHUB_OUTPUT"
+        echo "📌 Scaffolding from ${UPSTREAM}@${SHA:0:7} ($DATE)"
+
+    - name: Create repository from upstream template
       id: create
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.org_token }}
+        UPSTREAM: ${{ inputs.upstream_template }}
       run: |
+        set -euo pipefail
+
         REPO_FULL_NAME="${{ github.repository_owner }}/${{ inputs.repo_name }}"
-        
-        # Create repo from template
+
         gh repo create "$REPO_FULL_NAME" \
-          --template "${{ github.repository_owner }}/study-template" \
+          --template "$UPSTREAM" \
           --public \
           --description "OHDSI Study: ${{ inputs.study_title }}"
-        
-        REPO_URL="https://github.com/$REPO_FULL_NAME"
-        echo "repo_url=$REPO_URL" >> $GITHUB_OUTPUT
-        echo "repo_full_name=$REPO_FULL_NAME" >> $GITHUB_OUTPUT
-        echo "✅ Created repository: $REPO_URL"
+
+        # Template copies are asynchronous; wait for the tree to materialise.
+        for attempt in $(seq 1 30); do
+          if gh api "repos/$REPO_FULL_NAME/contents/README.md" --silent 2>/dev/null; then
+            echo "✅ Repository populated after ${attempt}s"
+            break
+          fi
+          if [[ $attempt -eq 30 ]]; then
+            echo "::error::Repository $REPO_FULL_NAME did not populate within 30s"
+            exit 1
+          fi
+          sleep 1
+        done
+
+        echo "repo_url=https://github.com/$REPO_FULL_NAME" >> "$GITHUB_OUTPUT"
+        echo "repo_full_name=$REPO_FULL_NAME" >> "$GITHUB_OUTPUT"
+        echo "✅ Created repository: https://github.com/$REPO_FULL_NAME"
+
+    - name: Record detection baseline
+      id: baseline
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+        REPO_FULL_NAME: ${{ steps.create.outputs.repo_full_name }}
+        UPSTREAM: ${{ inputs.upstream_template }}
+        UPSTREAM_SHA: ${{ steps.upstream.outputs.upstream_sha }}
+        UPSTREAM_DATE: ${{ steps.upstream.outputs.upstream_date }}
+        REPO_NAME: ${{ inputs.repo_name }}
+      run: |
+        set -euo pipefail
+
+        gh api "repos/${REPO_FULL_NAME}/git/trees/HEAD?recursive=1" > tree.json
+
+        python3 - <<'PY'
+        import json, os, pathlib, sys
+
+        sys.path.insert(0, ".github/scripts")
+        from gatelib import expand
+
+        gates = json.load(open(".github/data/gates.json", encoding="utf-8"))
+        tree = json.load(open("tree.json", encoding="utf-8"))
+
+        blobs = {n["path"]: n["sha"] for n in tree.get("tree", []) if n["type"] == "blob"}
+
+        baseline, missing = {}, []
+        for pattern in gates["detected_paths"]:
+            hits = expand(pattern, blobs)
+            if hits:
+                baseline.update({p: blobs[p] for p in hits})
+            else:
+                missing.append(pattern)
+
+        record = {
+            "study_repo": os.environ["REPO_FULL_NAME"],
+            "upstream_template": os.environ["UPSTREAM"],
+            "upstream_sha": os.environ["UPSTREAM_SHA"],
+            "upstream_committed_at": os.environ["UPSTREAM_DATE"],
+            # Patterns with no match are expected for paths the overlay supplies
+            # (TEAM.md, the Documents/ stubs) and for anything upstream has moved.
+            # The path-contract check reports on the second case.
+            "unmatched_patterns": sorted(missing),
+            "blobs": dict(sorted(baseline.items())),
+        }
+
+        out = pathlib.Path(".github/data/baselines") / f"{os.environ['REPO_NAME']}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+        print(f"baseline: {len(baseline)} blob(s) recorded")
+        if missing:
+            print(f"unmatched patterns (expected for overlay-supplied paths): {missing}")
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+            fh.write(f"baseline_path={out.as_posix()}\n")
+            fh.write(f"baseline_blobs={len(baseline)}\n")
+        PY
+
+        rm -f tree.json
 
     - name: Add study lead as admin
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.org_token }}
       run: |
-        # Skip if study lead is the repo owner
+        set -euo pipefail
+
         if [[ "${{ inputs.lead_github }}" != "${{ github.repository_owner }}" ]]; then
-          gh api repos/${{ github.repository_owner }}/${{ inputs.repo_name }}/collaborators/${{ inputs.lead_github }} \
+          gh api "repos/${{ github.repository_owner }}/${{ inputs.repo_name }}/collaborators/${{ inputs.lead_github }}" \
             --method PUT \
             --field permission=admin
           echo "✅ Added ${{ inputs.lead_github }} as admin"
@@ -59,9 +183,11 @@ runs:
           echo "✅ Study lead is repo owner, skipping collaborator addition"
         fi
 
-    - name: Repository creation summary
+    - name: Summary
       shell: bash
       run: |
         echo "✅ Repository setup completed"
         echo "  Repository: ${{ steps.create.outputs.repo_url }}"
+        echo "  Scaffolded from: ${{ inputs.upstream_template }}@${{ steps.upstream.outputs.upstream_sha }}"
+        echo "  Baseline blobs: ${{ steps.baseline.outputs.baseline_blobs }}"
         echo "  Admin: @${{ inputs.lead_github }}"

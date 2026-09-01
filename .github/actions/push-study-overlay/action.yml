@@ -1,0 +1,122 @@
+name: 'Push Study Overlay'
+description: 'Applies Factory-owned files to a freshly scaffolded study repository'
+
+# Study repositories are scaffolded from upstream Strategus (decision D1, option A),
+# which knows nothing about Factory. Everything Factory needs — the push dispatcher,
+# partners.csv, and the stub files the gate instructions tell leads to edit — is
+# applied here as a single commit on top of the template.
+#
+# The commit message carries [factory-overlay], which notify-factory.yml skips. If
+# that marker is ever removed, every study will evidence a gate the moment it is
+# provisioned, before the lead has touched anything.
+#
+# Upstream ships none of TEAM.md, Documents/research-question.md, or
+# Documents/results-summary.md. They must exist for a lead to edit them in the
+# browser — you cannot click the pencil icon on a file that is not there.
+
+inputs:
+  repo_full_name:
+    description: 'Full name (owner/repo) of the study repository'
+    required: true
+  factory_repo:
+    description: 'Factory repository, for the dispatch target variable'
+    required: true
+  org_token:
+    description: 'Organization admin token (needs workflow scope)'
+    required: true
+  overlay_dir:
+    description: 'Overlay source directory in the Factory checkout'
+    required: false
+    default: '.github/overlay'
+
+outputs:
+  commit_sha:
+    description: 'SHA of the overlay commit'
+    value: ${{ steps.push.outputs.commit_sha }}
+  files_applied:
+    description: 'Number of files applied'
+    value: ${{ steps.push.outputs.files_applied }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure dispatch target
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+        REPO_FULL_NAME: ${{ inputs.repo_full_name }}
+        FACTORY_REPO: ${{ inputs.factory_repo }}
+      run: |
+        set -euo pipefail
+
+        # notify-factory.yml reads this to know where to send its dispatch. Without
+        # it the workflow fails loudly rather than silently doing nothing.
+        gh variable set FACTORY_REPO \
+          --body "$FACTORY_REPO" \
+          --repo "$REPO_FULL_NAME"
+
+        echo "✅ FACTORY_REPO set to $FACTORY_REPO on $REPO_FULL_NAME"
+
+    - name: Apply overlay
+      id: push
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+        REPO_FULL_NAME: ${{ inputs.repo_full_name }}
+        OVERLAY_DIR: ${{ inputs.overlay_dir }}
+      run: |
+        set -euo pipefail
+
+        if [[ ! -d "$OVERLAY_DIR" ]]; then
+          echo "::error::Overlay directory not found: $OVERLAY_DIR"
+          exit 1
+        fi
+
+        FILE_COUNT=$(find "$OVERLAY_DIR" -type f | wc -l)
+        if [[ $FILE_COUNT -eq 0 ]]; then
+          echo "::error::Overlay directory is empty: $OVERLAY_DIR"
+          exit 1
+        fi
+
+        OVERLAY_ABS="$(cd "$OVERLAY_DIR" && pwd)"
+        WORK="$(mktemp -d)"
+
+        git clone --depth 1 \
+          "https://x-access-token:${GH_TOKEN}@github.com/${REPO_FULL_NAME}.git" \
+          "$WORK/repo"
+
+        # -a preserves the tree, including the .github/workflows path. Overlay files
+        # win over anything upstream ships at the same path.
+        cp -a "$OVERLAY_ABS/." "$WORK/repo/"
+
+        cd "$WORK/repo"
+        git config user.name "OHDSI Study Factory"
+        git config user.email "factory@users.noreply.github.com"
+        git add -A
+
+        if git diff --staged --quiet; then
+          echo "::error::Overlay produced no changes — this should never happen"
+          exit 1
+        fi
+
+        echo "Files staged:"
+        git diff --staged --name-only | sed 's/^/  /'
+
+        git commit -m "Set up Factory tracking [factory-overlay]" \
+          -m "Adds the Factory push dispatcher, partners.csv, and the stub files the
+        gate issues ask you to edit. Applied automatically at provisioning.
+
+        You do not need to do anything with this commit." \
+          --quiet
+
+        git push origin HEAD --quiet
+
+        SHA=$(git rev-parse HEAD)
+        APPLIED=$(git diff --name-only HEAD~1 HEAD | wc -l)
+
+        echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
+        echo "files_applied=$APPLIED" >> "$GITHUB_OUTPUT"
+        echo "✅ Overlay applied in ${SHA:0:7} ($APPLIED file(s))"
+
+        cd /
+        rm -rf "$WORK"

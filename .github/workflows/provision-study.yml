@@ -295,11 +295,54 @@ jobs:
           
           echo "✅ Study repository secrets and variables configured"
 
+      # Must run after the secrets step above: the overlay installs notify-factory.yml,
+      # which needs ORG_ADMIN_TOKEN present to dispatch. The overlay commit itself is
+      # marked [factory-overlay] so that workflow skips it rather than evidencing a
+      # gate before the study lead has touched anything.
+      - name: Push Factory overlay to study repository
+        id: overlay
+        uses: ./.github/actions/push-study-overlay
+        with:
+          repo_full_name: ${{ steps.repo.outputs.repo_full_name }}
+          factory_repo: ${{ github.repository }}
+          org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      # Factory owns the baselines, not the study repos — a lead cannot edit what they
+      # cannot see, and gate logic stays in one place. Written by create-study-repository
+      # into this checkout; committed here.
+      - name: Commit detection baseline
+        env:
+          BASELINE_PATH: ${{ steps.repo.outputs.baseline_path }}
+          UPSTREAM_SHA: ${{ steps.repo.outputs.upstream_sha }}
+          REPO_NAME: ${{ steps.validate.outputs.repo_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f "$BASELINE_PATH" ]]; then
+            echo "::error::Baseline file missing at $BASELINE_PATH"
+            exit 1
+          fi
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add "$BASELINE_PATH"
+
+          if git diff --staged --quiet; then
+            echo "No baseline changes to commit"
+          else
+            git commit -m "Record detection baseline for ${REPO_NAME} (upstream ${UPSTREAM_SHA:0:7})"
+            git pull --rebase origin main
+            git push
+            echo "✅ Committed baseline for ${REPO_NAME}"
+          fi
+
       - name: Summary
         run: |
           echo "## ✅ Study Provisioned Successfully"
           echo ""
           echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"
+          echo "**Scaffolded from:** ohdsi-studies/StrategusStudyRepoTemplate@${{ steps.repo.outputs.upstream_sha }}"
+          echo "**Factory overlay:** ${{ steps.overlay.outputs.files_applied }} file(s) in ${{ steps.overlay.outputs.commit_sha }}"
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
           echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"

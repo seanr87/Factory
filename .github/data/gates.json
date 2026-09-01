@@ -1,0 +1,197 @@
+{
+  "_generated_by": ".github/scripts/build_gates.py — do not edit by hand",
+  "_source": "'.github/issue-templates/*.md' front matter",
+  "stall_threshold_days": 21,
+  "partner_status_labels": [
+    "status:not-contacted",
+    "status:contacted",
+    "status:interested",
+    "status:committed",
+    "status:package-running",
+    "status:results-received",
+    "status:declined"
+  ],
+  "detected_paths": [
+    "Documents/Protocol.Rmd",
+    "Documents/research-question.md",
+    "Documents/results-summary.md",
+    "TEAM.md",
+    "inst/Cohorts.csv",
+    "inst/analysisSpecifications.json",
+    "inst/cohorts/**/*.json",
+    "inst/covariateConceptsToExclude.csv",
+    "inst/negativeControlOutcomes.csv",
+    "inst/sql/sql_server/**/*.sql",
+    "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
+  ],
+  "partner": {
+    "type": "partner",
+    "title": "Data partner — {{INSTITUTION}}",
+    "labels": [
+      "partner",
+      "work-item"
+    ],
+    "status_labels": [
+      "status:not-contacted",
+      "status:contacted",
+      "status:interested",
+      "status:committed",
+      "status:package-running",
+      "status:results-received",
+      "status:declined"
+    ],
+    "stall_threshold_days": 21,
+    "template": ".github/issue-templates/partner-tracking.md",
+    "body": "**Institution.** {{INSTITUTION}}\n**Primary contact.** {{CONTACT_NAME}}, {{CONTACT_ROLE}}\n**Status.** Not yet contacted\n**Waiting on.** —\n**Governance.** DUA: not started · IRB: not started · Data access: not confirmed\n\n---\n\n*Keep the section above current — overwrite it as things change, so anyone can see where this partner stands without scrolling. Add a comment below after every exchange: what was asked, and what happens next. Two lines is enough. The comments are the history, and their dates are how we spot a partner going quiet.*\n\n*Have the conversations wherever you normally would. This issue is a log, not an inbox.*\n\n**Status values:** Not yet contacted · Contacted · Interested · Committed · Package running · Results received · Declined"
+  },
+  "gates": [
+    {
+      "gate": 0,
+      "title": "Gate 0 — Get oriented in GitHub",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "TEAM.md"
+        ],
+        "event": "content_changed",
+        "baseline": "overlay"
+      },
+      "advance_rule": "auto_advance_to_review",
+      "template": ".github/issue-templates/gate-0-orientation.md",
+      "body": "**What this gate means.** You've made your first change in this repository and it worked. That's all. There's no research content here — this exists so the mechanics are behind you before anything intellectually hard starts.\n\n**Why it matters.** Most of you haven't used GitHub before, and that's completely normal. The problem isn't that GitHub is hard; it's that the first commit feels like it might break something. It won't. Everything here is versioned and recoverable, and nobody has ever been thought less of for a messy first commit. Getting this one out of the way means that when you're wrestling with a cohort definition later, you're wrestling with the cohort definition and not the tooling.\n\n**What to produce**\n\n- Add yourself to `TEAM.md`: your name, institution, and your role on this study.\n\nThe easiest route is entirely in your browser. Open `TEAM.md` from the file list, click the pencil icon at the top right, type your line, then click **Commit changes** at the bottom. That's it — no software to install, nothing to download.\n\n**What good looks like** — check these yourself before you consider it done:\n\n- Your line appears in `TEAM.md` when you view the file normally (not in edit mode).\n- You can find this issue again from the **Issues** tab without following a link from an email.\n- You know where the **Files** view and the **Issues** tab are, and roughly what each is for.\n\n**If you're stuck.** Post in the study channel. Someone will screen-share for five minutes and you'll be sorted — this is a normal thing to ask for, not a favour. If you'd like to read ahead, GitHub's own \"Hello World\" guide covers exactly this flow in about ten minutes.\n\nWe don't expect anyone to arrive fluent in this. A clumsy first commit is exactly right. If anything here is unclear, reach out early; asking is always the right move."
+    },
+    {
+      "gate": 1,
+      "title": "Gate 1 — Research question locked",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "Documents/research-question.md"
+        ],
+        "event": "content_changed",
+        "baseline": "overlay"
+      },
+      "advance_rule": "auto_advance_to_review",
+      "template": ".github/issue-templates/gate-1-research-question.md",
+      "body": "**What this gate means.** The question your team is running is written down in this repository, in the form the rest of the study will be built against. Not the version from your symposium pitch, and not a topic area — a single question with a defined population, a defined thing being measured, and a defined window of time.\n\n**Why it matters.** Every later gate inherits the wording of this one. Your cohort definitions are an attempt to express this question in code; your protocol is an attempt to defend it; your data partners will decide whether to participate based on it. Teams that leave the question slightly loose here spend weeks discovering they were each building something subtly different. It's also the cheapest possible moment to find out the question can't be answered — far better now than after a partner has run your package.\n\n**What to produce**\n\n- `Documents/research-question.md`, covering:\n  - **Population** — who, and how they're identified in the data\n  - **What you're measuring** — the condition, exposure, or outcome of interest\n  - **Timing relative to pregnancy** — pre-existing, onset during pregnancy, delivery, or a postpartum window\n  - **Analytic use case** — characterization, estimation, or prediction, and why that one\n  - **Feasibility notes** — what you found when you looked for concept counts, and any databases you already know will or won't support this\n\n**What good looks like** — check these yourself before you consider it done:\n\n- Someone outside your team could read it and describe your study back to you correctly.\n- Every clinical term you use is one you could point to concepts for. If you can't, say so explicitly — an acknowledged gap is fine, an unnoticed one is not.\n- The timing window is stated in actual time, not implied. \"During pregnancy\" means different things to different people.\n- You've said what this study will *not* answer. Scope you've deliberately excluded belongs in writing.\n\n**If you're stuck.** Chapter 19 of the Book of OHDSI walks the path from research interest to precise question, and Chapter 20 covers what makes a question suitable for a network study specifically. The Network Studies in Practice page in the Resource Library has the exemplar protocols worth imitating. For your specific question, bring it to office hours — this is the gate where a conversation saves the most time.\n\nWe don't expect the first version to be final. Questions narrow as you learn what the data can support, and that's the process working, not a setback. If anything here is unclear, reach out early; asking is always the right move."
+    },
+    {
+      "gate": 2,
+      "title": "Gate 2 — Protocol drafted",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "Documents/Protocol.Rmd"
+        ],
+        "event": "content_changed",
+        "baseline": "upstream"
+      },
+      "advance_rule": "auto_advance_to_review",
+      "template": ".github/issue-templates/gate-2-protocol.md",
+      "body": "**What this gate means.** Your study has a written protocol in this repository, following the OHDSI protocol structure. It doesn't need to be finished prose, but every section needs a real answer rather than a placeholder.\n\n**Why it matters.** In OHDSI, the protocol is what you hand a data partner when you ask them to run your study, and it's what a reviewer reads when deciding whether to trust your results. Writing it before execution is a norm the community takes seriously: it's how the field distinguishes a planned analysis from one that was shaped after seeing the answer. Practically, it's also the document that forces you to make decisions you've been deferring — comparator choice, follow-up window, how you'll handle people who appear more than once.\n\n**What to produce**\n\n- `Documents/Protocol.Rmd`, using the 16-section OHDSI protocol skeleton (Appendix D of the Book of OHDSI). Copy the structure wholesale; don't invent your own.\n\n**What good looks like** — check these yourself before you consider it done:\n\n- Every section has content. Where you genuinely haven't decided, write what the options are and what would settle it, rather than leaving the heading bare.\n- Your population, outcome, and timing match `Documents/research-question.md` word for word. If they've changed, change both.\n- You've named your negative controls, or explained why the design doesn't call for them.\n- A data partner reading only this document would know what will be run on their data and what leaves their site.\n\n**If you're stuck.** Appendix D gives you the skeleton, Chapter 3 explains why forward registration matters, and the LEGEND-T2DM protocol paper on the Network Studies in Practice page is a published example of the standard to aim at. The `ohdsi-studies` organisation on GitHub has around 190 real study repositories — reading two or three protocols from studies like yours is the fastest way to calibrate.\n\nNobody writes a good protocol from a blank page. Copy the structure, fill it roughly, then refine with your mentor. If anything here is unclear, reach out early; asking is always the right move."
+    },
+    {
+      "gate": 3,
+      "title": "Gate 3 — Cohort definitions committed",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "inst/cohorts/**/*.json",
+          "inst/Cohorts.csv",
+          "inst/sql/sql_server/**/*.sql"
+        ],
+        "event": "content_changed",
+        "baseline": "upstream"
+      },
+      "advance_rule": "auto_advance_to_review",
+      "template": ".github/issue-templates/gate-3-cohort-definitions.md",
+      "body": "**What this gate means.** Your study's cohorts exist as files in this repository — exported from Atlas, committed here, and readable by anyone on the team. Until that happens, your definitions live only in Atlas, where nobody else can see them, review them, or run them.\n\n**Why it matters.** Everything downstream depends on these files. The analysis specification points at them, and every data partner runs *these exact definitions* — not a description of them, not a screenshot. This is the moment your study stops being a design and becomes something executable. It's also the point where mistakes get expensive: a concept set that's wrong here is wrong at every site.\n\n**What to produce**\n\n- Your cohort definition JSON files in `inst/cohorts/`\n- The matching SQL in `inst/sql/sql_server/`\n- One entry per cohort in `inst/Cohorts.csv`\n\nIn Atlas, open your cohort definition, go to the Export tab, and copy the JSON. If you've not committed a file before, the fastest route is the **Add file → Create new file** button at the top of the folder in your browser — no command line needed. Post in the study channel if you'd rather someone walk you through it once; that's a five-minute conversation, not a favour.\n\n**What good looks like** — check these yourself before you consider it done:\n\n- Every cohort you named in your protocol has a file here, and nothing extra does.\n- You searched the OHDSI Phenotype Library first. If a definition already exists, you've either reused it or documented what you changed and why.\n- Your entry event, index date, and exit criteria match what you wrote in your Phenotype Development Worksheet. If they've drifted, update the worksheet — the worksheet is the reasoning, the JSON is the implementation, and reviewers will read them side by side.\n- You can say out loud what you deliberately excluded. Reviewers will ask.\n\n**If you're stuck.** The Book of OHDSI, Chapter 10 covers cohort logic, and the Phenotyping & Cohort Definition page in the Resource Library has worked examples — Phenotype Phebruary especially. For anything specific to your study, bring it to office hours or tag your mentor here in this issue.\n\nWe don't expect the first version to be right. The point of the diagnostics cycle is to find out what's wrong and fix it — a clear, honest first draft is exactly right. If anything here is unclear, reach out early; asking is always the right move."
+    },
+    {
+      "gate": 4,
+      "title": "Gate 4 — Analysis specification built",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "inst/analysisSpecifications.json",
+          "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R",
+          "inst/negativeControlOutcomes.csv",
+          "inst/covariateConceptsToExclude.csv"
+        ],
+        "event": "content_changed",
+        "baseline": "upstream"
+      },
+      "advance_rule": "auto_advance_to_review",
+      "template": ".github/issue-templates/gate-4-analysis-specification.md",
+      "body": "**What this gate means.** Your study design now exists as a Strategus analysis specification: an R script that builds it, and the JSON specification that script produces. This is the artefact a data partner actually runs.\n\n**Why it matters.** Up to now your study has been described in prose. This is the point where it becomes one machine-readable object that every site executes identically — which is the whole premise of a network study. It's also where design decisions stop being negotiable in conversation: if the specification says a 365-day washout, that's what runs at all ten sites, whatever the protocol says. Getting the two to agree is the work of this gate.\n\nYou are not expected to write this alone. We have analyst support, and most leads pair with an analyst here. Your job is to be certain the specification expresses the study *you* designed.\n\n**What to produce**\n\n- The R script that assembles the specification (`scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R`)\n- The generated specification JSON at `inst/analysisSpecifications.json`\n- Negative control concepts, if your design uses them\n\n**What good looks like** — check these yourself before you consider it done:\n\n- The script runs end to end and produces the JSON without manual editing afterwards. A hand-edited specification will drift.\n- Every cohort referenced in the specification exists in `inst/cohorts/`, by the same ID.\n- Time windows, washout periods, and follow-up in the specification match `Documents/Protocol.Rmd`. Check these individually; this is the most common place the two diverge.\n- You can explain, in a sentence each, what every analysis module in the specification does and why your study includes it.\n\n**If you're stuck.** The Strategus documentation covers the concepts, and \"Get Study-Ready with Strategus & HADES\" (Anthony Sena, community call) is the clearest end-to-end walkthrough — both are linked on the Network Studies in Practice page. For the code itself, work with your analyst; that's what they're here for.\n\nNot understanding every line of the specification is fine. Not knowing what your own study does is not — so if a module in there is a mystery to you, ask before this gate closes. Asking is always the right move."
+    },
+    {
+      "gate": 5,
+      "title": "Gate 5 — Data partners recruited",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "partners.csv"
+        ],
+        "event": "advisory_only",
+        "note": "Paths are advisory. This gate never auto-advances; partner issues are the evidence."
+      },
+      "advance_rule": "manual_only",
+      "template": ".github/issue-templates/gate-5-data-partners.md",
+      "body": "**What this gate means.** You've identified the institutions you're asking to run your study, each one has an issue in this repository, and you've made contact. The gate closes when you have enough committed partners for the study to be worth running.\n\n**Why it matters.** This is the longest and least visible phase of a network study, and it's where studies most often stall quietly. Nothing about recruitment shows up in your code, so if the tracking doesn't happen here, nobody — including you, three weeks from now — will know where things stand. It's also genuinely relational work: you're asking colleagues at other institutions to spend their analyst's time on your question. That takes follow-up, and follow-up takes a record of what was already said.\n\n**What to produce**\n\n- `partners.csv`, one row per institution you're approaching. Committing this file creates a tracking issue for each partner automatically.\n- In each partner issue: keep the **body** current — who your contact is, where things stand, what you're waiting on. Add a **comment** after every exchange with two lines: what was asked, and what happens next.\n\nKeep having your actual conversations by email or on calls. The issue is a log, not a replacement inbox. Two lines after a call is the whole ask.\n\n**What good looks like** — check these yourself before you consider it done:\n\n- Every partner issue's body tells you the current state without scrolling.\n- No partner issue has been silent for three weeks. If one has, that's the signal to chase, not to assume.\n- Governance status is written down per partner — DUA, IRB, data access — because these run on their own timelines and they're what usually determines your finish date.\n- You know which partners are confirmed versus interested, and the issues distinguish the two.\n\n**If you're stuck.** The OHDSI Evidence Network is where leads find partners with the right data, and the \"How to Run a Study\" material on the OHDSI Network Research Studies page covers the approach. Both are linked from the Network Studies in Practice page. If you're unsure how to make the ask, bring a draft email to office hours — we'd much rather review it than have you sit on it.\n\nPartners saying no, or going quiet, is normal and not a reflection on your study. Tell us early when it happens; there is usually another route. Asking is always the right move."
+    },
+    {
+      "gate": 6,
+      "title": "Gate 6 — Study executed across partners",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "event": "none",
+        "derived_from": "partner_issue_status",
+        "note": "Not detectable from repository activity. Advanced from partner issue status labels."
+      },
+      "advance_rule": "manual_only",
+      "template": ".github/issue-templates/gate-6-execution.md",
+      "body": "**What this gate means.** Partners have run your study package on their data and returned aggregate results to you. This gate tracks how many have, out of how many committed.\n\n**Why it matters.** This is the one phase that happens outside this repository entirely — on machines you'll never see, on data you'll never touch. Only aggregate results ever leave a partner site, which is the point of the whole federated model. What that means practically is that nothing here updates itself: if a site hits an error running your package, the only way you'll find out is that they tell you, or that you ask.\n\nExpect errors. A package that runs cleanly on our data will still fail somewhere, usually on a vocabulary version or a table that site populates differently. That's ordinary, and it's fixable, but it needs someone chasing it.\n\n**What to produce**\n\n- Move each partner issue to **Results received** as their results arrive.\n- When a site hits an error, log it as a comment on that partner's issue — what failed, and what you tried. Errors repeat across sites, and the second site's fix is usually the first site's comment.\n- Store returned results where your team has agreed, following whatever the partner's transfer conditions were.\n\n**What good looks like** — check these yourself before you consider it done:\n\n- Every committed partner has either returned results or has a live, dated reason in their issue explaining why not.\n- No partner has been silent for three weeks without a chase logged.\n- You've confirmed each result set is complete before counting it as received, rather than assuming.\n\n**If you're stuck.** Execution problems are almost always technical rather than scientific, and your analyst and the wider fellowship support are the right first call — don't spend a week debugging someone else's environment alone. Chapter 20 of the Book of OHDSI covers the execution phase and what to expect.\n\nA site that fails to run your package has not rejected your study. Nearly every network study hits this. Flag it early and we'll help you work it through. Asking is always the right move."
+    },
+    {
+      "gate": 7,
+      "title": "Gate 7 — Results synthesised and shared",
+      "labels": [
+        "gate",
+        "milestone"
+      ],
+      "detection": {
+        "paths": [
+          "Documents/results-summary.md"
+        ],
+        "event": "content_changed",
+        "baseline": "overlay",
+        "note": "results/ is gitignored upstream and must not be pushed. The written summary is the evidence."
+      },
+      "advance_rule": "auto_advance_to_review",
+      "template": ".github/issue-templates/gate-7-results.md",
+      "body": "**What this gate means.** Results from across your partners have been brought together, reviewed, and written up in a form other people can read — a summary in this repository at minimum, and for most studies an abstract, a presentation, or a manuscript.\n\n**Why it matters.** A network study that produces results nobody sees hasn't finished. This is also the gate where you find out whether the answer is trustworthy: diagnostics that looked fine on one database can look very different across ten, and empirical calibration exists precisely because uncalibrated observational estimates tend to be overconfident. Reading your own results sceptically is part of the work, not a lack of confidence in it.\n\n**What to produce**\n\n- Combined results, stored per your team's agreement and honouring any minimum cell count suppression your partners required\n- `Documents/results-summary.md` — what you found, what the diagnostics showed, and what you'd caveat\n- Whatever external output your study is aiming at: OHDSI community call, symposium abstract, manuscript\n\n**What good looks like** — check these yourself before you consider it done:\n\n- You've looked at diagnostics for every site, not just the aggregate. Sites that disagree are telling you something.\n- Negative controls behave as they should, or you've said plainly that they don't.\n- Cell count suppression is applied before anything is shared outside the team. Check the terms each partner set individually; they differ.\n- Your summary states what the study can't conclude as clearly as what it can.\n\n**If you're stuck.** Chapter 14 on evidence quality and Chapter 18 on method validity are the readings for this stage — Chapter 18 in particular is the clearest explanation of negative controls and calibration you'll find. The OHDSI Evidence Sharing portal shows what results dissemination looks like in practice. For interpretation, bring your output to office hours; this is exactly the conversation your mentor is for.\n\nResults that are null, messy, or not what you hoped are still results, and they are still worth publishing. Bring them to us as they are. Asking is always the right move."
+    }
+  ]
+}

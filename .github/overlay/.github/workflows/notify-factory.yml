@@ -1,0 +1,115 @@
+# Notifies Factory which paths changed. Factory owns all gate logic.
+#
+# This workflow is deliberately dumb: it reports the raw list of changed files and
+# nothing else. It does not know what a gate is, which paths matter, or what state
+# the study is in. That way gate definitions can change in Factory without editing
+# this file in every study repository.
+#
+# Installed by Factory during provisioning. Do not edit by hand — changes are
+# overwritten and Factory will not know about them.
+
+name: Notify Factory
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    # Skip Factory's own provisioning commit, or we would evidence a gate before
+    # the study lead has touched anything.
+    if: "!contains(github.event.head_commit.message, '[factory-overlay]')"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed paths
+        id: changes
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # On branch creation, or a force-push we cannot diff against, treat every
+          # tracked file as changed and let Factory's baseline check sort it out.
+          if [[ -z "${BEFORE:-}" || "$BEFORE" == "0000000000000000000000000000000000000000" ]] \
+             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "No usable base commit — listing all tracked files"
+            git ls-tree -r --name-only HEAD > paths.txt
+          else
+            git diff --name-only "$BEFORE" "$AFTER" > paths.txt
+          fi
+
+          total=$(wc -l < paths.txt)
+          echo "Changed paths: $total"
+
+          # repository_dispatch caps client_payload at 64KB. A push that large is not
+          # a study lead editing a file, so cap and say so rather than failing.
+          if [[ $total -gt 300 ]]; then
+            echo "truncated=true" >> "$GITHUB_OUTPUT"
+            head -300 paths.txt > paths.capped.txt && mv paths.capped.txt paths.txt
+          else
+            echo "truncated=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          sed 's/^/  /' paths.txt
+
+      - name: Dispatch to Factory
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          FACTORY_REPO: ${{ vars.FACTORY_REPO }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::ORG_ADMIN_TOKEN is not set. Factory cannot be notified."
+            exit 1
+          fi
+          if [[ -z "${FACTORY_REPO:-}" ]]; then
+            echo "::error::FACTORY_REPO variable is not set. Factory cannot be notified."
+            exit 1
+          fi
+
+          jq -n \
+            --arg repo "${{ github.repository }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg url "${{ github.event.head_commit.url }}" \
+            --arg msg "${{ github.event.head_commit.message }}" \
+            --arg author "${{ github.event.head_commit.author.username }}" \
+            --arg at "${{ github.event.head_commit.timestamp }}" \
+            --arg truncated "${{ steps.changes.outputs.truncated }}" \
+            --argjson total "${{ steps.changes.outputs.total }}" \
+            --rawfile raw paths.txt \
+            '{
+              event_type: "study_push",
+              client_payload: {
+                study_repo: $repo,
+                commit_sha: $sha,
+                commit_url: $url,
+                commit_message: $msg,
+                author: $author,
+                pushed_at: $at,
+                path_count: $total,
+                paths_truncated: ($truncated == "true"),
+                paths: ($raw | split("\n") | map(select(length > 0)))
+              }
+            }' > payload.json
+
+          gh api "repos/${FACTORY_REPO}/dispatches" \
+            --method POST \
+            --input payload.json
+
+          echo "✅ Notified ${FACTORY_REPO}: ${{ steps.changes.outputs.total }} changed path(s)"
