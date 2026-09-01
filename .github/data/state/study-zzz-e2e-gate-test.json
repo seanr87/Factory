@@ -3,8 +3,8 @@
   "factory_repo": "seanr87/Factory",
   "factory_issue": 145,
   "study_project_id": "PVT_kwHOCRKm2M4BiEsn",
-  "current_gate": 0,
-  "gate_entered_at": "2026-09-01T04:18:43+00:00",
+  "current_gate": 2,
+  "gate_entered_at": "2026-09-01T04:21:45+00:00",
   "stall_threshold_days": 21,
   "gates": {
     "0": {
@@ -22,10 +22,12 @@
       "evidenced_by": []
     },
     "2": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "ready_for_review",
+      "entered_at": "2026-09-01T04:21:45+00:00",
       "issue": 3,
-      "evidenced_by": []
+      "evidenced_by": [
+        "Documents/Protocol.Rmd"
+      ]
     },
     "3": {
       "status": "not_started",
@@ -76,6 +78,15 @@
       "commit": "bfa0116091ddfd765ecf4482791aeb62df7a8025",
       "evidence": [
         "TEAM.md"
+      ]
+    },
+    {
+      "at": "2026-09-01T04:21:45+00:00",
+      "from_gate": 0,
+      "to_gate": 2,
+      "commit": "c19351b7b0b79c0cec5fcece7f5d30e882774107",
+      "evidence": [
+        "Documents/Protocol.Rmd"
       ]
     }
   ]
