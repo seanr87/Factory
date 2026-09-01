@@ -1,6 +1,6 @@
 ---
 gate: 1
-title: "Gate 1 — Research question locked"
+title: "Gate 1 — Research question developed"
 labels: ["gate", "milestone"]
 detection:
   paths: ["Documents/research-question.md"]

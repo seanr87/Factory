@@ -52,7 +52,7 @@ editing ten study repositories.
 | Gate | Name | Evidence |
 |---|---|---|
 | 0 | Get oriented in GitHub | `TEAM.md` |
-| 1 | Research question locked | `Documents/research-question.md` |
+| 1 | Research question developed | `Documents/research-question.md` |
 | 2 | Protocol drafted | `Documents/Protocol.Rmd` |
 | 3 | Cohort definitions committed | `inst/cohorts/`, `inst/Cohorts.csv`, `inst/sql/sql_server/` |
 | 4 | Analysis specification built | `inst/analysisSpecifications.json`, the spec script |

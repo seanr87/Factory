@@ -41,7 +41,7 @@ Three things to hold to, because Factory finds your sections by their headings:
 
 - Edit the existing file. Don't create a new one, rename it, or move it.
 - Keep the headings exactly as they are, word for word. Add your own sub-headings beneath them freely.
-- Write under the headings listed under *How this gate moves* at the bottom of this issue. Those are the sections Factory checks. Text anywhere else — the title block at the top, the abstract, the appendices — is welcome but doesn't count towards this gate.
+- Write under the headings listed under *Technical requirements* at the bottom of this issue. Those are the sections Factory checks. Text anywhere else — the title block at the top, the abstract, the appendices — is welcome but doesn't count towards this gate.
 
 **What good looks like** — check these yourself before you consider it done:
 

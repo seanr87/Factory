@@ -8,11 +8,13 @@ through with one transformation: a backticked repository path becomes a link int
 the study repository. Relative links do not resolve inside a GitHub issue, so
 that can only happen here, where the repository's name is known.
 
-A "How this gate moves" block is then appended. It is generated from the gate's
-detection rules rather than written by hand, so the issue can never promise a
-behaviour the state machine does not have — a `require: all_sections` gate that
-said "any change moves this" is how a lead ends up editing the abstract and
-wondering why nothing happened.
+A "Technical requirements" block is then appended: the exact file to edit, the
+branch to commit to, the headings to keep, and what counts as a change. It is
+generated from the gate's detection rules rather than written by hand, so the
+issue can never demand something the state machine does not check, or promise a
+behaviour it does not have — a `require: all_sections` gate that said "any change
+moves this" is how a lead ends up editing the abstract and wondering why nothing
+happened.
 
 This also writes the study's initial state file. That file is the machine record
 Factory owns: which issue is which gate, when each gate was entered, and what
@@ -74,6 +76,15 @@ GLOB_CHARS = "*?["
 IN_PROGRESS = "in_progress"
 BOARD_IN_PROGRESS = "In progress"
 
+# What a watched file is compared against, by the gate's `baseline`.
+SHIPPED = {
+    "overlay": "the stub Factory placed there when the repository was created",
+    "upstream": "what the Strategus template shipped",
+}
+SHIPPED_DEFAULT = "the version the repository was created with"
+
+CLOSES = "It never closes the issue — a person does that."
+
 
 def gh(*args, check=True):
     r = subprocess.run(["gh", *args], capture_output=True, text=True)
@@ -97,7 +108,7 @@ def ensure_labels(repo, gates):
 
 
 def default_branch(repo):
-    """The branch links should point at. Falls back to main if unreadable."""
+    """The branch links point at and leads must commit to. Falls back to main."""
     return gh("api", f"repos/{repo}", "--jq", ".default_branch", check=False) or "main"
 
 
@@ -133,88 +144,117 @@ def _join(items):
     return ", ".join(items)
 
 
-def how_it_moves(gate, study_repo, branch):
-    """The paragraph explaining what Factory watches and when it acts.
+def requirements(gate, study_repo, branch):
+    """The Technical requirements block: exactly what Factory needs to see.
 
-    One shape per detection rule, so the promise matches the machine:
+    One shape per detection rule, so the requirements match the machine:
 
-      content_changed, any           first change -> Ready for review
-      content_changed, all           first change -> In progress, all -> Ready
-      content_changed, all_sections  first section -> In progress, all -> Ready
-      derived_from_partners          read from partner issue labels, never a push
+      content_changed, any           one file, any change from the scaffold
+      content_changed, all           several files, every one of them changed
+      content_changed, all_sections  one file, named sections written under
+                                     headings kept word for word
+      derived_from_partners          partner issue labels, never a push
     """
     detection = gate["detection"]
     event = detection.get("event")
     paths = detection.get("paths") or []
     supporting = detection.get("supporting_paths") or []
-    closes = "It never closes the issue itself — a person does that."
+    shipped = SHIPPED.get(detection.get("baseline"), SHIPPED_DEFAULT)
 
     def L(path):
         return link(study_repo, path, branch)
 
+    head = ("**Technical requirements** — what Factory needs to see before it "
+            "moves this gate:")
+    branch_req = (f"- **Branch:** commit to `{branch}`. Factory only hears about "
+                  f"pushes to `{branch}`; work on any other branch is invisible "
+                  "to it until merged.")
+
     if event == "derived_from_partners":
         minimum = detection.get("minimum_partners", 1)
         progress = {
-            "any_partner": "It moves to **In progress** as soon as any partner "
-                           "issue exists.",
-            "any_returned": "It moves to **In progress** when the first partner "
-                            "is marked *Results received*.",
-        }.get(detection.get("in_progress_when"), "")
+            "any_partner": "any partner issue exists.",
+            "any_returned": "the first partner is labelled "
+                            "`status:results-received`.",
+        }.get(detection.get("in_progress_when"))
         ready = {
-            "minimum_committed": f"It moves to **Ready for review** once {minimum} "
-                                 "partners are marked *Committed* or further along.",
-            "any_committed": "It moves to **Ready for review** once one partner is "
-                             "marked *Committed* or further along.",
-            "all_committed_returned": "It moves to **Ready for review** once every "
-                                      "committed partner is marked *Results "
-                                      f"received*, with at least {minimum} of them.",
-        }.get(detection.get("ready_when"), "")
-        lines = ["**How this gate moves.** Nothing you commit moves this gate. "
-                 "Factory reads it from the status labels on the partner issues "
-                 "in this repository. " + " ".join(s for s in (progress, ready) if s)
-                 + " " + closes]
+            "minimum_committed": f"{minimum} partners are labelled "
+                                 "`status:committed` or further along.",
+            "any_committed": "one partner is labelled `status:committed` or "
+                             "further along.",
+            "all_committed_returned": "every committed partner is labelled "
+                                      "`status:results-received`, and there are "
+                                      f"at least {minimum} of them.",
+        }.get(detection.get("ready_when"))
+        lines = [
+            head, "",
+            "- **No file moves this gate.** Factory reads it from the `status:` "
+            "labels on the partner issues in this repository, so keep those "
+            "labels current.",
+        ]
+        if paths:
+            lines.append(f"- **Partner issues come from** {_join(L(p) for p in paths)}: "
+                         f"one row per institution, committed to `{branch}`. "
+                         "Committing the file creates the issues; it does not "
+                         "recruit anyone.")
+        if progress:
+            lines.append(f"- **In progress when:** {progress}")
+        if ready:
+            lines.append(f"- **Ready for review when:** {ready}")
+        lines += ["", "Factory comments here each time it moves this gate. " + CLOSES]
     elif event != "content_changed":
-        lines = ["**How this gate moves.** This one cannot be detected from the "
-                 "repository, so it is moved by hand. Nothing you commit will "
-                 "advance it."]
+        lines = [head, "",
+                 "- **Nothing you commit moves this gate.** It cannot be detected "
+                 "from the repository and is moved by hand."]
     elif detection.get("require") == "all_sections":
         sections = detection.get("sections", [])
         lines = [
-            f"**How this gate moves.** Factory watches {_join(L(p) for p in paths)} "
-            "and reads these sections of it. The headings must stay exactly as "
-            "they are, because that is how it finds them:",
+            head, "",
+            f"- **File to edit:** {_join(L(p) for p in paths)}. It already exists — "
+            "edit it in place. Do not create a new file, rename it, or move it.",
+            branch_req,
+            "- **Headings to keep, word for word** — Factory finds each section "
+            "by its heading:",
+            *[f"  - {s}" for s in sections],
+            "- **What counts:** a section is written when the text under its "
+            "heading, including any sub-headings you add, differs from "
+            f"{shipped}. Text anywhere else in the file — the title block, the "
+            "abstract, the appendices — does not count.",
             "",
-            *[f"- {s}" for s in sections],
-            "",
-            "A section counts as written when the text under its heading differs "
-            "from what the template shipped. Nothing else in the file counts: not "
-            "the title block, not the abstract, not a heading with nothing under "
-            "it. The first written section moves this issue to **In progress**, "
-            "with a comment listing what is still to write. When every one of them "
-            "is written it moves to **Ready for review**. " + closes,
+            "Factory moves this issue to **In progress** at the first written "
+            "section, with a comment listing what is still to write, and to "
+            "**Ready for review** once all of them are written. " + CLOSES,
         ]
     elif detection.get("require") == "all":
         lines = [
-            "**How this gate moves.** Factory watches this repository for changes "
-            "to all of:",
-            "",
-            *[f"- {L(p)}" for p in paths],
-            "",
-            "The first of these to differ from the Strategus template moves this "
-            "issue to **In progress**, with a comment saying what is still "
-            "outstanding. When every one of them differs it moves to **Ready for "
-            "review** and comments here saying exactly what it saw. " + closes,
+            head, "",
+            "- **Files to produce, all of them:**",
+            *[f"  - {L(p)}" for p in paths],
         ]
         if supporting:
-            lines += ["",
-                      f"Changes to {_join(L(p) for p in supporting)} are reported "
-                      "too, but never move the gate on their own."]
+            lines.append(f"- **Reported but not required:** "
+                         f"{_join(L(p) for p in supporting)}. Changes here are "
+                         "mentioned in the comment but never move the gate alone.")
+        lines += [
+            branch_req,
+            f"- **What counts:** each required file differs from {shipped}. A new "
+            "file matching one of the patterns counts as changed.",
+            "",
+            "Factory moves this issue to **In progress** when the first required "
+            "file changes, with a comment saying what is still outstanding, and "
+            "to **Ready for review** once every one of them has. " + CLOSES,
+        ]
     else:
         lines = [
-            "**How this gate moves.** Factory watches this repository for changes "
-            f"to {_join(L(p) for p in paths)}. When it sees one, it moves this "
-            "issue to **Ready for review** and comments here saying exactly what "
-            "it saw. " + closes
+            head, "",
+            f"- **File to edit:** {_join(L(p) for p in paths)}, in this repository. "
+            "Edit that file where it is; a new file somewhere else does not count.",
+            branch_req,
+            f"- **What counts:** the file's content differs from {shipped}. Any "
+            "real change does.",
+            "",
+            "Factory then moves this issue to **Ready for review** and comments "
+            "here saying exactly what it saw. " + CLOSES,
         ]
 
     if gate.get("initial_status") == IN_PROGRESS:
@@ -228,7 +268,7 @@ def build_body(gate, factory_repo, factory_issue, study_repo, branch="main"):
     return (
         linkify(gate["body"], study_repo, branch)
         + "\n\n---\n\n"
-        + how_it_moves(gate, study_repo, branch)
+        + requirements(gate, study_repo, branch)
         + "\n\n<sub>Study: "
         + study_repo
         + " · Factory tracking: https://github.com/"
@@ -368,44 +408,66 @@ def _self_test():
     check("a non-default branch is honoured",
           repo_url(repo, "TEAM.md", "develop") == f"{base}/blob/develop/TEAM.md")
 
-    # The generated block matches the detection rule.
-    any_gate = {"detection": {"event": "content_changed", "paths": ["TEAM.md"]}}
-    text = how_it_moves(any_gate, repo, br)
-    check("an any-gate promises Ready for review on the first change",
+    # The requirements block matches the detection rule.
+    any_gate = {"detection": {"event": "content_changed", "paths": ["TEAM.md"],
+                              "baseline": "overlay"}}
+    text = requirements(any_gate, repo, br)
+    check("an any-gate names the file to edit, linked",
+          "**File to edit:**" in text and f"{base}/blob/main/TEAM.md" in text)
+    check("  ...names the branch to commit to", "commit to `main`" in text)
+    check("  ...promises Ready for review on the first change",
           "**Ready for review**" in text and "In progress" not in text)
-    check("  ...and links the watched path", f"{base}/blob/main/TEAM.md" in text)
+    check("  ...and describes the overlay baseline",
+          "stub Factory placed there" in text)
+    check("the branch requirement follows the repo's default branch",
+          "commit to `develop`" in requirements(any_gate, repo, "develop"))
 
     all_gate = {"detection": {"event": "content_changed", "require": "all",
                               "paths": ["spec.R", "spec.json"],
-                              "supporting_paths": ["nc.csv"]}}
-    text = how_it_moves(all_gate, repo, br)
-    check("an all-gate lists every required path",
+                              "supporting_paths": ["nc.csv"],
+                              "baseline": "upstream"}}
+    text = requirements(all_gate, repo, br)
+    check("an all-gate lists every required file",
           "- [`spec.R`]" in text and "- [`spec.json`]" in text)
     check("  ...promises In progress before Ready for review",
           text.index("**In progress**") < text.index("**Ready for review**"))
     check("  ...and says supporting paths never move it alone",
-          "nc.csv" in text and "never move the gate on their own" in text)
+          "nc.csv" in text and "never move the gate alone" in text)
+    check("  ...and describes the upstream baseline",
+          "Strategus template shipped" in text)
 
     sections_gate = {"detection": {"event": "content_changed",
                                    "require": "all_sections",
                                    "paths": ["Documents/Protocol.Rmd"],
                                    "sections": ["Study Objectives", "Analysis"]}}
-    text = how_it_moves(sections_gate, repo, br)
-    check("a sections-gate names every required section",
+    text = requirements(sections_gate, repo, br)
+    check("a sections-gate says to edit the existing file in place",
+          "edit it in place" in text and "Do not create a new file" in text)
+    check("  ...names every required section",
           "- Study Objectives" in text and "- Analysis" in text)
-    check("  ...says the headings must not change",
-          "headings must stay exactly as they are" in text)
-    check("  ...and says what does not count", "not the abstract" in text)
+    check("  ...says the headings must be kept word for word",
+          "Headings to keep, word for word" in text)
+    check("  ...says sub-headings count", "including any sub-headings you add" in text)
+    check("  ...and says what does not count", "the abstract" in text)
 
     derived = {"detection": {"event": "derived_from_partners",
-                             "in_progress_when": "any_returned",
-                             "ready_when": "all_committed_returned",
+                             "paths": ["partners.csv"],
+                             "in_progress_when": "any_partner",
+                             "ready_when": "minimum_committed",
                              "minimum_partners": 3}}
-    text = how_it_moves(derived, repo, br)
-    check("a derived gate says a push never moves it",
-          "Nothing you commit moves this gate" in text)
+    text = requirements(derived, repo, br)
+    check("a derived gate says no file moves it", "No file moves this gate" in text)
+    check("  ...links the file that creates partner issues",
+          f"{base}/blob/main/partners.csv" in text)
     check("  ...and states both thresholds",
-          "*Results received*" in text and "at least 3" in text)
+          "**In progress when:**" in text and "3 partners are labelled" in text)
+    text = requirements({"detection": {"event": "derived_from_partners",
+                                       "in_progress_when": "any_returned",
+                                       "ready_when": "all_committed_returned",
+                                       "minimum_partners": 3}}, repo, br)
+    check("a pathless derived gate still states its labels",
+          "`status:results-received`" in text and "at least 3" in text
+          and "Partner issues come from" not in text)
 
     body = build_body({"body": "See `TEAM.md`.", "initial_status": "in_progress",
                        "detection": any_gate["detection"]},
@@ -416,6 +478,8 @@ def _self_test():
 
     real = json.loads(GATES.read_text(encoding="utf-8"))
     rendered = [build_body(g, "org/Factory", 1, repo, br) for g in real["gates"]]
+    check("every real template renders a Technical requirements block",
+          all("**Technical requirements**" in b for b in rendered))
     check("every real template that watches a path renders it as a link",
           all("](https://github.com/" in b
               for g, b in zip(real["gates"], rendered)
