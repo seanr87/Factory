@@ -132,6 +132,7 @@ jobs:
         with:
           repo_name: ${{ steps.validate.outputs.repo_name }}
           study_title: ${{ inputs.study_title }}
+          template_project_id: ${{ vars.STUDY_BOARD_TEMPLATE_ID }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Create Factory tracking
@@ -196,7 +197,6 @@ jobs:
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           project_url: ${{ steps.project.outputs.project_url }}
-          issues_data: "[]"
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Configure study repository secrets
@@ -281,6 +281,7 @@ jobs:
           echo "**Scaffolded from:** ohdsi-studies/StrategusStudyRepoTemplate@${{ steps.repo.outputs.upstream_sha }}"
           echo "**Factory overlay:** ${{ steps.overlay.outputs.files_applied }} file(s) in ${{ steps.overlay.outputs.commit_sha }}"
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
+          echo "**Board views:** ${{ steps.project.outputs.views }}"
           echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
           echo "**Gate issues:** ${{ steps.gate_issues.outputs.issues_created }} created (Gates 0-7)"

@@ -1,147 +1,137 @@
 name: 'Setup Study Project'
-description: 'Creates and links Project V2 to study repository'
+description: 'Copies the Study Board template project for a study and links it to the repository'
+
+# Every study gets its own board with three views built in: Milestones,
+# Work items, and Data partners (decision D9).
+#
+# The board is a *copy* of a template project rather than one built field by
+# field here. copyProjectV2 carries views across with their layouts and filters
+# intact, verified against the live API, so:
+#
+#   - one mutation replaces seven, and there is no half-configured board when
+#     one of them fails
+#   - the views can be retuned in the GitHub UI on the template, and every study
+#     provisioned afterwards picks the change up with no code release
+#   - the three views cannot drift apart between studies
+#
+# The template must be owned by an organisation. markProjectV2AsTemplate refuses
+# user-owned projects — "Only projects owned by an Organization can be marked as
+# a template" — which is why the template lives in OHDSI-JHU while the study
+# repositories currently do not. Cross-owner copies are supported and tested.
+
 inputs:
   repo_name:
-    description: 'Repository name to link to project'
+    description: 'Repository name to link to the project'
     required: true
   study_title:
-    description: 'Study title for project name'
+    description: 'Study title, used as the project name'
     required: true
   org_token:
     description: 'Organization admin token'
     required: true
+  template_project_id:
+    description: 'Node ID of the Study Board template project'
+    required: false
+    default: ''
 
 outputs:
   project_id:
     description: 'Created project ID'
-    value: ${{ steps.create.outputs.project_id }}
+    value: ${{ steps.copy.outputs.project_id }}
   project_url:
     description: 'Created project URL'
-    value: ${{ steps.create.outputs.project_url }}
+    value: ${{ steps.copy.outputs.project_url }}
+  views:
+    description: 'Comma-separated names of the views on the new board'
+    value: ${{ steps.copy.outputs.views }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Create and link project
-      id: create
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ inputs.org_token }}
-        script: |
-          const repoOwner = "${{ github.repository_owner }}";
-          const repoName = "${{ inputs.repo_name }}";
-          const studyTitle = "${{ inputs.study_title }}";
-          
-          console.log(`Creating per-study project for ${repoName}`);
-          
-          try {
-            // Get the repository owner's node ID
-            const ownerResult = await github.rest.users.getByUsername({
-              username: repoOwner
-            });
-            const ownerId = ownerResult.data.node_id;
-            
-            // Create the project using GraphQL
-            const createResult = await github.graphql(`
-              mutation($ownerId: ID!, $title: String!) {
-                createProjectV2(input: {
-                  ownerId: $ownerId,
-                  title: $title
-                }) {
-                  projectV2 {
-                    id
-                    number
-                    url
-                  }
-                }
-              }
-            `, {
-              ownerId: ownerId,
-              title: `Study: ${studyTitle}`
-            });
-            
-            const project = createResult.createProjectV2.projectV2;
-            console.log(`✅ Created project: ${project.url}`);
-            
-            // Make the project public
-            await github.graphql(`
-              mutation($projectId: ID!) {
-                updateProjectV2(input: {
-                  projectId: $projectId,
-                  public: true
-                }) {
-                  projectV2 {
-                    id
-                  }
-                }
-              }
-            `, {
-              projectId: project.id
-            });
-            
-            console.log('✅ Made project public');
-            
-            // Get repository details for linking
-            const repoResult = await github.rest.repos.get({
-              owner: repoOwner,
-              repo: repoName
-            });
-            
-            // Link project to repository using GraphQL
-            await github.graphql(`
-              mutation($projectId: ID!, $repoId: ID!) {
-                linkProjectV2ToRepository(input: {
-                  projectId: $projectId,
-                  repositoryId: $repoId
-                }) {
-                  repository { id }
-                }
-              }
-            `, {
-              projectId: project.id,
-              repoId: repoResult.data.node_id
-            });
-            
-            console.log('✅ Successfully linked project to repository');
-            
-            // Create Data Partner Status field
-            const dataPartnerStatusOptions = [
-              { name: "Preparation", color: "GRAY", description: "Study preparation phase" },
-              { name: "Analysis", color: "ORANGE", description: "Analysis package execution phase" },
-              { name: "Results", color: "GREEN", description: "Results sent" }
-            ];
-            
-            const dataPartnerStatusField = await github.graphql(`
-              mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-                createProjectV2Field(input: {
-                  projectId: $projectId,
-                  name: $name,
-                  dataType: SINGLE_SELECT,
-                  singleSelectOptions: $options
-                }) {
-                  projectV2Field {
-                    ... on ProjectV2SingleSelectField {
-                      id
-                      name
-                    }
-                  }
-                }
-              }
-            `, {
-              projectId: project.id,
-              name: "Data Partner Status",
-              options: dataPartnerStatusOptions
-            });
-            
-            console.log('✅ Created Data Partner Status field');
-            
-            // Set outputs
-            core.setOutput('project_id', project.id);
-            core.setOutput('project_url', project.url);
-            
-            return { id: project.id, url: project.url };
-            
-          } catch (error) {
-            console.error('Error creating or linking project:', error);
-            core.setFailed(`Failed to create and link project: ${error.message}`);
-          }
+    - name: Copy the Study Board template
+      id: copy
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+        TEMPLATE_ID: ${{ inputs.template_project_id }}
+        STUDY_TITLE: ${{ inputs.study_title }}
+        REPO_NAME: ${{ inputs.repo_name }}
+        OWNER: ${{ github.repository_owner }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "${TEMPLATE_ID:-}" ]]; then
+          echo "::error::No Study Board template configured."
+          echo "::error::Set the STUDY_BOARD_TEMPLATE_ID repository variable to the"
+          echo "::error::node ID of the template project (see .github/docs/study-board-template.md)."
+          exit 1
+        fi
+
+        if ! gh api graphql -f query='query($p:ID!){node(id:$p){... on ProjectV2{id title}}}' \
+             -f p="$TEMPLATE_ID" --jq '.data.node.title' > template-title.txt 2>template-err.txt; then
+          ERR=$(cat template-err.txt)
+          echo "::error::Cannot read template project $TEMPLATE_ID: $ERR"
+          # An org-owned template behind SAML needs the PAT explicitly authorised
+          # for that organisation. The token is otherwise valid, so the generic
+          # message sends people looking at scopes, which are not the problem.
+          if [[ "$ERR" == *"SAML"* || "$ERR" == *"SSO"* ]]; then
+            echo "::error::The organisation enforces SAML SSO and ORG_ADMIN_TOKEN is not authorised for it."
+            echo "::error::Fix: github.com/settings/tokens -> the Factory token -> Configure SSO -> Authorize."
+            echo "::error::Alternatively point STUDY_BOARD_TEMPLATE_ID at a template owned by this account;"
+            echo "::error::copyProjectV2 does not require the project to be marked as a template."
+          fi
+          exit 1
+        fi
+        echo "📋 Template: $(cat template-title.txt)"
+
+        OWNER_ID=$(gh api "users/${OWNER}" --jq '.node_id' 2>/dev/null \
+                   || gh api "orgs/${OWNER}" --jq '.node_id')
+
+        COPY=$(gh api graphql -f query='
+          mutation($p:ID!,$o:ID!,$t:String!){
+            copyProjectV2(input:{projectId:$p,ownerId:$o,title:$t}){
+              projectV2{ id url number }
+            }
+          }' -f p="$TEMPLATE_ID" -f o="$OWNER_ID" -f t="Study: ${STUDY_TITLE}")
+
+        PROJECT_ID=$(echo "$COPY" | python3 -c "import json,sys;print(json.load(sys.stdin)['data']['copyProjectV2']['projectV2']['id'])")
+        PROJECT_URL=$(echo "$COPY" | python3 -c "import json,sys;print(json.load(sys.stdin)['data']['copyProjectV2']['projectV2']['url'])")
+
+        echo "✅ Copied board: $PROJECT_URL"
+
+        # A copy is private by default. Study leads and analysts need to see it
+        # without being added one at a time.
+        gh api graphql -f query='mutation($p:ID!){updateProjectV2(input:{projectId:$p,public:true}){projectV2{id}}}' \
+          -f p="$PROJECT_ID" >/dev/null
+        echo "✅ Made project public"
+
+        REPO_ID=$(gh api "repos/${OWNER}/${REPO_NAME}" --jq '.node_id')
+        gh api graphql -f query='
+          mutation($p:ID!,$r:ID!){
+            linkProjectV2ToRepository(input:{projectId:$p,repositoryId:$r}){repository{id}}
+          }' -f p="$PROJECT_ID" -f r="$REPO_ID" >/dev/null
+        echo "✅ Linked project to ${OWNER}/${REPO_NAME}"
+
+        # Report what actually came across. A silent copy that dropped its views
+        # would leave every study with a blank board and no sign anything failed.
+        VIEWS=$(gh api graphql \
+          -f query='query($p:ID!){node(id:$p){... on ProjectV2{views(first:20){nodes{name}}}}}' \
+          -f p="$PROJECT_ID" --jq '[.data.node.views.nodes[].name]|join(",")')
+
+        echo "  views carried over: $VIEWS"
+        if [[ -z "$VIEWS" ]]; then
+          echo "::warning::The copied board has no views. Check the template project."
+        fi
+
+        FIELDS=$(gh api graphql \
+          -f query='query($p:ID!){node(id:$p){... on ProjectV2{fields(first:30){nodes{... on ProjectV2SingleSelectField{name}}}}}}' \
+          -f p="$PROJECT_ID" --jq '[.data.node.fields.nodes[]|select(.name)|.name]|join(", ")')
+        echo "  select fields: $FIELDS"
+
+        {
+          echo "project_id=$PROJECT_ID"
+          echo "project_url=$PROJECT_URL"
+          echo "views=$VIEWS"
+        } >> "$GITHUB_OUTPUT"
+
+        rm -f template-title.txt template-err.txt

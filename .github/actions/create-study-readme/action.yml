@@ -20,8 +20,9 @@ inputs:
     description: 'Study project URL'
     required: true
   issues_data:
-    description: 'JSON array of created status issues data'
-    required: true
+    description: 'Unused since the objectives checklist was removed from the README template. Retained so existing callers do not break.'
+    required: false
+    default: '[]'
   org_token:
     description: 'Organization admin token'
     required: true
@@ -64,15 +65,16 @@ runs:
           const factoryRepo = process.env.FACTORY_REPO;
           const repoOwner = process.env.REPO_OWNER;
           
-          // Parse the issues data
-          let issuesData;
-          try {
-            issuesData = JSON.parse(issuesDataJson);
-            console.log('Parsed ' + issuesData.length + ' status issues');
-          } catch (parseError) {
-            console.error('Failed to parse issues data: ' + parseError.message);
-            core.setFailed('Invalid JSON in issues data: ' + parseError.message);
-            return;
+          // Unused since the objectives checklist left the README template. An
+          // absent or malformed value is not worth failing a provision over —
+          // the repository already exists by this point.
+          let issuesData = [];
+          if (issuesDataJson && issuesDataJson.trim()) {
+            try {
+              issuesData = JSON.parse(issuesDataJson);
+            } catch (parseError) {
+              console.log('Ignoring unparseable issues_data: ' + parseError.message);
+            }
           }
           
           // Generate objectives list with issue links

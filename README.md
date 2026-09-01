@@ -1,114 +1,161 @@
 # OHDSI Study Factory 🏭
 
-> Simple system for creating and tracking OHDSI network studies
+Creates and tracks the study repositories for the OHDSI Maternal Health Data Science
+Fellowship. Factory holds one issue per study; each study repository holds its own
+gate issues and data partner issues.
 
-## Conventions
-### Study Lead Management
-When Provisioning, you can assign a Study Lead in 2 ways.
-#### 1. Existing Study Lead
-Simply select the Study Lead's name & GitHub name from the list. The Study Lead will receive Admin permissions on the Study Project* and Study Repo, and will be both assigned and tagged in the study's Factory Issue to be displayed in Factory Portfolio.
-#### 2. Add New Study Lead
-* Leave the "Select Existing Study Lead" dropdown on "Add New Study Lead".
-* In the following fields, enter the new Study Lead's name and GitHub username.
-* The Study Lead will receive Admin permissions on the Study Project* and Study Repo.
-> If the Study Lead is an existing Collaborator, they'll be assigned to the study's Factory Issue.
-> If the Study Lead is _not_ an existing Collaborator, they'll receive a Collaborator invitation. Once they accept it, **Coordinator must manually assign Study Lead to the study's Factory Issue.**
-### Study Status Syncing
-Upon creation, each Study Repository is populated with `status-tracking` Issues designed to guide the Study Lead through the process. When a Study Lead closes a `status-tracking` Issue, a GitHub Action modifies the study's `study-tracking` Factory Issue, providing Factory Portfolio with the study's updated status.
+**Progress is detected from the work itself, not self-reported.**
 
-## Currently Built Functions ✅
+## Why
 
-- **Study Provisioning**: Automated study repository creation with GitHub Actions
-- **Dynamic Study Lead Management**: Dropdown selection with automatic database updates
-- **Template-Based Repository Creation**: New study repos created from predefined template
-- **Study Lead Admin Access**: Automatic admin privileges assignment to study leads
-- **Central Factory Tracking**: Issues created in Factory repo for each study
-- **Factory Portfolio Integration**: Automatic population of Factory Portfolio Project with Lead, Study Repo, and Objective fields
-- **Project Board Integration**: Per-study project boards linked to repositories  
-- **Status Tracking Issues**: Configurable milestone issues created in study repositories
-- **Activity Monitoring**: Automated daily checks for inactive studies with emoji status indicators
-- **Study Lead Database**: JSON-based storage with GitHub App workflow modification
-- **Validation System**: Input validation for study titles, dates, and GitHub usernames
-- **Modular GitHub Actions**: Reusable actions for study management operations
+A Strategus study leaves artefacts behind as it progresses — a research question, a
+protocol, cohort definitions, an analysis specification, results. Those artefacts are
+evidence. When they appear, Factory learns about it without anyone filing a status
+update.
 
-## Next Functions to Implement 🚧
+The reason this matters: a stalled study never announces itself, it just goes quiet.
+The point of the whole system is to make silence visible. An earlier version asked
+study leads to move issues by hand to report progress; it was built for a cohort of
+expert leads, was not adopted, and has been replaced.
 
-Based on SPEC-001 requirements, these functions should be incorporated next:
+Study leads are clinicians and researchers, most of whom have never used GitHub. They
+are never asked to do project management as a separate chore, and nothing in this
+system requires a command line.
 
-- [x] **Factory Portfolio Auto-Updates**: Central project updates based on individual study progress ✅
-- [x] **Last Activity Tracking**: Display last updated date and file/issue links for each study ✅  
-- [x] **Delinquent Study Detection**: Automatic "delinquent" tags for studies inactive >30 days ✅
-- [x] **Study Start Date Recording**: Automatic timestamp capture during repo creation ✅
-- [ ] **Data Partner Progress Tracking**: Charts/lists showing individual data partner status
-- [x] **Project Board Links**: Direct links from portfolio issues to study project boards ✅
-- [x] **Study Phase Ordering**: Issues displayed in order of study phases (Protocol → Results) ✅
-- [ ] **Data Partner View**: Separate view for tracking data partner progress across studies
-- [x] **Status Color Coding**: Appropriately colored statuses for studies and data partners ✅
-- [x] **Real-time Portfolio Updates**: GitHub App integration for live status synchronization ✅
-
-## Quick Start (15 minutes)
-
-See **[SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md)** for step-by-step setup guide.
-
-## What It Does
-
-1. **Creates new study repositories** from a template with one click
-2. **Tracks all studies** in a central Factory repository  
-3. **Monitors activity** and flags inactive studies
-4. **Updates progress** as studies advance through stages
-
-## How to Use
-
-### Create a New Study
-
-1. Go to **Actions** → **Provision New Study**
-2. Click **Run workflow**
-3. Fill in study details
-4. Click **Run**
-
-Done! You'll get:
-- New private study repository
-- Study lead added as admin
-- Tracking issue in Factory repo
-- Factory Portfolio Project updated with study details
-- Status tracking issues created in study repository
-
-### Track Studies
-
-All studies are tracked as issues in this repo with:
-- Current stage (Protocol → Results)
-- Last activity date
-- Status (🟢 Active, 🟡 Low Activity, 🔴 Inactive)
-
-### Architecture
+## How it works
 
 ```
-Factory/
-├── .github/workflows/
-│   ├── provision-study.yml       # Creates new studies
-│   ├── activity-check.yml        # Daily activity monitoring
-│   └── factory-issue-updater.yml # Updates Factory issues
-├── .github/actions/              # Reusable actions
-├── .github/data/                # Configuration files
-└── study-template/              # Template for new studies
+study repo                          Factory
+──────────                          ───────
+push
+  └─ notify-factory.yml
+       reports changed paths ──────▶ gate-state-machine.yml
+       (raw list, nothing else)        ├─ match paths against gate config
+                                       ├─ compare against template baseline
+                                       ├─ decide (advance only, never retreat)
+                                       ├─ comment on the gate issue
+                                       ├─ update the Factory issue
+                                       └─ commit state
+
+                                     stall-check.yml  (daily)
+                                       ├─ derive Gate 6 from partner status
+                                       ├─ days in gate, days since partner activity
+                                       └─ rewrite the portfolio dashboard
 ```
 
-## Documentation
+The study-side workflow is deliberately dumb: it reports which paths changed and
+nothing more. All gate logic lives in Factory, so gates can be redefined without
+editing ten study repositories.
 
-- **[Setup Instructions](SETUP_INSTRUCTIONS.md)** - Start here!
-- **[Status Feedback System](.github/docs/status-feedback-system.md)** - How status tracking works
-- **[MVP Overview](README_MVP.md)** - Technical details
-- **[Implementation Plan](IMPLEMENTATION_PLAN.md)** - Roadmap
+## The gates
 
-## Status
+| Gate | Name | Evidence |
+|---|---|---|
+| 0 | Get oriented in GitHub | `TEAM.md` |
+| 1 | Research question locked | `Documents/research-question.md` |
+| 2 | Protocol drafted | `Documents/Protocol.Rmd` |
+| 3 | Cohort definitions committed | `inst/cohorts/`, `inst/Cohorts.csv`, `inst/sql/sql_server/` |
+| 4 | Analysis specification built | `inst/analysisSpecifications.json`, the spec script |
+| 5 | Data partners recruited | manual — partner issues are the record |
+| 6 | Study executed across partners | derived from partner issue status |
+| 7 | Results synthesised and shared | `Documents/results-summary.md` |
 
-✅ **MVP Complete** - Core functionality working
-- Study provisioning in <2 minutes
-- Automatic activity tracking
-- Simple issue-based portfolio
+Gate prose lives in [`.github/issue-templates/`](.github/issue-templates/) and is what
+study leads read. Its front matter carries the machine-readable config, which
+[`build_gates.py`](.github/scripts/build_gates.py) compiles into
+[`gates.json`](.github/data/gates.json) — so the prose and the behaviour cannot drift.
 
-## Support
+## Rules the automation follows
 
-- Check workflow logs in Actions tab
-- See troubleshooting in [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md)
-- Review architecture in [README_MVP.md](README_MVP.md)
+- **Advance only, never retreat.** A gate is never moved backward.
+- **Automation proposes; a human closes.** Evidence moves a gate to *Ready for
+  review*. Detecting a file is not the same as the file being any good.
+- **Always comment, never silently flip.** Every change says what it saw and in which
+  commit. People stop trusting automation the first time it is wrong and unexplained.
+- **Baseline before evidence.** A path counts only when its blob differs from what the
+  Strategus template shipped. Without this, five of six gates would fire at
+  provisioning.
+
+These live in [`gate_machine.py`](.github/scripts/gate_machine.py) as a pure function
+with a self-test that runs in CI before every decision, rather than in workflow YAML
+where they would be easy to route around.
+
+## Scaffolding
+
+Study repositories are created from
+[`ohdsi-studies/StrategusStudyRepoTemplate`](https://github.com/ohdsi-studies/StrategusStudyRepoTemplate)
+at provision time, always from upstream `main`. Factory's own files — the dispatcher,
+`partners.csv`, and the stub files the gate issues ask leads to edit — are applied
+afterwards as an overlay in a single commit. There is no fork to keep in sync.
+
+Upstream can restructure without warning, and has twice in nine months. Two things are
+therefore recorded per study and are not optional:
+
+- the upstream commit SHA it was scaffolded from, in `.github/data/baselines/`
+- a blob SHA per detected path, so detection can tell a lead's edit from template content
+
+[Path Contract Check](.github/workflows/path-contract-check.yml) runs daily against
+upstream and opens an issue when a detection path stops matching, so a restructure
+announces itself instead of silently stalling every study provisioned afterwards.
+
+## Stall detection
+
+Two clocks, deliberately different:
+
+- **Studies** — days since the current gate was entered. Not days since the last push:
+  the previous version measured repository `pushed_at`, so a README typo read as
+  progress. Time-in-state cannot be reset by activity that is not progress.
+- **Partners** — days since the later of the last comment and the last body edit.
+
+Default threshold 21 days, configurable in `gates.json`, per study in its state file,
+or per run via `workflow_dispatch`. Results go to a `portfolio-status` dashboard issue,
+rewritten daily and sorted most-stalled-first, plus a roll-up on each study's Factory
+issue.
+
+## Layout
+
+```
+.github/
+  workflows/
+    provision-study.yml       create a study: repo, board, gate issues, overlay
+    gate-state-machine.yml    receive study_push, advance gates, sync partners
+    stall-check.yml           daily: derive Gate 6, find what has gone quiet
+    path-contract-check.yml   daily: verify detection paths still exist upstream
+  actions/                    composite actions used by provisioning
+  scripts/
+    gatelib.py                path matching, shared by everything that matches
+    gate_machine.py           the decision rules, with a self-test
+    run_gate_machine.py       I/O around a decision
+    create_gate_issues.py     Gates 0-7 in a study repo, seeds its state
+    sync_partners.py          partners.csv -> partner issues
+    stall_check.py            time-in-gate and partner quiet, dashboard
+    derive_partner_gates.py   Gate 6 from partner status
+    build_gates.py            issue templates -> gates.json
+  issue-templates/            gate prose; the source of truth for gate config
+  overlay/                    Factory files pushed into each study repo
+  data/
+    gates.json                generated; do not edit by hand
+    baselines/<study>.json    template blob SHAs per study
+    state/<study>.json        current gate, entry time, issue map, history
+```
+
+## Setup
+
+Repository secrets: `ORG_ADMIN_TOKEN` (scopes `repo`, `workflow`, `project`,
+`admin:org`), `APP_ID`, `APP_PRIVATE_KEY`.
+
+Repository variables: `FACTORY_PROJECT_NUMBER`, `FACTORY_PROJECT_URL`,
+`STUDY_BOARD_TEMPLATE_ID`.
+
+`STUDY_BOARD_TEMPLATE_ID` is the node ID of the
+[`[TEMPLATE] Study Board`](https://github.com/orgs/OHDSI-JHU/projects/30) project.
+Each study's board is a copy of it, which carries the three views — Milestones, Work
+items, Data partners — with their filters intact. Retune a view on the template and
+every study provisioned afterwards picks it up with no code release. The template must
+be owned by an organisation; `markProjectV2AsTemplate` refuses user-owned projects.
+
+## For study leads
+
+[HOW-THIS-REPO-IS-TRACKED.md](.github/overlay/HOW-THIS-REPO-IS-TRACKED.md) is delivered
+into every study repository and explains what the automation does and why things move
+without them touching anything.
