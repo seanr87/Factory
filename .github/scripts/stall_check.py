@@ -89,6 +89,7 @@ def roll_up(state, partners, threshold, now):
 
     return {
         "study_repo": state["study_repo"],
+        "factory_repo": state.get("factory_repo"),
         "factory_issue": state.get("factory_issue"),
         "current_gate": state.get("current_gate", -1),
         "days_in_gate": days_in_gate,
@@ -119,7 +120,7 @@ def partner_line(summary):
 def update_factory_issue(summary, gates_config, now):
     """Rewrite the roll-up block on the study's Factory issue."""
     num = summary["factory_issue"]
-    if not num:
+    if not num or not summary.get("factory_repo"):
         return
 
     if summary["never_started"]:
@@ -139,7 +140,12 @@ def update_factory_issue(summary, gates_config, now):
         "<!--/factory:rollup-->"
     )
 
-    repo = "/".join(summary["study_repo"].split("/")[:1] + ["Factory"])
+    # Read the Factory repo from the study's own state, never rebuild it from the
+    # study's owner plus a literal "Factory". That only worked because this install
+    # happens to be named Factory and to own its studies; a fork under any other
+    # name, or studies living in a different org, would have written the roll-up to
+    # a repository that does not exist.
+    repo = summary["factory_repo"]
     body = json.loads(gh("api", f"repos/{repo}/issues/{num}",
                          "--jq", "{body:.body}"))["body"] or ""
 

@@ -141,11 +141,27 @@ issue.
 
 ## Setup
 
-Repository secrets: `ORG_ADMIN_TOKEN` (scopes `repo`, `workflow`, `project`,
-`admin:org`), `APP_ID`, `APP_PRIVATE_KEY`.
+**Deploying this in your own organisation: [DEPLOYING.md](DEPLOYING.md).** It covers the
+token and its scopes, building the study board template, the variables below, and the
+handful of failure modes that are confusing the first time you hit them.
 
-Repository variables: `FACTORY_PROJECT_NUMBER`, `FACTORY_PROJECT_URL`,
-`STUDY_BOARD_TEMPLATE_ID`.
+Everything tied to a particular installation is a repository variable or secret, so a
+copy of this repository runs elsewhere without editing code. The gates themselves stay
+OHDSI-specific — this tracks Strategus network studies, not projects in general.
+
+Secrets: `ORG_ADMIN_TOKEN` (scopes `repo`, `workflow`, `project`, `admin:org`, and
+SSO-authorised if your org enforces SAML), `APP_ID`, `APP_PRIVATE_KEY`.
+
+| Variable | Required | Default |
+|---|---|---|
+| `STUDY_BOARD_TEMPLATE_ID` | yes | — |
+| `FACTORY_PROJECT_NUMBER` | yes | — |
+| `FACTORY_PROJECT_URL` | yes | — |
+| `STRATEGUS_TEMPLATE_REPO` | no | `ohdsi-studies/StrategusStudyRepoTemplate` |
+| `STUDY_REPO_PREFIX` | no | `study-` |
+
+Study repositories are created under whoever owns Factory, so put Factory in the
+organisation you want the studies in.
 
 `STUDY_BOARD_TEMPLATE_ID` is the node ID of the
 [`[TEMPLATE] Study Board`](https://github.com/orgs/OHDSI-JHU/projects/30) project.
