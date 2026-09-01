@@ -33,19 +33,34 @@ def normalise(title):
 
 
 def split_sections(text):
-    """{section name: body text} for every heading in the document."""
-    sections, current, body = {}, None, []
+    """{section name: body text} for every heading in the document.
+
+    A section runs until the next heading at its own level or higher, so text a
+    lead puts under a sub-heading of their own still belongs to the section
+    above it. A protocol that opens `# Study Objectives` with `## Primary
+    objective` and a paragraph has written its objectives, and has to count as
+    having done so — cutting the section off at the first heading of any level
+    made exactly that lead's work invisible.
+    """
+    sections, open_ = {}, []  # open_: [(name, level, body lines)]
+
+    def close(level):
+        while open_ and open_[-1][1] >= level:
+            name, _, lines = open_.pop()
+            sections[name] = (chr(10).join(lines)).strip()
+
     for line in (text or "").split(chr(10)):
         m = HEADING.match(line)
         if m:
-            if current is not None:
-                sections[current] = (chr(10).join(body)).strip()
-            current = normalise(m.group(2))
-            body = []
-        elif current is not None:
-            body.append(line)
-    if current is not None:
-        sections[current] = (chr(10).join(body)).strip()
+            level = len(m.group(1))
+            close(level)
+            for _, _, lines in open_:
+                lines.append(line)
+            open_.append((normalise(m.group(2)), level, []))
+        else:
+            for _, _, lines in open_:
+                lines.append(line)
+    close(0)
     return sections
 
 
@@ -74,8 +89,11 @@ def outstanding_sections(study_text, template_text, required):
 
 
 def _self_test():
+    # Shaped like the upstream protocol: the `##` sections sit under Research
+    # Methods, not under Study Objectives.
     template = chr(10).join([
         "# Rationale and Background", "", "# Study Objectives", "",
+        "# Research Methods", "",
         "## Study Design", "", "This study uses `CohortMethod`.", "",
         "## Data Sources", "", "# Outcomes {#outcomes}", "",
     ])
@@ -83,6 +101,7 @@ def _self_test():
         "# Rationale and Background", "",
         "Gestational diabetes is under-characterised in this population.", "",
         "# Study Objectives", "",
+        "# Research Methods", "",
         "## Study Design", "", "This study uses `CohortMethod`.", "",
         "## Data Sources", "", "Three CDM databases.", "",
         "# Outcomes {#outcomes}", "",
@@ -91,7 +110,26 @@ def _self_test():
                 "Data Sources", "Outcomes"]
     got = outstanding_sections(study, template, required)
 
+    # A lead's own sub-headings must not swallow the section above them.
+    nested_template = chr(10).join([
+        "# Study Objectives", "", "# Research Methods", "",
+        "## Study Design", "", "## Data Sources", "",
+    ])
+    nested_study = chr(10).join([
+        "# Study Objectives", "", "## Primary objective", "",
+        "Characterise gestational diabetes.", "",
+        "# Research Methods", "",
+        "## Study Design", "", "### Cohorts", "", "Two cohorts.", "",
+        "## Data Sources", "",
+    ])
+    nested = outstanding_sections(nested_study, nested_template,
+                                  ["Study Objectives", "Study Design", "Data Sources"])
+
     checks = [
+        ("text under an added sub-heading counts for the section above it",
+         "Study Objectives" not in nested and "Study Design" not in nested),
+        ("a section still ends at the next heading of its own level",
+         "Data Sources" in nested),
         ("a written section is not outstanding",
          "Rationale and Background" not in got),
         ("an empty section is outstanding",

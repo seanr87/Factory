@@ -140,10 +140,11 @@ Actions → **Provision New Study** → title it something obviously disposable.
 Check, in order:
 
 - the repository exists and came from the Strategus template
-- it has eight issues, Gate 0 through Gate 7
+- it has eight issues, Gate 0 through Gate 7, and the file names in them are links
+  into the study repository
 - it has `TEAM.md`, `partners.csv`, `Documents/research-question.md`,
   `Documents/results-summary.md`, and `.github/workflows/notify-factory.yml`
-- its board has all three views
+- its board has all three views, with Gate 0 and Gate 1 already in *In progress*
 - Factory has a tracking issue, and `.github/data/baselines/` and
   `.github/data/state/` each gained a file
 
