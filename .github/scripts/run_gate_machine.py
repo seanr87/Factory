@@ -40,7 +40,8 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 
-from gate_machine import DONE, READY, evaluate  # noqa: E402
+from gate_machine import DONE, READY, evaluate
+from sections import outstanding_sections  # noqa: E402
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -78,6 +79,53 @@ def fetch_blobs(repo, sha):
             if n["type"] == "blob"}
 
 
+def section_state(gates_config, baseline, study_repo, sha):
+    """Outstanding sections per gate, for gates that measure completeness.
+
+    Reads the study's file and the template's version of it at the commit the
+    study was scaffolded from, so boilerplate the lead never touched does not
+    count as written. A file that cannot be read is reported as fully
+    outstanding rather than assumed complete.
+    """
+    out = {}
+    upstream = baseline.get("upstream_template")
+    upstream_sha = baseline.get("upstream_sha")
+
+    for gate in gates_config["gates"]:
+        detection = gate["detection"]
+        if detection.get("require") != "all_sections":
+            continue
+        required = detection.get("sections", [])
+        path = (detection.get("paths") or [None])[0]
+        if not path or not required:
+            continue
+
+        study_text = read_file(study_repo, path, sha)
+        template_text = (read_file(upstream, path, upstream_sha)
+                         if upstream and upstream_sha else "")
+        if study_text is None:
+            out[gate["gate"]] = list(required)
+            continue
+        out[gate["gate"]] = outstanding_sections(study_text, template_text or "",
+                                                  required)
+    return out
+
+
+def read_file(repo, path, ref):
+    """File contents at a ref, or None if it is not there."""
+    if not repo:
+        return None
+    raw = gh("api", f"repos/{repo}/contents/{path}?ref={ref}",
+             "--jq", ".content", check=False)
+    if not raw:
+        return None
+    import base64
+    try:
+        return base64.b64decode(raw).decode("utf-8", errors="replace")
+    except Exception:
+        return None
+
+
 def comment(repo, issue, body):
 
     subprocess.run(
@@ -110,8 +158,10 @@ def evidence_comment(decision, payload, gate_title):
         lines += [f"- `{p}`" for p in decision.supporting]
     if decision.outstanding:
         lines += ["",
-                  "Still identical to the Strategus template, in case that matters "
-                  "when you review this:"]
+                  ("Sections still to write, in case that matters when you "
+                   "review this:") if decision.section_mode else
+                  ("Still identical to the Strategus template, in case that "
+                   "matters when you review this:")]
         lines += [f"- `{p}`" for p in decision.outstanding]
     if decision.ignored:
         lines += ["", "Also changed, for gates already passed:"]
@@ -136,8 +186,9 @@ def progress_comment(decision, payload, gate_title):
         + (f" by @{payload['author']}" if payload.get("author") else "")
         + ".",
         "",
-        "**This gate moves to Ready for review once all of the following "
-        "differ from the Strategus template.** Still unchanged:",
+        f"**This gate moves to Ready for review once all of the following are "
+        f"{'written' if decision.section_mode else 'changed from the Strategus template'}.** "
+        f"Still outstanding:",
         "",
     ]
     lines += [f"- `{p}`" for p in decision.outstanding]
@@ -374,7 +425,10 @@ def main():
     current_blobs = fetch_blobs(study_repo, payload["commit_sha"]) if paths else {}
 
 
-    decision = evaluate(gates_config, baseline, state, paths, current_blobs)
+    sections = section_state(gates_config, baseline, study_repo,
+                             payload["commit_sha"])
+    decision = evaluate(gates_config, baseline, state, paths, current_blobs,
+                        section_outstanding=sections)
 
     print(f"decision: {decision}")
 

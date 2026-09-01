@@ -93,7 +93,20 @@
           "Documents/Protocol.Rmd"
         ],
         "event": "content_changed",
-        "baseline": "upstream"
+        "baseline": "upstream",
+        "require": "all_sections",
+        "sections": [
+          "Rationale and Background",
+          "Study Objectives",
+          "Study Design",
+          "Data Sources",
+          "Study Population",
+          "Outcomes",
+          "Analysis",
+          "Strengths and Limitations",
+          "Protection of Human Subjects",
+          "Plans for Disseminating and Communicating Study Results"
+        ]
       },
       "advance_rule": "auto_advance_to_review",
       "template": ".github/issue-templates/gate-2-protocol.md",
@@ -159,7 +172,8 @@
         ],
         "event": "derived_from_partners",
         "in_progress_when": "any_partner",
-        "ready_when": "any_committed",
+        "ready_when": "minimum_committed",
+        "minimum_partners": 3,
         "note": "Derived from partner issues, never from a push. Committing partners.csv creates the issues; it does not recruit anyone."
       },
       "advance_rule": "derived_manual_close",
@@ -178,6 +192,7 @@
         "derived_from": "partner_issue_status",
         "in_progress_when": "any_returned",
         "ready_when": "all_committed_returned",
+        "minimum_partners": 3,
         "note": "Not detectable from repository activity. Execution happens on machines Factory never sees; the partner issue labels are the only trace that reaches GitHub."
       },
       "advance_rule": "derived_manual_close",

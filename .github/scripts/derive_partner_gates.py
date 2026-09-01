@@ -82,21 +82,30 @@ def gate_state(rules, partners):
     """
     active, committed, returned = assess(partners)
 
+    minimum = rules.get("minimum_partners", 1)
+
     if rules.get("ready_when") == "all_committed_returned":
-        if committed and len(returned) == len(committed):
+        if committed and len(returned) == len(committed) and len(returned) >= minimum:
             return READY, (f"all {len(committed)} committed partner(s) have "
                            f"returned results")
+    elif rules.get("ready_when") == "minimum_committed":
+        if len(committed) >= minimum:
+            return READY, (f"{len(committed)} partner(s) have committed to "
+                           f"running the study")
     elif rules.get("ready_when") == "any_committed":
         if committed:
             return READY, (f"{len(committed)} partner(s) have committed to "
                            f"running the study")
 
     if rules.get("in_progress_when") == "any_returned" and returned:
+        short = (f", {minimum} needed for a network study"
+                 if len(returned) < minimum else "")
         return IN_PROGRESS, (f"{len(returned)} of {len(committed)} committed "
-                             f"partner(s) have returned results")
+                             f"partner(s) have returned results{short}")
     if rules.get("in_progress_when") == "any_partner" and active:
-        return IN_PROGRESS, (f"{len(active)} partner(s) being tracked, none "
-                             f"committed yet")
+        detail = (f"{len(committed)} committed of {minimum} needed"
+                  if committed else "none committed yet")
+        return IN_PROGRESS, (f"{len(active)} partner(s) being tracked, {detail}")
 
     return None, "nothing to report"
 

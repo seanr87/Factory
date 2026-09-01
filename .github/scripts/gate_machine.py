@@ -40,7 +40,7 @@ class Decision:
 
     def __init__(self, advance=False, from_gate=None, to_gate=None,
                  evidence=None, reason="", ignored=None, outstanding=None,
-                 supporting=None, partial_gate=None):
+                 supporting=None, partial_gate=None, section_mode=False):
         self.advance = advance
         self.from_gate = from_gate
         self.to_gate = to_gate
@@ -59,6 +59,9 @@ class Decision:
         self.supporting = supporting or []
         # The gate a require:all push made progress on without completing.
         self.partial_gate = partial_gate
+        # Outstanding items are section names rather than paths, so the
+        # comment has to say 'written' rather than 'changed'.
+        self.section_mode = section_mode
 
     def __repr__(self):
         if self.advance:
@@ -88,6 +91,11 @@ def _gates_for_path(gates_config, path, key="paths"):
     return hits
 
 
+def _section_gate(gates_config, number):
+    g = _gate_by_number(gates_config, number)
+    return bool(g) and g["detection"].get("require") == "all_sections"
+
+
 def _gate_by_number(gates_config, number):
     return next((g for g in gates_config["gates"] if g["gate"] == number), None)
 
@@ -113,7 +121,8 @@ def _unsatisfied(gate, baseline_blobs, current_blobs):
     return out
 
 
-def evaluate(gates_config, baseline, state, changed_paths, current_blobs):
+def evaluate(gates_config, baseline, state, changed_paths, current_blobs,
+             section_outstanding=None):
     """Decide whether `changed_paths` moves this study forward.
 
     gates_config  parsed .github/data/gates.json
@@ -129,6 +138,7 @@ def evaluate(gates_config, baseline, state, changed_paths, current_blobs):
     still outstanding, so the board shows work happening rather than nothing.
     """
     baseline_blobs = baseline.get("blobs", {})
+    section_outstanding = section_outstanding or {}
     current = _current_gate(state)
 
     evidenced = {}    # gate -> [paths] that changed against a required pattern
@@ -158,8 +168,16 @@ def evaluate(gates_config, baseline, state, changed_paths, current_blobs):
         gate = _gate_by_number(gates_config, gate_no)
         if gate is None:
             continue
-        outstanding = _unsatisfied(gate, baseline_blobs, current_blobs)
-        requires_all = gate["detection"].get("require", "any") == "all"
+        mode = gate["detection"].get("require", "any")
+        if mode == "all_sections":
+            # Completeness is measured inside the file, not across files. The
+            # caller has already read it; an unread file means we cannot tell,
+            # so treat it as outstanding rather than guessing it is done.
+            outstanding = section_outstanding.get(gate_no,
+                                                  gate["detection"].get("sections", []))
+        else:
+            outstanding = _unsatisfied(gate, baseline_blobs, current_blobs)
+        requires_all = mode in ("all", "all_sections")
         if requires_all:
             (complete if not outstanding else partial).append((gate_no, outstanding))
         elif gate_no in evidenced:
@@ -181,6 +199,7 @@ def evaluate(gates_config, baseline, state, changed_paths, current_blobs):
             ignored=[(g, p) for g, p in sorted(evidenced.items()) if g != target],
             outstanding=outstanding,
             supporting=sorted(supporting.get(target, [])),
+            section_mode=_section_gate(gates_config, target),
         )
 
     ahead_partial = [(g, o) for g, o in partial if g > current]
@@ -195,6 +214,7 @@ def evaluate(gates_config, baseline, state, changed_paths, current_blobs):
             evidence=changed_here,
             outstanding=outstanding,
             supporting=sorted(supporting.get(gate_no, [])),
+            section_mode=_section_gate(gates_config, gate_no),
         )
 
     return Decision(
@@ -284,6 +304,22 @@ def _self_test():
     d = evaluate(cfg, base, empty, ["inst/cohorts/99.json"],
                  {"inst/cohorts/99.json": "new"})
     check("new cohort json matches the ** pattern", d.advance and d.to_gate == 3)
+
+    # require: all_sections — the rule Gate 2 uses.
+    cfg_s = {"gates": [{"gate": 2, "detection": {
+        "event": "content_changed", "require": "all_sections",
+        "paths": ["Protocol.Rmd"],
+        "sections": ["Objectives", "Analysis"]}}]}
+    base_s = {"blobs": {"Protocol.Rmd": "p0"}}
+    d = evaluate(cfg_s, base_s, empty, ["Protocol.Rmd"], {"Protocol.Rmd": "p1"},
+                 section_outstanding={2: ["Analysis"]})
+    check("a half-written protocol does not advance", not d.advance)
+    check("  ...and names the unwritten section", d.outstanding == ["Analysis"])
+    d = evaluate(cfg_s, base_s, empty, ["Protocol.Rmd"], {"Protocol.Rmd": "p1"},
+                 section_outstanding={2: []})
+    check("a complete protocol advances", d.advance and d.to_gate == 2)
+    d = evaluate(cfg_s, base_s, empty, ["Protocol.Rmd"], {"Protocol.Rmd": "p1"})
+    check("unread sections are treated as outstanding, not done", not d.advance)
 
     # require: all — the rule Gate 4 uses.
     base4 = {"blobs": {"spec.R": "r0", "spec.json": "j0",

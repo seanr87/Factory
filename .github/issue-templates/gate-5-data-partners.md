@@ -9,7 +9,8 @@ detection:
   # least one institution has actually agreed to run the study — "enough
   # partners to be worth running" is a judgement, so a human still closes it.
   in_progress_when: any_partner
-  ready_when: any_committed
+  ready_when: minimum_committed
+  minimum_partners: 3
   note: "Derived from partner issues, never from a push. Committing partners.csv creates the issues; it does not recruit anyone."
 advance_rule: derived_manual_close
 ---

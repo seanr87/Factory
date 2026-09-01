@@ -57,6 +57,7 @@ jobs:
         run: |
           python3 -m pip install --quiet pyyaml
           python3 .github/scripts/gatelib.py
+          python3 .github/scripts/sections.py
           python3 .github/scripts/build_gates.py --check
 
       - name: Check detection paths against upstream

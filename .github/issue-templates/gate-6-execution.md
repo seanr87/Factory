@@ -10,6 +10,9 @@ detection:
   # result sets are complete before closing.
   in_progress_when: any_returned
   ready_when: all_committed_returned
+  # An OHDSI network study is a network. Two sites returning results is a pilot,
+  # so every committed partner returning is necessary but not sufficient.
+  minimum_partners: 3
   note: "Not detectable from repository activity. Execution happens on machines Factory never sees; the partner issue labels are the only trace that reaches GitHub."
 advance_rule: derived_manual_close
 ---

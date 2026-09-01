@@ -86,6 +86,7 @@ jobs:
         run: |
           python3 .github/scripts/gatelib.py
           python3 .github/scripts/gate_machine.py
+          python3 .github/scripts/sections.py
 
       - name: Evaluate and apply
         id: apply
