@@ -69,7 +69,17 @@ runs:
 
         if ! gh api graphql -f query='query($p:ID!){node(id:$p){... on ProjectV2{id title}}}' \
              -f p="$TEMPLATE_ID" --jq '.data.node.title' > template-title.txt 2>template-err.txt; then
-          echo "::error::Cannot read template project $TEMPLATE_ID: $(cat template-err.txt)"
+          ERR=$(cat template-err.txt)
+          echo "::error::Cannot read template project $TEMPLATE_ID: $ERR"
+          # An org-owned template behind SAML needs the PAT explicitly authorised
+          # for that organisation. The token is otherwise valid, so the generic
+          # message sends people looking at scopes, which are not the problem.
+          if [[ "$ERR" == *"SAML"* || "$ERR" == *"SSO"* ]]; then
+            echo "::error::The organisation enforces SAML SSO and ORG_ADMIN_TOKEN is not authorised for it."
+            echo "::error::Fix: github.com/settings/tokens -> the Factory token -> Configure SSO -> Authorize."
+            echo "::error::Alternatively point STUDY_BOARD_TEMPLATE_ID at a template owned by this account;"
+            echo "::error::copyProjectV2 does not require the project to be marked as a template."
+          fi
           exit 1
         fi
         echo "📋 Template: $(cat template-title.txt)"
