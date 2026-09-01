@@ -3,8 +3,8 @@
   "factory_repo": "OHDSI-JHU/Factory",
   "factory_issue": 170,
   "study_project_id": "PVT_kwDOCQMYQc4BiKJ1",
-  "current_gate": 1,
-  "gate_entered_at": "2026-09-01T20:34:03+00:00",
+  "current_gate": 2,
+  "gate_entered_at": "2026-09-01T20:35:32+00:00",
   "stall_threshold_days": 21,
   "gates": {
     "0": {
@@ -24,10 +24,12 @@
       ]
     },
     "2": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "ready_for_review",
+      "entered_at": "2026-09-01T20:35:32+00:00",
       "issue": 3,
-      "evidenced_by": []
+      "evidenced_by": [
+        "Documents/Protocol.Rmd"
+      ]
     },
     "3": {
       "status": "not_started",
@@ -87,6 +89,15 @@
       "commit": "17dd6f2438b320257e5b70d526e4974fc29663be",
       "evidence": [
         "Documents/research-question.md"
+      ]
+    },
+    {
+      "at": "2026-09-01T20:35:32+00:00",
+      "from_gate": 1,
+      "to_gate": 2,
+      "commit": "3f28594967c3ff484100d5cf2356b4180a54db89",
+      "evidence": [
+        "Documents/Protocol.Rmd"
       ]
     }
   ]
