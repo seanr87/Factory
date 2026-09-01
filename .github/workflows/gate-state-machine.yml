@@ -91,6 +91,7 @@ jobs:
         id: apply
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}
         run: python3 .github/scripts/run_gate_machine.py --payload payload.json
 
       # partners.csv rides in on the same dispatch, so partner tracking needs no
