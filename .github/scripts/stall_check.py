@@ -160,8 +160,9 @@ def dashboard(summaries, gates_config, factory_repo, now):
     lines = [
         f"_Updated {now.strftime('%Y-%m-%d %H:%M UTC')}._",
         "",
-        f"**{len(summaries)} studies · {len(stalled)} stalled · "
-        f"{quiet_partners} partner(s) gone quiet**",
+        f"**{len(summaries)} stud{'y' if len(summaries) == 1 else 'ies'} · "
+        f"{len(stalled)} stalled · "
+        f"{quiet_partners} partner{'' if quiet_partners == 1 else 's'} gone quiet**",
         "",
         "| | Study | Gate | Days in gate | Partners |",
         "|---|---|---|---|---|",
