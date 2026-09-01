@@ -7,6 +7,9 @@ detection:
   event: content_changed
   baseline: overlay
 advance_rule: auto_advance_to_review
+# Nothing has to happen before a lead can start this, so the board should say
+# so from day one rather than showing it as not started.
+initial_status: in_progress
 ---
 
 **What this gate means.** You've made your first change in this repository and it worked. That's all. There's no research content here — this exists so the mechanics are behind you before anything intellectually hard starts.

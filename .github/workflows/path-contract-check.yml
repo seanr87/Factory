@@ -59,6 +59,7 @@ jobs:
           python3 .github/scripts/gatelib.py
           python3 .github/scripts/sections.py
           python3 .github/scripts/build_gates.py --check
+          python3 .github/scripts/create_gate_issues.py --self-test
 
       - name: Check detection paths against upstream
         env:

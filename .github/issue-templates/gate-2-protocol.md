@@ -35,7 +35,13 @@ advance_rule: auto_advance_to_review
 
 **What to produce**
 
-- `Documents/Protocol.Rmd`, using the 16-section OHDSI protocol skeleton (Appendix D of the Book of OHDSI). Copy the structure wholesale; don't invent your own.
+- `Documents/Protocol.Rmd`, written in place. The file is already in your repository: the Strategus template ships it with the OHDSI protocol skeleton (Appendix D of the Book of OHDSI) laid out as headings with nothing under them. Open that file, find each heading, and write beneath it.
+
+Three things to hold to, because Factory finds your sections by their headings:
+
+- Edit the existing file. Don't create a new one, rename it, or move it.
+- Keep the headings exactly as they are, word for word. Add your own sub-headings beneath them freely.
+- Write under the headings listed under *How this gate moves* at the bottom of this issue. Those are the sections Factory checks. Text anywhere else — the title block at the top, the abstract, the appendices — is welcome but doesn't count towards this gate.
 
 **What good looks like** — check these yourself before you consider it done:
 
@@ -46,4 +52,4 @@ advance_rule: auto_advance_to_review
 
 **If you're stuck.** Appendix D gives you the skeleton, Chapter 3 explains why forward registration matters, and the LEGEND-T2DM protocol paper on the Network Studies in Practice page is a published example of the standard to aim at. The `ohdsi-studies` organisation on GitHub has around 190 real study repositories — reading two or three protocols from studies like yours is the fastest way to calibrate.
 
-Nobody writes a good protocol from a blank page. Copy the structure, fill it roughly, then refine with your mentor. If anything here is unclear, reach out early; asking is always the right move.
+Nobody writes a good protocol from a blank page, and you aren't starting from one. The structure is already there; fill it roughly, then refine with your mentor. If anything here is unclear, reach out early; asking is always the right move.

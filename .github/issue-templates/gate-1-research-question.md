@@ -7,6 +7,9 @@ detection:
   event: content_changed
   baseline: overlay
 advance_rule: auto_advance_to_review
+# The research question needs nothing from Gate 0 beyond knowing where the file
+# is, so it opens alongside it.
+initial_status: in_progress
 ---
 
 **What this gate means.** The question your team is running is written down in this repository, in the form the rest of the study will be built against. Not the version from your symposium pitch, and not a topic area — a single question with a defined population, a defined thing being measured, and a defined window of time.
