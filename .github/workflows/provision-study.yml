@@ -331,8 +331,11 @@ jobs:
             echo "No baseline changes to commit"
           else
             git commit -m "Record detection baseline for ${REPO_NAME} (upstream ${UPSTREAM_SHA:0:7})"
-            git pull --rebase origin main
-            git push
+            # Rebase onto the branch this run is on, not a hardcoded main — otherwise
+            # provisioning from any other branch tries to rebase that branch's commits
+            # onto main and conflicts.
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push origin "HEAD:${{ github.ref_name }}"
             echo "✅ Committed baseline for ${REPO_NAME}"
           fi
 
