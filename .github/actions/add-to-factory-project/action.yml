@@ -55,7 +55,8 @@ runs:
             // Query Factory project and custom fields
             const factoryResult = await github.graphql(`
               query($login: String!, $num: Int!) {
-                user(login: $login) {
+                repositoryOwner(login: $login) {
+                  ... on ProjectV2Owner {
                   projectV2(number: $num) {
                     id
                     title
@@ -76,11 +77,12 @@ runs:
                       }
                     }
                   }
+                  }
                 }
               }
             `, { login: owner, num: factoryNumber });
-            
-            const project = factoryResult.user.projectV2;
+
+            const project = factoryResult.repositoryOwner?.projectV2;
             if (!project) {
               console.log(`❌ Factory project #${factoryNumber} not found`);
               return;
