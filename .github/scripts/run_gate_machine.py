@@ -130,6 +130,61 @@ def update_factory_issue(state, gates_config, payload):
                     "--body", body], check=False, capture_output=True, text=True)
 
 
+def update_portfolio_gate(state, gate_title, project_number):
+    """Set the study's Gate field on the Factory portfolio board.
+
+    The board previously carried an Objective field from the three-milestone v1
+    model, set once at provisioning and never again — so every study sat under
+    "Analysis Package Prototype" forever. This is the same idea told truthfully:
+    one field, kept current, that the board can group and filter by.
+
+    Best-effort. A board that cannot be updated must not fail a gate advance;
+    the issue comment and the state file are the record.
+    """
+    if not project_number:
+        return
+    owner = state["factory_repo"].split("/")[0]
+    issue = state.get("factory_issue")
+    if not issue:
+        return
+
+    try:
+        data = json.loads(gh(
+            "api", "graphql", "-f",
+            "query=query($login:String!,$num:Int!){repositoryOwner(login:$login){"
+            "... on ProjectV2Owner{projectV2(number:$num){id "
+            "field(name:\"Gate\"){... on ProjectV2SingleSelectField{id options{id name}}} "
+            "items(first:100){nodes{id content{... on Issue{number}}}}}}}}",
+            "-f", f"login={owner}", "-F", f"num={project_number}", check=False))
+    except Exception:
+        return
+
+    project = ((data.get("data") or {}).get("repositoryOwner") or {}).get("projectV2")
+    if not project or not project.get("field"):
+        print("  portfolio: no Gate field on the board, skipping")
+        return
+
+    item = next((i for i in project["items"]["nodes"]
+                 if (i.get("content") or {}).get("number") == issue), None)
+    if not item:
+        print(f"  portfolio: issue #{issue} is not on the board, skipping")
+        return
+
+    option = next((o for o in project["field"]["options"]
+                   if o["name"] == gate_title), None)
+    if not option:
+        print(f"  portfolio: no option matching '{gate_title}', skipping")
+        return
+
+    gh("api", "graphql", "-f",
+       "query=mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue("
+       "input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}"
+       "){projectV2Item{id}}}",
+       "-f", f"p={project['id']}", "-f", f"i={item['id']}",
+       "-f", f"f={project['field']['id']}", "-f", f"o={option['id']}", check=False)
+    print(f"  portfolio: Gate set to {gate_title}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--payload", required=True)
@@ -208,6 +263,8 @@ def main():
         print(f"commented on {study_repo}#{gate_issue}")
 
     update_factory_issue(state, gates_config, payload)
+    update_portfolio_gate(state, gate_title,
+                          subprocess.os.environ.get("FACTORY_PROJECT_NUMBER"))
     print(f"advanced {decision.from_gate} -> {decision.to_gate}")
 
     with open(subprocess.os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:

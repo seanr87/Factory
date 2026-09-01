@@ -183,40 +183,6 @@ runs:
               }
             }
             
-            // Set initial Objective field to 'Analysis Package Prototype'
-            const objectiveField = project.fields.nodes.find(field => field.name === 'Objective');
-            if (objectiveField) {
-              try {
-                const objectiveOption = objectiveField.options.find(option => option.name === 'Analysis Package Prototype');
-                if (objectiveOption) {
-                  await github.graphql(`
-                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                      updateProjectV2ItemFieldValue(input: {
-                        projectId: $projectId,
-                        itemId: $itemId,
-                        fieldId: $fieldId,
-                        value: { singleSelectOptionId: $optionId }
-                      }) {
-                        projectV2Item { id }
-                      }
-                    }
-                  `, {
-                    projectId: project.id,
-                    itemId: itemId,
-                    fieldId: objectiveField.id,
-                    optionId: objectiveOption.id
-                  });
-                  console.log(`✅ Set Objective field to: Analysis Package Prototype`);
-                } else {
-                  console.log(`⚠️ Objective option 'Analysis Package Prototype' not found`);
-                }
-              } catch (fieldError) {
-                console.log(`⚠️ Failed to set Objective field: ${fieldError.message}`);
-              }
-            } else {
-              console.log(`⚠️ Objective field not found in project`);
-            }
-            
             // Set Start Date field if it exists and date is provided
             if (startDateField && startDate) {
               try {
