@@ -3,8 +3,8 @@
   "factory_repo": "OHDSI-JHU/Factory",
   "factory_issue": 175,
   "study_project_id": "PVT_kwDOCQMYQc4BiKxK",
-  "current_gate": 3,
-  "gate_entered_at": "2026-09-01T23:32:06+00:00",
+  "current_gate": 4,
+  "gate_entered_at": "2026-09-01T23:33:38+00:00",
   "stall_threshold_days": 21,
   "gates": {
     "0": {
@@ -55,10 +55,12 @@
       ]
     },
     "4": {
-      "status": "in_progress",
+      "status": "ready_for_review",
       "entered_at": "2026-09-01T23:33:09+00:00",
       "issue": 5,
-      "evidenced_by": [],
+      "evidenced_by": [
+        "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
+      ],
       "outstanding": [
         "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
       ]
@@ -127,6 +129,15 @@
       "commit": "fa702a2fd25a49b6422ae738ada3b4a82a3c377c",
       "evidence": [
         "inst/Cohorts.csv"
+      ]
+    },
+    {
+      "at": "2026-09-01T23:33:38+00:00",
+      "from_gate": 3,
+      "to_gate": 4,
+      "commit": "51dcad509aa1c583a3a2d7be218d3b7ca626ea19",
+      "evidence": [
+        "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
       ]
     }
   ]
