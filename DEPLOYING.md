@@ -55,11 +55,17 @@ Repository → Settings → Secrets and variables → Actions → **Secrets**:
 | Secret | Value |
 |---|---|
 | `ORG_ADMIN_TOKEN` | the PAT from step 2 |
-| `APP_ID` | GitHub App ID, if you use one for checkout |
-| `APP_PRIVATE_KEY` | matching private key |
 
-The App is optional; provisioning uses it only for checkout and committing back to
-Factory. The PAT does the substantive work.
+That is the only secret. One credential does everything, including committing back to
+Factory — which needs the `workflow` scope, because adding a study lead rewrites the
+dropdown inside `provision-study.yml`, and `GITHUB_TOKEN` is not permitted to modify
+workflow files.
+
+A GitHub App would be better practice for the write-back, being short-lived and scoped.
+It was tried and removed: an App installed on one account stops working the moment the
+repository moves to another, which is exactly the portability problem this guide exists
+to avoid. If you want one, install it on the organisation and reinstate the
+`create-github-app-token` step.
 
 ## 4. Create the Study Board template
 
