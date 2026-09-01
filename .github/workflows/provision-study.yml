@@ -116,6 +116,7 @@ jobs:
           lead_name: ${{ steps.resolve_lead.outputs.lead_name }}
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           target_date: ${{ inputs.target_date }}
+          repo_prefix: ${{ vars.STUDY_REPO_PREFIX || 'study-' }}
 
       - name: Create repository
         id: repo
@@ -124,6 +125,7 @@ jobs:
           repo_name: ${{ steps.validate.outputs.repo_name }}
           study_title: ${{ inputs.study_title }}
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
+          upstream_template: ${{ vars.STRATEGUS_TEMPLATE_REPO || 'ohdsi-studies/StrategusStudyRepoTemplate' }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Setup project
@@ -278,7 +280,7 @@ jobs:
           echo "## ✅ Study Provisioned Successfully"
           echo ""
           echo "**Repository:** ${{ steps.repo.outputs.repo_url }}"
-          echo "**Scaffolded from:** ohdsi-studies/StrategusStudyRepoTemplate@${{ steps.repo.outputs.upstream_sha }}"
+          echo "**Scaffolded from:** ${{ vars.STRATEGUS_TEMPLATE_REPO || 'ohdsi-studies/StrategusStudyRepoTemplate' }}@${{ steps.repo.outputs.upstream_sha }}"
           echo "**Factory overlay:** ${{ steps.overlay.outputs.files_applied }} file(s) in ${{ steps.overlay.outputs.commit_sha }}"
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
           echo "**Board views:** ${{ steps.project.outputs.views }}"

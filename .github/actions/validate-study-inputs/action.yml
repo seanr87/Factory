@@ -13,6 +13,10 @@ inputs:
   target_date:
     description: 'Target date in YYYY-MM-DD format'
     required: false
+  repo_prefix:
+    description: 'Prefix for generated study repository names'
+    required: false
+    default: 'study-'
 
 outputs:
   repo_name:
@@ -69,7 +73,8 @@ runs:
       shell: bash
       run: |
         # Generate repo name from title
-        REPO_NAME=$(echo "study-${{ inputs.study_title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g')
+        PREFIX="${{ inputs.repo_prefix }}"
+        REPO_NAME=$(echo "${PREFIX}${{ inputs.study_title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g')
         echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
         echo "✅ Generated repository name: $REPO_NAME"
 
