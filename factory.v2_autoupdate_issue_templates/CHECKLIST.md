@@ -73,7 +73,18 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked on
     re-pointing provisioning, re-issuing tokens, and re-testing everything. Land v2 first.
 - [ ] **D10** Partner issues carry both `partner` and `work-item` labels, so they appear in the
       work-item queue. *(rec: exclude them — `-label:partner` — the partner view is their surface)*
-- [ ] **D11** `Data Partner Status` field options: `setup-study-project` creates three
+- [x] **D11 — DONE.** The template board carries the seven options; verified on a copied board.
+      *(original note below)*
+- [ ] **D13 — BLOCKING for the org template.** `ORG_ADMIN_TOKEN` is not authorised for `OHDSI-JHU`,
+      which enforces SAML SSO, so the org-owned template at
+      [projects/30](https://github.com/orgs/OHDSI-JHU/projects/30) cannot be read by provisioning.
+      Fix: github.com/settings/tokens → the Factory token → **Configure SSO** → Authorize for
+      OHDSI-JHU, then set `STUDY_BOARD_TEMPLATE_ID` back to `PVT_kwDOCQMYQc4BiEgy`.
+      Workaround in place: `STUDY_BOARD_TEMPLATE_ID` currently points at a user-owned mirror
+      ([projects/170](https://github.com/users/seanr87/projects/170)), which works because
+      `copyProjectV2` does not require the template mark. The mirror is a copy, so retuning views
+      on the org template will NOT reach studies until the token is authorised.
+- [ ] ~~**D11**~~ `Data Partner Status` field options: `setup-study-project` creates three
       (Preparation / Analysis / Results); `partner-tracking.md` defines seven (Not yet contacted ·
       Contacted · Interested · Committed · Package running · Results received · Declined).
       *(rec: adopt the seven — Gate 5 asks leads to distinguish interested from committed, and the
@@ -132,7 +143,10 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] **Always comment** — post which paths changed, in which commit, with a link. Pushes matching
       an already-passed gate also comment; pushes matching nothing stay silent, so comments keep meaning something.
 - [x] Gates 5 and 6 excluded from path detection
-- [ ] Gate 6 derived from partner issue status — partner issues now exist; the derivation rule is still to write
+- [x] Gate 6 derived from partner issue status — `derive_partner_gates.py`, run daily before the
+      stall sweep. Rule: every committed partner has returned, and there is at least one.
+      Verified live: 1-of-2 held, 2-of-2 advanced, and a `status:declined` partner correctly
+      stayed out of the denominator so one refusal cannot block the gate.
 - [x] Record `gate_entered_at` on every transition — this is the stall clock
 - [x] Update the study repo's gate issue **and** the factory issue in the same run
 - [ ] Update project fields: current gate, date entered, partner roll-up
@@ -159,7 +173,7 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] Single at-a-glance view — a `portfolio-status` dashboard issue, rewritten daily, sorted
       most-stalled-first, with a per-partner breakdown of who has gone quiet
 - [x] Retired `activity-check.yml` and its `pushed_at` signal
-- [ ] Re-point or retire `bi-weekly-reminders.yml`
+- [x] Retired `bi-weekly-reminders.yml` and its test harness — superseded by the daily stall check
 
 ## Phase 6 — Project boards
 
@@ -185,8 +199,10 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [ ] Add a `Ready for review` option to the template's Status field, by hand in the UI.
       `updateProjectV2Field` replaces all options wholesale, so it is not safe to script.
       Target: Not started · In progress · **Ready for review** · Done
-- [ ] Repoint `setup-study-project` from `createProjectV2` to `copyProjectV2` off template #30
-- [ ] Fix `manage-data-partners`: address the study project explicitly, not `projectsV2(first:5).nodes[0]`
+- [x] Repointed `setup-study-project` to `copyProjectV2`, template id in `vars.STUDY_BOARD_TEMPLATE_ID`.
+      Verified live: copied board carried all three views with layouts and filters, both select
+      fields (Status 3, Data Partner Status 7), public, linked, 8 gate issues added.
+- [x] Partner sync addresses the study project explicitly from the state file
 
 ### Factory portfolio board (cross-study)
 
@@ -196,7 +212,7 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 
 ### Verification
 
-- [ ] Confirm all three views survive provisioning of a new study
+- [x] Confirmed — all three views survive provisioning
 - [ ] Confirm a retune of the template board's views reaches subsequently provisioned studies
 
 ## Phase 7 — Cleanup and docs
@@ -204,10 +220,10 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] Deleted `factory-issue-updater.yml` (dead — §1.4)
 - [x] Deleted `.github/data/study-status-issues.json`
 - [x] Deleted `.github/actions/create-status-issues`, `.github/actions/invite-collaborator`
-- [ ] Delete `archive/` from factory
-- [ ] README section for study leads: what the automation does to their repo, and why the board
-      moves without them touching anything
-- [ ] Update the factory README — the "Currently Built Functions" list describes v1
+- [x] `archive/` is gitignored and was never tracked — nothing to remove
+- [x] `HOW-THIS-REPO-IS-TRACKED.md` ships in the overlay; the study README template was rewritten
+      (it still told leads to close issues to report progress, which is the v1 model)
+- [x] Factory README rewritten for v2
 - [ ] Log the PAT-expiry risk (D5) somewhere durable
 
 ## Phase 8 — Verification before the cohort sees it
