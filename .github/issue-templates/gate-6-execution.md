@@ -3,10 +3,15 @@ gate: 6
 title: "Gate 6 — Study executed across partners"
 labels: ["gate", "milestone"]
 detection:
-  event: none
+  event: derived_from_partners
   derived_from: partner_issue_status
-  note: "Not detectable from repository activity. Advanced from partner issue status labels."
-advance_rule: manual_only
+  # One site returning results means execution has started. All of them means it
+  # is done — as far as a label can tell, which is why a human still confirms the
+  # result sets are complete before closing.
+  in_progress_when: any_returned
+  ready_when: all_committed_returned
+  note: "Not detectable from repository activity. Execution happens on machines Factory never sees; the partner issue labels are the only trace that reaches GitHub."
+advance_rule: derived_manual_close
 ---
 
 **What this gate means.** Partners have run your study package on their data and returned aggregate results to you. This gate tracks how many have, out of how many committed.

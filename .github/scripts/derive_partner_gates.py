@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
-"""Advance Gate 6 from partner issue status.
+"""Advance the partner-derived gates from partner issue labels.
 
-Gate 6 — "Study executed across partners" — is the one phase that happens
-entirely outside this system. Partners run the package on machines Factory will
-never see, on data it will never touch. Nothing about it can be detected from
-repository activity, so the evidence is the only trace that reaches GitHub: the
-status labels on the partner issues.
+Gates 5 and 6 are the two phases that happen outside this system. Recruitment is
+conversations with colleagues at other institutions; execution is packages running
+on machines Factory will never see, against data it will never touch. Neither
+leaves a trace in the repository, so the only evidence that reaches GitHub is the
+status label on each partner issue.
 
-The rule, deliberately conservative:
+Each gate declares its own rules in front matter rather than having them written
+here, so changing when a gate moves is a template edit:
 
-    every committed partner has returned results, and there is at least one
+    in_progress_when: any_partner | any_returned
+    ready_when:       any_committed | all_committed_returned
 
-"Committed" counts anyone who agreed to run it — committed, package running, or
-results received — because a site that has already returned results was
-obviously committed. Partners still being recruited, or who declined, are not
-part of the denominator; a study should not be blocked from Gate 6 by a site
-that said no.
-
-Like every other advance in this system this proposes rather than concludes: the
-gate reaches Ready for review and a human closes it. "You've confirmed each
-result set is complete before counting it as received, rather than assuming" is
-one of Gate 6's own checks, and that is not something a label can establish.
+Like every other advance in this system these propose rather than conclude. A
+label records what somebody said; it cannot tell you a result set is complete, or
+that you have enough partners for the study to be worth running. Both of those
+are checks the gates themselves ask a human to make.
 """
 
 import argparse
@@ -32,18 +28,26 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GATES = ROOT / ".github" / "data" / "gates.json"
+NEWLINE = chr(10)
 
-GATE = 6
+READY = "ready_for_review"
+IN_PROGRESS = "in_progress"
+DONE = "done"
+
 RETURNED = "status:results-received"
 # Anyone who agreed to run it. A site that has returned results was committed
 # whether or not anybody moved its label through every intermediate state.
 COMMITTED = {"status:committed", "status:package-running", RETURNED}
+# A site that said no should not hold a study back.
+INACTIVE = {"status:declined"}
+
+BOARD_NAME = {READY: "Ready for review", IN_PROGRESS: "In progress"}
 
 
 def gh(*args, check=True):
     r = subprocess.run(["gh", *args], capture_output=True, text=True)
     if check and r.returncode:
-        sys.exit(f"gh {' '.join(args[:3])} failed:\n{r.stderr.strip()}")
+        sys.exit(f"gh {' '.join(args[:3])} failed:" + NEWLINE + r.stderr.strip())
     return r.stdout.strip()
 
 
@@ -57,36 +61,108 @@ def partner_states(repo):
     for issue in json.loads(raw):
         status = next((l["name"] for l in issue.get("labels", [])
                        if l["name"].startswith("status:")), None)
-        out.append({"number": issue["number"], "title": issue["title"],
+        out.append({"number": issue["number"],
+                    "title": issue["title"].replace("Data partner — ", ""),
                     "status": status})
     return out
 
 
 def assess(partners):
+    active = [p for p in partners if p["status"] not in INACTIVE]
     committed = [p for p in partners if p["status"] in COMMITTED]
     returned = [p for p in partners if p["status"] == RETURNED]
-    ready = bool(committed) and len(returned) == len(committed)
-    return committed, returned, ready
+    return active, committed, returned
 
 
-def comment_body(committed, returned, ready):
-    names = "\n".join(
-        f"- {p['title'].replace('Data partner — ', '')} — "
-        f"{'returned' if p['status'] == RETURNED else 'still running'}"
-        for p in committed)
+def gate_state(rules, partners):
+    """The state a partner-derived gate should be in, and why.
 
-    if ready:
-        head = (f"**Moved to Ready for review** — Gate 6\n\n"
-                f"All {len(committed)} committed partner(s) have returned results.")
-        tail = ("\n\nFactory read this from the partner issue labels, not from anything "
-                "in the repository — execution happens on machines it never sees. "
-                "Confirm each result set is actually complete before closing this; "
-                "a label says results arrived, not that they are whole.")
-    else:
-        head = (f"**Execution progress** — {len(returned)} of {len(committed)} "
-                f"committed partner(s) have returned results.")
-        tail = "\n\nThis gate moves when every committed partner has returned."
-    return f"{head}\n\n{names}{tail}"
+    Returns (status, reason). status is READY, IN_PROGRESS, or None meaning
+    leave the gate alone.
+    """
+    active, committed, returned = assess(partners)
+
+    if rules.get("ready_when") == "all_committed_returned":
+        if committed and len(returned) == len(committed):
+            return READY, (f"all {len(committed)} committed partner(s) have "
+                           f"returned results")
+    elif rules.get("ready_when") == "any_committed":
+        if committed:
+            return READY, (f"{len(committed)} partner(s) have committed to "
+                           f"running the study")
+
+    if rules.get("in_progress_when") == "any_returned" and returned:
+        return IN_PROGRESS, (f"{len(returned)} of {len(committed)} committed "
+                             f"partner(s) have returned results")
+    if rules.get("in_progress_when") == "any_partner" and active:
+        return IN_PROGRESS, (f"{len(active)} partner(s) being tracked, none "
+                             f"committed yet")
+
+    return None, "nothing to report"
+
+
+def roster(partners):
+    """Where each partner stands, for the comment."""
+    lines = []
+    for p in sorted(partners, key=lambda x: x["title"]):
+        status = (p["status"] or "status:unknown").replace("status:", "").replace("-", " ")
+        lines.append(f"- {p['title']} — {status}")
+    return lines
+
+
+def comment_body(gate_title, status, reason, partners):
+    head = "**Moved to Ready for review**" if status == READY else "**In progress**"
+    lines = [f"{head} — {gate_title}", "", reason[0].upper() + reason[1:] + ".", ""]
+    lines += roster(partners)
+    lines += [
+        "",
+        "Factory read this from the partner issue labels, not from anything in "
+        "the repository — this phase happens outside GitHub entirely.",
+    ]
+    if status == READY:
+        lines += [
+            "",
+            "Confirm this is genuinely complete before closing. A label records "
+            "what somebody said; it cannot tell you a result set is whole, or "
+            "that you have enough partners for the study to be worth running.",
+        ]
+    return NEWLINE.join(lines)
+
+
+def update_study_board(state, gate_number, status_name):
+    """Move the gate's card on the study's own board. Best-effort."""
+    project_id = state.get("study_project_id")
+    issue = state.get("gate_issues", {}).get(str(gate_number))
+    if not project_id or not issue:
+        return
+
+    raw = gh("api", "graphql", "-f",
+             'query=query($p:ID!){node(id:$p){... on ProjectV2{'
+             'field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}} '
+             'items(first:100){nodes{id content{... on Issue{number}}}}}}}',
+             "-f", f"p={project_id}", check=False)
+    if not raw:
+        return
+    try:
+        project = json.loads(raw)["data"]["node"]
+    except (KeyError, TypeError, json.JSONDecodeError):
+        return
+    if not project or not project.get("field"):
+        return
+
+    item = next((i for i in project["items"]["nodes"]
+                 if (i.get("content") or {}).get("number") == issue), None)
+    option = next((o for o in project["field"]["options"]
+                   if o["name"].lower() == status_name.lower()), None)
+    if not item or not option:
+        return
+
+    gh("api", "graphql", "-f",
+       "query=mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue("
+       "input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}"
+       "){projectV2Item{id}}}",
+       "-f", f"p={project_id}", "-f", f"i={item['id']}",
+       "-f", f"f={project['field']['id']}", "-f", f"o={option['id']}", check=False)
 
 
 def main():
@@ -97,6 +173,12 @@ def main():
     args = ap.parse_args()
 
     gates_config = json.loads(GATES.read_text(encoding="utf-8"))
+    derived = [g for g in gates_config["gates"]
+               if g["detection"].get("event") == "derived_from_partners"]
+    if not derived:
+        print("No partner-derived gates configured.")
+        return 0
+
     state_dir = ROOT / args.state_dir
     files = sorted(state_dir.glob("*.json")) if state_dir.exists() else []
     if not files:
@@ -112,60 +194,73 @@ def main():
 
         partners = partner_states(repo)
         if not partners:
+            print(f"  {repo}: no partner issues")
             continue
 
-        committed, returned, ready = assess(partners)
-        if not committed:
-            print(f"  {repo}: no committed partners yet")
-            continue
+        dirty = False
+        for gate in sorted(derived, key=lambda g: g["gate"]):
+            number = gate["gate"]
+            status, reason = gate_state(gate["detection"], partners)
+            if status is None:
+                continue
 
-        print(f"  {repo}: {len(returned)}/{len(committed)} committed partners returned"
-              + ("  -> Gate 6 ready" if ready else ""))
+            rec = state["gates"].setdefault(str(number), {
+                "status": "not_started", "entered_at": None,
+                "issue": state["gate_issues"].get(str(number)),
+                "evidenced_by": []})
 
-        rec = state["gates"].get(str(GATE), {})
-        already = rec.get("status") in ("ready_for_review", "done")
+            # Never undo a human's close, never walk a gate back from Ready for
+            # review to In progress, and never re-comment on an unchanged state.
+            if rec.get("status") == DONE:
+                continue
+            if rec.get("status") == READY and status == IN_PROGRESS:
+                continue
+            if rec.get("status") == status and rec.get("reason") == reason:
+                continue
 
-        # Advance only, and never past a human's decision to close it.
-        if not ready or already or state.get("current_gate", -1) >= GATE:
-            continue
+            print(f"  {repo}: gate {number} -> {status} ({reason})")
+            if args.dry_run:
+                continue
 
-        issue = state["gate_issues"].get(str(GATE))
-        stamp = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+            stamp = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+            rec["status"] = status
+            rec["reason"] = reason
+            rec["entered_at"] = rec.get("entered_at") or stamp
+            rec["evidenced_by"] = [f"{p['title']}: {p['status']}" for p in partners]
+            state["gates"][str(number)] = rec
+            dirty = True
 
-        if args.dry_run:
-            print(f"    [dry run] would advance {repo} to gate {GATE}")
-            continue
+            # Only a Ready gate moves the study forward. In progress is a
+            # statement about one gate, not about where the study has reached.
+            if status == READY and number > state.get("current_gate", -1):
+                state["history"].append({
+                    "at": stamp,
+                    "from_gate": state.get("current_gate", -1),
+                    "to_gate": number,
+                    "commit": None,
+                    "evidence": [p["title"] for p in partners
+                                 if p["status"] == RETURNED] or None,
+                })
+                state["current_gate"] = number
+                state["gate_entered_at"] = stamp
 
-        rec.update({
-            "status": "ready_for_review",
-            "entered_at": rec.get("entered_at") or stamp,
-            "issue": issue,
-            "evidenced_by": [f"{len(returned)} partner(s) at {RETURNED}"],
-        })
-        state["gates"][str(GATE)] = rec
-        state["history"].append({
-            "at": stamp,
-            "from_gate": state.get("current_gate", -1),
-            "to_gate": GATE,
-            "commit": None,
-            "evidence": [p["title"] for p in returned],
-        })
-        state["current_gate"] = GATE
-        state["gate_entered_at"] = stamp
-        path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+            update_study_board(state, number, BOARD_NAME[status])
+            issue_no = state["gate_issues"].get(str(number))
+            if issue_no:
+                subprocess.run(
+                    ["gh", "issue", "comment", str(issue_no), "--repo", repo,
+                     "--body", comment_body(gate["title"], status, reason, partners)],
+                    check=False, capture_output=True, text=True)
 
-        if issue:
-            subprocess.run(["gh", "issue", "comment", str(issue), "--repo", repo,
-                            "--body", comment_body(committed, returned, ready)],
-                           check=False, capture_output=True, text=True)
-        changed.append(repo)
-        print(f"    advanced {repo} to gate {GATE}")
+        if dirty:
+            path.write_text(json.dumps(state, indent=2) + NEWLINE, encoding="utf-8")
+            changed.append(repo)
 
     out = subprocess.os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as fh:
-            fh.write(f"changed={'true' if changed else 'false'}\n")
-            fh.write(f"changed_studies={','.join(changed)}\n")
+            fh.write(("changed=true" if changed else "changed=false") + NEWLINE)
+            fh.write("changed_studies=" + ",".join(changed) + NEWLINE)
     return 0
 
 
