@@ -118,18 +118,18 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 
 - [x] Gate config: gate number, name, corrected detection paths, advance rule, per §3.3
       — `.github/data/gates.json`, generated from the templates by `tools/build_gates.py`
-- [ ] `repository_dispatch` receiver mapping changed paths → candidate gate
-- [ ] Baseline-diff check so scaffold-shipped files don't false-fire (§3.2)
-- [ ] **Gap found in testing:** the baseline is captured *before* the overlay push, so the three
-      overlay-supplied files (`TEAM.md`, both `Documents/` stubs) have no recorded blob SHA.
-      Change-driven detection is unaffected, but the dispatcher's "no usable base commit" fallback
-      lists every tracked file — and would then read an untouched stub as evidence. Fix: re-read
-      the tree after the overlay commit and add those three SHAs to the baseline.
-- [ ] **Advance only** — reject any transition to a lower gate, log the rejection
-- [ ] **Propose, don't close** — evidenced gate moves to `Ready for review`; a human closes
-- [ ] **Always comment** — post which paths changed, in which commit, with a link
-- [ ] Gates 5 and 6 excluded from path detection; Gate 6 derived from partner issue status
-- [ ] Record `gate_entered_at` on every transition — this is the stall clock
+- [x] `repository_dispatch` receiver mapping changed paths → candidate gate — `gate-state-machine.yml`
+- [x] Baseline-diff check so scaffold-shipped files don't false-fire (§3.2)
+- [x] **Overlay baseline gap closed** — `push-study-overlay` now re-reads the tree after its commit
+      and records SHAs for `TEAM.md` and both `Documents/` stubs. Verified: baseline holds 15 blobs
+      with `overlay_baseline` listing all three.
+- [x] **Advance only** — reject any transition to a lower gate, log the rejection
+- [x] **Propose, don't close** — evidenced gate moves to `Ready for review`; a human closes
+- [x] **Always comment** — post which paths changed, in which commit, with a link. Pushes matching
+      an already-passed gate also comment; pushes matching nothing stay silent, so comments keep meaning something.
+- [x] Gates 5 and 6 excluded from path detection
+- [ ] Gate 6 derived from partner issue status — needs the partner upsert (Phase 2)
+- [x] Record `gate_entered_at` on every transition — this is the stall clock
 - [ ] Update the study repo's gate issue **and** the factory issue in the same run
 - [ ] Update project fields: current gate, date entered, partner roll-up
 
@@ -138,9 +138,10 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] Parser for the front matter in `gate-*.md` (gate, title, labels, detection, advance_rule)
 - [x] Apply the corrected paths from §3.3 to all eight gate files, and log every change made
 - [x] Fix Gate 5's contradictory front matter (`detection.paths` + `manual_only`) (§4.5)
-- [ ] Write the missing **factory-side issue template** — current gate, date entered, partner roll-up (§4.3)
-- [ ] Replace `create-status-issues` with a gate-issue creator (Gates 0–7 + partner issues)
-- [ ] Label every item `milestone` or `work-item`
+- [~] Factory issue status block — `run_gate_machine.py` rewrites a `<!--factory:status-->` block
+      with current gate, entered date and days-in-gate. Partner roll-up still to come (Phase 5).
+- [x] Replaced `create-status-issues` with `create-gate-issues` (Gates 0–7). Partner issues remain in Phase 2.
+- [x] Label every item `milestone` or `work-item` — verified on a live study
 - [ ] Make partner status machine-readable via `status:*` labels, mirrored into the body line (§4.1)
 - [ ] Migrate the three legacy `status-tracking` issues in existing repos, or close them with an explanation
 
@@ -204,6 +205,14 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [ ] Log the PAT-expiry risk (D5) somewhere durable
 
 ## Phase 8 — Verification before the cohort sees it
+
+### Known constraint
+
+**`repository_dispatch` only ever triggers workflows on the default branch.** The state machine
+cannot be exercised by a real dispatch while it lives on `factory-v2-phase1` — the dispatch is
+accepted (204) and silently discarded. `gh workflow run` resolves workflow names against the
+default branch too, so the manual re-evaluation path is equally unreachable from a branch.
+Merging to `main` is therefore a prerequisite for live end-to-end testing, not a final step.
 
 ### Test run log
 
