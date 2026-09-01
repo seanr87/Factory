@@ -199,6 +199,7 @@ def dashboard(summaries, gates_config, factory_repo, now):
             lines.append("")
 
     lines += [
+        "",
         "---",
         "",
         "A study is stalled when it has sat in one gate past the threshold. That is "
@@ -224,7 +225,8 @@ def main():
 
     now = dt.datetime.now(dt.timezone.utc)
     gates_config = json.loads(GATES.read_text(encoding="utf-8"))
-    global_threshold = args.threshold or gates_config.get("stall_threshold_days", 21)
+    global_threshold = (args.threshold if args.threshold is not None
+                        else gates_config.get("stall_threshold_days", 21))
 
     state_dir = ROOT / args.state_dir
     files = sorted(state_dir.glob("*.json")) if state_dir.exists() else []
@@ -235,7 +237,8 @@ def main():
     summaries = []
     for path in files:
         state = json.loads(path.read_text(encoding="utf-8"))
-        threshold = args.threshold or state.get("stall_threshold_days", global_threshold)
+        threshold = (args.threshold if args.threshold is not None
+                     else state.get("stall_threshold_days", global_threshold))
         partners = partner_activity(state["study_repo"], now)
         summary = roll_up(state, partners, threshold, now)
         summaries.append(summary)
