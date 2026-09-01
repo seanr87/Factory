@@ -55,10 +55,13 @@
       ]
     },
     "4": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-01T23:33:09+00:00",
       "issue": 5,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
+      ]
     },
     "5": {
       "status": "not_started",
