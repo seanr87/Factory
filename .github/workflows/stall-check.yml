@@ -26,7 +26,8 @@ on:
         default: false
 
 permissions:
-  contents: read
+  # write: Gate 6 advances are committed to the state files
+  contents: write
   issues: write
 
 jobs:
@@ -35,6 +36,53 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      # Gate 6 is the one gate no push can evidence — execution happens on
+      # machines Factory never sees. Its only trace is the partner issue labels,
+      # so it is derived here, before the stall sweep reads the same state.
+      - name: Derive Gate 6 from partner status
+        id: gate6
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            python3 .github/scripts/derive_partner_gates.py --dry-run
+          else
+            python3 .github/scripts/derive_partner_gates.py
+          fi
+
+      - name: Commit Gate 6 advances
+        if: steps.gate6.outputs.changed == 'true'
+        env:
+          STUDIES: ${{ steps.gate6.outputs.changed_studies }}
+        run: |
+          set -euo pipefail
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "OHDSI Study Factory"
+          git add .github/data/state
+
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+
+          git commit -m "Advance to gate 6 from partner status: ${STUDIES}"
+
+          for attempt in 1 2 3; do
+            if git pull --rebase --quiet origin "${{ github.ref_name }}" \
+               && git push --quiet origin "HEAD:${{ github.ref_name }}"; then
+              echo "✅ Committed (attempt $attempt)"
+              exit 0
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::Could not commit Gate 6 advances after 3 attempts"
+          exit 1
 
       - name: Check for stalls
         env:
