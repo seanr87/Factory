@@ -1,0 +1,29 @@
+{
+  "study_repo": "seanr87/study-zzz-e2e-gate-test",
+  "upstream_template": "ohdsi-studies/StrategusStudyRepoTemplate",
+  "upstream_sha": "8c5c4a88dda32160a88a3e22779c4ec11f5ea251",
+  "upstream_committed_at": "2026-06-24T18:32:03Z",
+  "unmatched_patterns": [],
+  "blobs": {
+    "Documents/Protocol.Rmd": "83d695216ab03776797ddc6bd524371cb9111ef4",
+    "Documents/research-question.md": "8469c4174c9366a143ca4446db79a12722cde98f",
+    "Documents/results-summary.md": "fcf72d8781424ef1d4fecd374175342699694a95",
+    "TEAM.md": "2e697d7c1b9350370b6322b52d31ea3c85500e39",
+    "inst/Cohorts.csv": "c1252dd05b1d7942e1eb74c5979376c15bceac8e",
+    "inst/analysisSpecifications.json": "47c96a5a75b90e097bb642abeb9c23959d5f6a67",
+    "inst/cohorts/11.json": "0d2fd8098619833e62d79f499675990f3f7387ed",
+    "inst/cohorts/21.json": "39229f56c6ee8d131edf7b33f0e38cb8f39819ca",
+    "inst/cohorts/31.json": "69dcde9082eedc82da6d097773f0bffe1c1c345f",
+    "inst/covariateConceptsToExclude.csv": "be78a9528cd4b1873695cfa11826c0b98e60764c",
+    "inst/negativeControlOutcomes.csv": "7a298b31412a03ca2546114c5a3105fcea0016b2",
+    "inst/sql/sql_server/11.sql": "d4bcefff4d64ef022b1ec7309e7eb0bd9d34c1da",
+    "inst/sql/sql_server/21.sql": "2495108d8266dbf600e0f999401be0d978063f34",
+    "inst/sql/sql_server/31.sql": "f09e333099b9305373c85ad645e929c500125895",
+    "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R": "de359e17d916ba5eae206e29c50d70f7ff83c434"
+  },
+  "overlay_baseline": [
+    "Documents/research-question.md",
+    "Documents/results-summary.md",
+    "TEAM.md"
+  ]
+}
