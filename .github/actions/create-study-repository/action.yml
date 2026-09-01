@@ -61,8 +61,23 @@ runs:
       run: |
         set -euo pipefail
 
-        if ! gh api "repos/${UPSTREAM}" --jq '.is_template' | grep -qx true; then
-          echo "::error::${UPSTREAM} is not a template repository"
+        # Check the credential before the template, or an expired token reports
+        # itself as "upstream is not a template repository" and sends whoever is
+        # debugging it to the wrong repository entirely.
+        if ! WHOAMI=$(gh api user --jq '.login' 2>&1); then
+          echo "::error::ORG_ADMIN_TOKEN is not valid: ${WHOAMI}"
+          echo "::error::Regenerate the PAT and update the ORG_ADMIN_TOKEN secret."
+          echo "::error::Required scopes: repo, workflow, delete_repo, project, admin:org"
+          exit 1
+        fi
+        echo "🔑 Authenticated as ${WHOAMI}"
+
+        if ! IS_TEMPLATE=$(gh api "repos/${UPSTREAM}" --jq '.is_template' 2>&1); then
+          echo "::error::Cannot read ${UPSTREAM}: ${IS_TEMPLATE}"
+          exit 1
+        fi
+        if [[ "$IS_TEMPLATE" != "true" ]]; then
+          echo "::error::${UPSTREAM} exists but is not marked as a template repository"
           exit 1
         fi
 
