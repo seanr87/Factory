@@ -25,6 +25,7 @@ globally via gates.json.
 import argparse
 import datetime as dt
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -93,6 +94,7 @@ def roll_up(state, partners, threshold, now):
         "factory_issue": state.get("factory_issue"),
         "current_gate": state.get("current_gate", -1),
         "days_in_gate": days_in_gate,
+        "gate_entered_at": state.get("gate_entered_at"),
         "stalled": days_in_gate is not None and days_in_gate >= threshold,
         "never_started": state.get("gate_entered_at") is None,
         "partner_count": len(partners),
@@ -220,6 +222,77 @@ def dashboard(summaries, gates_config, factory_repo, now):
     return "\n".join(lines)
 
 
+def update_portfolio_fields(summary, gates_config, project_number, now):
+    """Push the stall numbers onto the Factory portfolio board.
+
+    The dashboard issue is the readable version; these fields are what let the
+    board sort and filter on the same numbers — which is what makes it a stall
+    radar rather than a list of studies.
+
+    Best-effort throughout. A board that cannot be written must never fail the
+    sweep; the dashboard issue and the state files remain the record.
+    """
+    if not project_number or not summary.get("factory_repo") or not summary.get("factory_issue"):
+        return
+
+    owner = summary["factory_repo"].split("/")[0]
+    issue = summary["factory_issue"]
+
+    raw = gh("api", "graphql", "-f",
+             "query=query($login:String!,$num:Int!){repositoryOwner(login:$login){"
+             "... on ProjectV2Owner{projectV2(number:$num){id "
+             "fields(first:40){nodes{... on ProjectV2FieldCommon{id name dataType}"
+             "... on ProjectV2SingleSelectField{options{id name}}}} "
+             "items(first:100){nodes{id content{... on Issue{number}}}}}}}}",
+             "-f", f"login={owner}", "-F", f"num={project_number}", check=False)
+    if not raw:
+        return
+    try:
+        project = json.loads(raw)["data"]["repositoryOwner"]["projectV2"]
+    except (KeyError, TypeError, json.JSONDecodeError):
+        return
+    if not project:
+        return
+
+    item = next((i for i in project["items"]["nodes"]
+                 if (i.get("content") or {}).get("number") == issue), None)
+    if not item:
+        return
+
+    fields = {f["name"]: f for f in project["fields"]["nodes"] if f.get("name")}
+
+    def set_field(name, value_expr, value_args):
+        f = fields.get(name)
+        if not f:
+            return
+        args = ["-f", f"p={project['id']}", "-f", f"i={item['id']}",
+                "-f", f"f={f['id']}"] + value_args
+        gh("api", "graphql", "-f",
+           "query=mutation($p:ID!,$i:ID!,$f:ID!,$v:" + value_expr[0] + "){"
+           "updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,"
+           "value:{" + value_expr[1] + "}}){projectV2Item{id}}}", *args, check=False)
+
+    if summary.get("days_in_gate") is not None:
+        set_field("Days in Gate", ("Float!", "number:$v"),
+                  ["-F", f"v={summary['days_in_gate']}"])
+    set_field("Partners", ("Float!", "number:$v"), ["-F", f"v={summary['partner_count']}"])
+    set_field("Partners Stalled", ("Float!", "number:$v"),
+              ["-F", f"v={summary['stalled_partners']}"])
+
+    entered = summary.get("gate_entered_at")
+    if entered:
+        set_field("Gate Entered", ("Date!", "date:$v"), ["-f", f"v={entered[:10]}"])
+
+    gate_name_str = gate_name(gates_config, summary["current_gate"])
+    gate_field = fields.get("Gate")
+    if gate_field and gate_field.get("options"):
+        opt = next((o for o in gate_field["options"] if o["name"] == gate_name_str), None)
+        if opt:
+            set_field("Gate", ("String!", "singleSelectOptionId:$v"), ["-f", f"v={opt['id']}"])
+
+    print(f"    portfolio fields updated for #{issue}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--factory-repo", required=True)
@@ -257,6 +330,8 @@ def main():
 
         if not args.dry_run:
             update_factory_issue(summary, gates_config, now)
+            update_portfolio_fields(summary, gates_config,
+                                    os.environ.get("FACTORY_PROJECT_NUMBER"), now)
 
     body = dashboard(summaries, gates_config, args.factory_repo, now)
 

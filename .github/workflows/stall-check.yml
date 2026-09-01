@@ -87,6 +87,7 @@ jobs:
       - name: Check for stalls
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          FACTORY_PROJECT_NUMBER: ${{ vars.FACTORY_PROJECT_NUMBER }}
         run: |
           set -euo pipefail
 
