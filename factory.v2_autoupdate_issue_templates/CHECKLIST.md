@@ -109,10 +109,14 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] Payload: study repo, commit SHA, commit URL, author, changed paths, timestamp
 - [ ] Verify `ORG_ADMIN_TOKEN` already present in provisioned repos can dispatch (§1.1 step 14)
 - [x] Ignore pushes authored by factory automation, to prevent self-triggering
-- [ ] Retire `factory-objective-update.yml`
-- [ ] Replace `scheduled-project-status-sync.yml` polling with issue-event triggers
-- [ ] Keep `manage-data-partners` but make it an upsert, and fix the CSV parser (§1.6)
-- [ ] Point the partner action at the *study* project explicitly, not `projectsV2[0]`
+- [x] Retired — no longer shipped in the overlay
+- [x] Polling removed — partner sync rides the existing `study_push` dispatch, so the 15-minute
+      cron across ten repos (~29k runs/year) is gone entirely
+- [x] Partner sync rebuilt Factory-side as `sync_partners.py`: real CSV parser, header aliases, upsert
+      that preserves human-set status labels, orphan rows reported never closed. Verified live on a CSV
+      containing a quoted institution with a comma and a row with a blank GitHub username — both of
+      which the v1 parser mishandled.
+- [x] Partner sync takes the study project id from the state file, not `projectsV2[0]`
 
 ## Phase 3 — Factory gate state machine (the thick half)
 
@@ -128,7 +132,7 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] **Always comment** — post which paths changed, in which commit, with a link. Pushes matching
       an already-passed gate also comment; pushes matching nothing stay silent, so comments keep meaning something.
 - [x] Gates 5 and 6 excluded from path detection
-- [ ] Gate 6 derived from partner issue status — needs the partner upsert (Phase 2)
+- [ ] Gate 6 derived from partner issue status — partner issues now exist; the derivation rule is still to write
 - [x] Record `gate_entered_at` on every transition — this is the stall clock
 - [x] Update the study repo's gate issue **and** the factory issue in the same run
 - [ ] Update project fields: current gate, date entered, partner roll-up
@@ -147,12 +151,14 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 
 ## Phase 5 — Stall detection
 
-- [ ] Study stall = days since `gate_entered_at`; default 21, configurable via repo variable
-- [ ] Partner stall = days since `max(last comment, last body edit)` (§4.2)
-- [ ] Daily scheduled sweep across all studies
-- [ ] Partner roll-up onto the factory issue — "4 partners, 2 stalled"
-- [ ] Single at-a-glance view of all ten studies
-- [ ] Retire `activity-check.yml` and its `pushed_at` signal
+- [x] Study stall = days since `gate_entered_at`; default 21, configurable in gates.json, per study
+      in its state file, or per run via workflow_dispatch
+- [x] Partner stall = days since `max(last comment, last body edit)` (§4.2)
+- [x] Daily scheduled sweep — `stall-check.yml`, 07:30 UTC
+- [x] Partner roll-up onto the factory issue — verified rendering "3 partners, 3 stalled"
+- [x] Single at-a-glance view — a `portfolio-status` dashboard issue, rewritten daily, sorted
+      most-stalled-first, with a per-partner breakdown of who has gone quiet
+- [x] Retired `activity-check.yml` and its `pushed_at` signal
 - [ ] Re-point or retire `bi-weekly-reminders.yml`
 
 ## Phase 6 — Project boards
@@ -195,9 +201,9 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 
 ## Phase 7 — Cleanup and docs
 
-- [ ] Delete `factory-issue-updater.yml` (dead — §1.4)
-- [ ] Delete `.github/data/study-status-issues.json`
-- [ ] Delete `.github/actions/create-status-issues`, `.github/actions/invite-collaborator`
+- [x] Deleted `factory-issue-updater.yml` (dead — §1.4)
+- [x] Deleted `.github/data/study-status-issues.json`
+- [x] Deleted `.github/actions/create-status-issues`, `.github/actions/invite-collaborator`
 - [ ] Delete `archive/` from factory
 - [ ] README section for study leads: what the automation does to their repo, and why the board
       moves without them touching anything
@@ -205,6 +211,18 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [ ] Log the PAT-expiry risk (D5) somewhere durable
 
 ## Phase 8 — Verification before the cohort sees it
+
+### Phase 5 end-to-end — PASSED on `main`
+
+Live on `study-zzz-stall-test`: three partner issues created from a deliberately awkward
+`partners.csv` (quoted institution containing a comma; row with a blank GitHub username), the
+portfolio dashboard rendered, and the roll-up written to the study's Factory issue. Forcing
+`threshold_days=0` flipped the study to 🔴 and all three partners to quiet, confirming the alarm
+path and not just the happy path.
+
+Two bugs found by that forced run:
+- `args.threshold or default` silently discarded an explicit `0`, so the alarm could not be tested.
+- The dashboard table ran into its trailing `---`, which markdown read as a setext underline.
 
 ### Phase 3 end-to-end — PASSED on `main`
 
