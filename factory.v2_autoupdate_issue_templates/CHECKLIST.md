@@ -28,7 +28,16 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked on
 - [x] **D4 — settled by consequence.** Stub `TEAM.md`, `Documents/research-question.md`,
       `Documents/results-summary.md` ship in the overlay. Required: a lead cannot pencil-edit a
       file that does not exist, and upstream provides none of the three.
-- [ ] **D5** PAT vs GitHub App for cross-repo writes *(rec: defer, log as risk)*
+- [!] **D5 — NOW BLOCKING.** `ORG_ADMIN_TOKEN` returns `Bad credentials (HTTP 401)`.
+      The PAT is expired or revoked, so **provisioning cannot run at all** — this is not caused by
+      the v2 changes and would fail identically on `main`. The last successful provision was
+      September 2025.
+  - Immediate fix: regenerate a classic PAT and update the `ORG_ADMIN_TOKEN` secret on
+    `seanr87/Factory`. Scopes needed: `repo`, `workflow` (the overlay pushes a workflow file),
+    `delete_repo`, `project`, `admin:org`.
+  - This is exactly the failure mode logged in AUDIT §1.5: a PAT bound to one person's account,
+    expiring silently. Worth revisiting the GitHub App path, and D12 (move to `OHDSI-JHU`),
+    once v2 is landed.
 - [ ] **D6** Allow out-of-order gate evidence without backfilling *(rec: yes)*
 - [x] **D7 — RESOLVED: clean slate.** Nothing is in production. The 19 test `study-*` repos under
       `seanr87` are test artifacts from Aug–Sep 2025 ("Left toe fungus", "Eagles 24 Cowboys 20",
@@ -111,6 +120,11 @@ Nothing below Phase 1 should start until D1–D4 are settled.
       — `.github/data/gates.json`, generated from the templates by `tools/build_gates.py`
 - [ ] `repository_dispatch` receiver mapping changed paths → candidate gate
 - [ ] Baseline-diff check so scaffold-shipped files don't false-fire (§3.2)
+- [ ] **Gap found in testing:** the baseline is captured *before* the overlay push, so the three
+      overlay-supplied files (`TEAM.md`, both `Documents/` stubs) have no recorded blob SHA.
+      Change-driven detection is unaffected, but the dispatcher's "no usable base commit" fallback
+      lists every tracked file — and would then read an untouched stub as evidence. Fix: re-read
+      the tree after the overlay commit and add those three SHAs to the baseline.
 - [ ] **Advance only** — reject any transition to a lower gate, log the rejection
 - [ ] **Propose, don't close** — evidenced gate moves to `Ready for review`; a human closes
 - [ ] **Always comment** — post which paths changed, in which commit, with a link
@@ -190,6 +204,26 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [ ] Log the PAT-expiry risk (D5) somewhere durable
 
 ## Phase 8 — Verification before the cohort sees it
+
+### Test run log
+
+- [x] **Path Contract Check** — passed in CI on `factory-v2-phase1`
+      ([run 33467120633](https://github.com/seanr87/Factory/actions/runs/33467120633)):
+      gatelib self-test 9/9, `gates.json` in sync, all 8 upstream detection paths matching.
+- [x] **Provision smoke test — PASSED**
+      ([run 33467968753](https://github.com/seanr87/Factory/actions/runs/33467968753)), after two
+      failures that each found a real defect:
+  - run 33467264099 — `ORG_ADMIN_TOKEN` invalid (401). PAT regenerated. **Provisioning had been
+    broken since ~Sept 2025 and nobody knew.**
+  - run 33467605623 — baseline commit rebased onto a hardcoded `main`; fixed to use
+    `github.ref_name`.
+  - Verified end to end: scaffolded from upstream `8c5c4a8`; **12 baseline blobs** recorded with
+    only the 3 overlay-supplied paths unmatched; overlay applied as one `[factory-overlay]` commit
+    (`TEAM.md`, `partners.csv`, both `Documents/` stubs, `notify-factory.yml`); `FACTORY_REPO` set;
+    dispatcher **skipped** the overlay commit; a subsequent `TEAM.md` edit dispatched exactly
+    `1 changed path: TEAM.md` to Factory with a 204.
+  - The `ORG_ADMIN_TOKEN` PAT **does** carry `workflow` scope — pushing `.github/workflows/`
+    cross-repo works, which was the top pre-test risk.
 
 - [ ] End-to-end on a throwaway study repo: provision → edit `TEAM.md` in browser → Gate 0 moves to `Ready for review` → comment posted
 - [ ] Confirm no gate false-fires on the provisioning commits themselves (README population)
