@@ -1,0 +1,51 @@
+name: 'Create Gate Issues'
+description: 'Creates the Gate 0-7 issues in a study repository and seeds its gate state'
+
+# Replaces create-status-issues. v1 created three coarse milestones that the lead
+# had to close by hand; these are the eight gates whose progress Factory detects
+# from the artefacts a Strategus study leaves behind.
+#
+# Also writes the study's state file, which records which issue is which gate.
+# The state machine reads that rather than matching issues by title — a title is
+# the sort of thing somebody edits, and a gate that silently stops advancing is
+# exactly the failure this system exists to prevent.
+
+inputs:
+  repo_full_name:
+    description: 'Study repository, owner/name'
+    required: true
+  factory_issue_number:
+    description: 'Factory tracking issue number'
+    required: true
+  project_id:
+    description: 'Study project ID, to add the gate issues to'
+    required: false
+    default: ''
+  org_token:
+    description: 'Organization admin token'
+    required: true
+
+outputs:
+  issues_created:
+    description: 'Number of gate issues created'
+    value: ${{ steps.create.outputs.issues_created }}
+  state_path:
+    description: 'Path to the written state file, relative to the Factory checkout'
+    value: ${{ steps.create.outputs.state_path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create gate issues and seed state
+      id: create
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+      run: |
+        set -euo pipefail
+
+        python3 .github/scripts/create_gate_issues.py \
+          --repo "${{ inputs.repo_full_name }}" \
+          --factory-repo "${{ github.repository }}" \
+          --factory-issue "${{ inputs.factory_issue_number }}" \
+          --project-id "${{ inputs.project_id }}"

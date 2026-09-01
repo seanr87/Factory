@@ -120,3 +120,61 @@ runs:
 
         cd /
         rm -rf "$WORK"
+
+    # The baseline was captured before this overlay landed, so the files Factory
+    # supplies — TEAM.md and the Documents/ stubs — had no recorded blob SHA.
+    # Detection is normally change-driven and unaffected, but the dispatcher
+    # falls back to listing every tracked file when it has no usable base commit
+    # (a force push, a fresh branch). Without these SHAs an untouched stub would
+    # read as evidence and advance a gate the lead never worked on.
+    - name: Extend baseline with overlay files
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.org_token }}
+        REPO_FULL_NAME: ${{ inputs.repo_full_name }}
+      run: |
+        set -euo pipefail
+
+        SLUG="${REPO_FULL_NAME##*/}"
+        export BASELINE_PATH=".github/data/baselines/${SLUG}.json"
+
+        if [[ ! -f "$BASELINE_PATH" ]]; then
+          echo "::warning::No baseline at $BASELINE_PATH; skipping overlay extension"
+          exit 0
+        fi
+
+        gh api "repos/${REPO_FULL_NAME}/git/trees/HEAD?recursive=1" > overlay-tree.json
+
+        python3 - <<'PY'
+        import json, os, pathlib, sys
+
+        sys.path.insert(0, ".github/scripts")
+        from gatelib import expand
+
+        gates = json.load(open(".github/data/gates.json", encoding="utf-8"))
+        tree = json.load(open("overlay-tree.json", encoding="utf-8"))
+        path = pathlib.Path(os.environ["BASELINE_PATH"])
+        baseline = json.loads(path.read_text(encoding="utf-8"))
+
+        blobs = {n["path"]: n["sha"] for n in tree.get("tree", []) if n["type"] == "blob"}
+
+        added = {}
+        for pattern in baseline.get("unmatched_patterns", []):
+            for hit in expand(pattern, blobs):
+                added[hit] = blobs[hit]
+
+        baseline["blobs"].update(added)
+        baseline["blobs"] = dict(sorted(baseline["blobs"].items()))
+        baseline["overlay_baseline"] = sorted(added)
+        baseline["unmatched_patterns"] = [
+            p for p in baseline.get("unmatched_patterns", [])
+            if not expand(p, blobs)
+        ]
+
+        path.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+        print(f"  added {len(added)} overlay blob(s) to the baseline: {sorted(added)}")
+        if baseline["unmatched_patterns"]:
+            print(f"  still unmatched: {baseline['unmatched_patterns']}")
+        PY
+
+        rm -f overlay-tree.json

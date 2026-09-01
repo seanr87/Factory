@@ -175,76 +175,14 @@ jobs:
           ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -o '[0-9]*$')
           echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Create status tracking issues
-        id: status_issues
-        uses: ./.github/actions/create-status-issues
+      - name: Create gate issues
+        id: gate_issues
+        uses: ./.github/actions/create-gate-issues
         with:
-          repo_name: ${{ steps.validate.outputs.repo_name }}
-          study_title: ${{ inputs.study_title }}
-          project_id: ${{ steps.project.outputs.project_id }}
-          lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
+          repo_full_name: ${{ steps.repo.outputs.repo_full_name }}
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
+          project_id: ${{ steps.project.outputs.project_id }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
-
-      - name: Update Factory issue with objective links
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.ORG_ADMIN_TOKEN }}
-          script: |
-            const factoryIssueNumber = ${{ steps.extract_issue_number.outputs.issue_number }};
-            const issuesData = JSON.parse('${{ steps.status_issues.outputs.issues_data }}');
-            
-            console.log('Updating Factory issue with objective links...');
-            console.log('Issues data:', issuesData);
-            
-            // Get current Factory issue
-            const factoryIssue = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: factoryIssueNumber
-            });
-            
-            let updatedBody = factoryIssue.data.body;
-            console.log('Original Factory issue body:');
-            console.log('---START BODY---');
-            console.log(updatedBody);
-            console.log('---END BODY---');
-            
-            // Update each objective row with links
-            for (const issue of issuesData) {
-              const objectiveName = issue.factory_objective;
-              const issueUrl = issue.url;
-              
-              // Replace unlinked objective with linked version
-              const oldRow = `| ${objectiveName} | — |`;
-              const newRow = `| [${objectiveName}](${issueUrl}) | — |`;
-              
-              console.log(`Looking for: "${oldRow}"`);
-              console.log(`Replacing with: "${newRow}"`);
-              
-              const beforeReplace = updatedBody.includes(oldRow);
-              console.log(`Found old row: ${beforeReplace}`);
-              
-              updatedBody = updatedBody.replace(oldRow, newRow);
-              
-              const afterReplace = updatedBody.includes(newRow);
-              console.log(`New row present: ${afterReplace}`);
-            }
-            
-            console.log('Updated Factory issue body:');
-            console.log('---START UPDATED BODY---');
-            console.log(updatedBody);
-            console.log('---END UPDATED BODY---');
-            
-            // Update the Factory issue
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: factoryIssueNumber,
-              body: updatedBody
-            });
-            
-            console.log('✅ Factory issue updated with objective links');
 
       - name: Populate study template files
         id: populate_files
@@ -268,7 +206,7 @@ jobs:
           lead_github: ${{ steps.resolve_lead.outputs.lead_github }}
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           project_url: ${{ steps.project.outputs.project_url }}
-          issues_data: ${{ steps.status_issues.outputs.issues_data }}
+          issues_data: "[]"
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Configure study repository secrets
@@ -310,33 +248,39 @@ jobs:
       # Factory owns the baselines, not the study repos — a lead cannot edit what they
       # cannot see, and gate logic stays in one place. Written by create-study-repository
       # into this checkout; committed here.
-      - name: Commit detection baseline
+      # Baseline and gate state are Factory's record of this study: which template
+      # commit it came from, what the template's files looked like, and which issue
+      # is which gate. The state machine reads both on every dispatch.
+      - name: Commit detection baseline and gate state
         env:
           BASELINE_PATH: ${{ steps.repo.outputs.baseline_path }}
+          STATE_PATH: ${{ steps.gate_issues.outputs.state_path }}
           UPSTREAM_SHA: ${{ steps.repo.outputs.upstream_sha }}
           REPO_NAME: ${{ steps.validate.outputs.repo_name }}
         run: |
           set -euo pipefail
 
-          if [[ ! -f "$BASELINE_PATH" ]]; then
-            echo "::error::Baseline file missing at $BASELINE_PATH"
-            exit 1
-          fi
+          for f in "$BASELINE_PATH" "$STATE_PATH"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::Expected file missing: $f"
+              exit 1
+            fi
+          done
 
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add "$BASELINE_PATH"
+          git add "$BASELINE_PATH" "$STATE_PATH"
 
           if git diff --staged --quiet; then
             echo "No baseline changes to commit"
           else
-            git commit -m "Record detection baseline for ${REPO_NAME} (upstream ${UPSTREAM_SHA:0:7})"
+            git commit -m "Initialise ${REPO_NAME}: detection baseline (upstream ${UPSTREAM_SHA:0:7}) and gate state"
             # Rebase onto the branch this run is on, not a hardcoded main — otherwise
             # provisioning from any other branch tries to rebase that branch's commits
             # onto main and conflicts.
             git pull --rebase origin "${{ github.ref_name }}"
             git push origin "HEAD:${{ github.ref_name }}"
-            echo "✅ Committed baseline for ${REPO_NAME}"
+            echo "✅ Committed baseline and gate state for ${REPO_NAME}"
           fi
 
       - name: Summary
@@ -349,7 +293,7 @@ jobs:
           echo "**Project:** ${{ steps.project.outputs.project_url }}"
           echo "**Lead:** @${{ steps.resolve_lead.outputs.lead_github }}"
           echo "**Factory Tracking:** ${{ steps.tracking.outputs.issue_url }}"
-          echo "**Status Issues:** ${{ steps.status_issues.outputs.issues_created }} created"
+          echo "**Gate issues:** ${{ steps.gate_issues.outputs.issues_created }} created (Gates 0-7)"
           echo "**Template Files:** ${{ steps.populate_files.outputs.files_populated }} files populated with study data"
           echo "**README:** Created with objectives checklist and access instructions"
           echo ""

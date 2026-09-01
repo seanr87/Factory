@@ -1,0 +1,133 @@
+# Receives push notifications from study repositories and advances gates.
+#
+# Study repos report raw changed paths and nothing else. All the gate logic is
+# here, so gates can be redefined without editing ten study repositories.
+#
+# The rules this enforces are in .github/scripts/gate_machine.py, which has its
+# own self-test: advance only, propose don't close, manual gates 5 and 6, and a
+# baseline check so the Strategus template's own files never count as evidence.
+
+name: Gate State Machine
+
+on:
+  repository_dispatch:
+    types: [study_push]
+  workflow_dispatch:
+    inputs:
+      study_repo:
+        description: 'Study repo to re-evaluate (owner/name)'
+        required: true
+        type: string
+      commit_sha:
+        description: 'Commit SHA to evaluate'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  # Two pushes from the same study must not race on its state file. Queue rather
+  # than cancel: every push is evidence and dropping one loses a gate advance.
+  group: gate-state-${{ github.event.client_payload.study_repo || inputs.study_repo }}
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      - name: Build payload
+        id: payload
+        env:
+          DISPATCH: ${{ toJSON(github.event.client_payload) }}
+          MANUAL_REPO: ${{ inputs.study_repo }}
+          MANUAL_SHA: ${{ inputs.commit_sha }}
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${MANUAL_REPO:-}" ]]; then
+            # Manual re-evaluation: reconstruct the payload from the commit.
+            gh api "repos/${MANUAL_REPO}/commits/${MANUAL_SHA}" > commit.json
+            python3 - <<'PY'
+          import json, os
+          c = json.load(open("commit.json"))
+          json.dump({
+              "study_repo": os.environ["MANUAL_REPO"],
+              "commit_sha": c["sha"],
+              "commit_url": c["html_url"],
+              "commit_message": c["commit"]["message"],
+              "author": (c.get("author") or {}).get("login", ""),
+              "pushed_at": c["commit"]["author"]["date"],
+              "paths": [f["filename"] for f in c.get("files", [])],
+          }, open("payload.json", "w"), indent=2)
+          PY
+          else
+            printf '%s' "$DISPATCH" > payload.json
+          fi
+
+          python3 -c "
+          import json
+          p = json.load(open('payload.json'))
+          assert p.get('study_repo'), 'payload missing study_repo'
+          assert p.get('commit_sha'), 'payload missing commit_sha'
+          print(f\"  study: {p['study_repo']}\")
+          print(f\"  commit: {p['commit_sha'][:7]}\")
+          print(f\"  paths: {len(p.get('paths', []))}\")
+          "
+
+      - name: Verify rules before applying them
+        run: |
+          python3 .github/scripts/gatelib.py
+          python3 .github/scripts/gate_machine.py
+
+      - name: Evaluate and apply
+        id: apply
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: python3 .github/scripts/run_gate_machine.py --payload payload.json
+
+      - name: Commit gate state
+        if: steps.apply.outputs.advanced == 'true'
+        env:
+          STATE_PATH: ${{ steps.apply.outputs.state_path }}
+          TO_GATE: ${{ steps.apply.outputs.to_gate }}
+        run: |
+          set -euo pipefail
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "OHDSI Study Factory"
+          git add "$STATE_PATH"
+
+          if git diff --staged --quiet; then
+            echo "No state change to commit"
+            exit 0
+          fi
+
+          git commit -m "Advance $(basename "$STATE_PATH" .json) to gate ${TO_GATE}"
+
+          # Another study's dispatch may have landed while this one ran. Rebase
+          # and retry rather than failing: losing a gate advance is worse than
+          # a slow job.
+          for attempt in 1 2 3; do
+            if git pull --rebase --quiet origin "${{ github.ref_name }}" \
+               && git push --quiet origin "HEAD:${{ github.ref_name }}"; then
+              echo "✅ State committed (attempt $attempt)"
+              exit 0
+            fi
+            echo "  push attempt $attempt failed, retrying"
+            sleep $((attempt * 3))
+          done
+
+          echo "::error::Could not commit gate state after 3 attempts"
+          exit 1
+
+      - name: Clean up
+        if: always()
+        run: rm -f payload.json commit.json
