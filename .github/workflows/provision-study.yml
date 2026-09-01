@@ -47,6 +47,16 @@ jobs:
   provision:
     runs-on: ubuntu-latest
     steps:
+      # Provisioning writes the study's baseline and gate state to the branch it
+      # runs on, but repository_dispatch always delivers to the default branch.
+      # Provisioning from a branch therefore produces a study whose pushes reach
+      # Factory and are then discarded as "not a tracked study" — the study looks
+      # fine and simply never advances.
+      - name: Warn if not running on the default branch
+        if: github.ref_name != github.event.repository.default_branch
+        run: |
+          echo "::warning::Provisioning from '${{ github.ref_name }}', not "            "'${{ github.event.repository.default_branch }}'. The study's state file will be "            "committed to this branch, but repository_dispatch only delivers to the default "            "branch, so gate detection will not work until this branch is merged."
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
