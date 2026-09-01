@@ -130,6 +130,59 @@ def update_factory_issue(state, gates_config, payload):
                     "--body", body], check=False, capture_output=True, text=True)
 
 
+def update_study_board_status(state, gate_number, status_name="Ready for review"):
+    """Move the gate's card on the study's own board.
+
+    On the study board each item is a gate, so the axis that matters is how far
+    along that gate is — which is what the Milestones view groups by. The
+    portfolio board is the other way round: each item is a whole study, so it
+    carries a Gate field instead.
+
+    Best-effort. A board that cannot be written must never fail a gate advance;
+    the issue comment and the state file are the record.
+    """
+    project_id = state.get("study_project_id")
+    issue = state.get("gate_issues", {}).get(str(gate_number))
+    if not project_id or not issue:
+        return
+
+    raw = gh("api", "graphql", "-f",
+             "query=query($p:ID!){node(id:$p){... on ProjectV2{"
+             "field(name:\"Status\"){... on ProjectV2SingleSelectField{id options{id name}}} "
+             "items(first:100){nodes{id content{... on Issue{number}}}}}}}",
+             "-f", f"p={project_id}", check=False)
+    if not raw:
+        return
+    try:
+        project = json.loads(raw)["data"]["node"]
+    except (KeyError, TypeError, json.JSONDecodeError):
+        return
+    if not project or not project.get("field"):
+        print("  study board: no Status field, skipping")
+        return
+
+    item = next((i for i in project["items"]["nodes"]
+                 if (i.get("content") or {}).get("number") == issue), None)
+    if not item:
+        print(f"  study board: gate issue #{issue} is not on the board, skipping")
+        return
+
+    option = next((o for o in project["field"]["options"]
+                   if o["name"].lower() == status_name.lower()), None)
+    if not option:
+        names = ", ".join(o["name"] for o in project["field"]["options"])
+        print(f"  study board: no '{status_name}' option on Status (have: {names})")
+        return
+
+    gh("api", "graphql", "-f",
+       "query=mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue("
+       "input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}"
+       "){projectV2Item{id}}}",
+       "-f", f"p={project_id}", "-f", f"i={item['id']}",
+       "-f", f"f={project['field']['id']}", "-f", f"o={option['id']}", check=False)
+    print(f"  study board: gate {gate_number} -> {status_name}")
+
+
 def update_portfolio_gate(state, gate_title, project_number):
     """Set the study's Gate field on the Factory portfolio board.
 
@@ -262,6 +315,7 @@ def main():
         comment(study_repo, gate_issue, evidence_comment(decision, payload, gate_title))
         print(f"commented on {study_repo}#{gate_issue}")
 
+    update_study_board_status(state, decision.to_gate)
     update_factory_issue(state, gates_config, payload)
     update_portfolio_gate(state, gate_title,
                           subprocess.os.environ.get("FACTORY_PROJECT_NUMBER"))
