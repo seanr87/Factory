@@ -44,10 +44,13 @@
       ]
     },
     "3": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-01T23:31:14+00:00",
       "issue": 4,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "inst/Cohorts.csv"
+      ]
     },
     "4": {
       "status": "not_started",
