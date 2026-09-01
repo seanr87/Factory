@@ -130,7 +130,7 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [x] Gates 5 and 6 excluded from path detection
 - [ ] Gate 6 derived from partner issue status — needs the partner upsert (Phase 2)
 - [x] Record `gate_entered_at` on every transition — this is the stall clock
-- [ ] Update the study repo's gate issue **and** the factory issue in the same run
+- [x] Update the study repo's gate issue **and** the factory issue in the same run
 - [ ] Update project fields: current gate, date entered, partner roll-up
 
 ## Phase 4 — Issue creation and templates
@@ -205,6 +205,20 @@ Nothing below Phase 1 should start until D1–D4 are settled.
 - [ ] Log the PAT-expiry risk (D5) somewhere durable
 
 ## Phase 8 — Verification before the cohort sees it
+
+### Phase 3 end-to-end — PASSED on `main`
+
+Branch merged to `main` first, because `repository_dispatch` only ever triggers workflows on the
+default branch (see constraint below). Live results on `study-zzz-e2e-gate-test`:
+
+| Action | Result |
+|---|---|
+| Provision | 8 gate issues, baseline (15 blobs), state file committed |
+| Edit `TEAM.md` | dispatch → **advance −1 → 0**, Gate 0 issue commented, state committed, Factory issue status block written |
+| Edit `Documents/Protocol.Rmd` | **advance 0 → 2** |
+| Edit `TEAM.md` again | **HELD at gate 2** — "advance only, never retreat", comment explains why |
+
+History recorded as `[(-1, 0), (0, 2)]` — no retreat, and the skipped Gate 1 was not backfilled (D6).
 
 ### Known constraint
 
