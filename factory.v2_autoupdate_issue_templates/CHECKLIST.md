@@ -43,14 +43,17 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked on
       `seanr87` are test artifacts from Aug–Sep 2025 ("Left toe fungus", "Eagles 24 Cowboys 20",
       "absolutely zero"); the 2026 cohort has not been provisioned. No migration, no back-compat,
       no legacy path aliases. v2 can be built as the only implementation.
-- [~] **D8** Test-artifact cleanup.
+- [x] **D8 — DONE.** Test-artifact cleanup complete.
   - [x] 19 test `study-*` repositories deleted
   - [x] `seanr87/study-template` archived
-  - [ ] 117 orphaned `Study: *` ProjectV2 boards deleted — blocked by the auto-mode classifier
-        (bulk deletion); run `scratchpad/d8-cleanup.sh` section 1
-  - [ ] 19 stale factory issues closed — same block; run `d8-cleanup.sh` section 2
-  - Preserved deliberately: Factory Portfolio (#40), Factory Development (#57),
-    `study-template-project-template` (#141), and all non-study projects.
+  - [x] 123 orphaned `Study: *` ProjectV2 boards deleted — 167 projects down to 44, none matching
+  - [x] 23 stale factory issues closed as *not planned* (20 `study-tracking` + 3 legacy `study`)
+  - Preserved: Factory Portfolio (#40), Factory Development (#57),
+    `study-template-project-template` (#141), and all unrelated projects.
+  - Cleanup script kept at `tools/d8-cleanup.ps1` (gitignored). It first failed to delete anything:
+    project ids were inlined as quoted GraphQL literals, and Windows argument parsing strips the
+    quotes, so the API read `projectId:PVT_xxx` as an enum — and ids containing a hyphen were then
+    read by `gh` as CLI flags. Fixed to pass ids as GraphQL variables.
 - [x] **D9 — DECIDED: keep one ProjectV2 board per study**, with three views built in at provisioning.
       Factory keeps its own portfolio board for the cross-study stall radar; gate transitions write
       to both targets. My recommendation was one board; overridden, and that is the call.
