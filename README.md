@@ -58,7 +58,7 @@ editing ten study repositories.
 | 4 | Analysis specification built | `inst/analysisSpecifications.json`, the spec script |
 | 5 | Data partners recruited | derived from partner status: three committed |
 | 6 | Study executed across partners | derived from partner status: all committed returned |
-| 7 | Results synthesised and shared | `Documents/results-summary.md` |
+| 7 | Manuscript submitted | `Documents/results-summary.md` |
 
 Gate prose lives in [`.github/issue-templates/`](.github/issue-templates/) and is what
 study leads read. Its front matter carries the machine-readable config, which

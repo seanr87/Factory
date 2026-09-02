@@ -21,4 +21,4 @@ _What this study cannot conclude, stated as clearly as what it can._
 
 ## Dissemination
 
-_Community call, symposium abstract, manuscript — where this is going._
+_Community call, symposium abstract, and the manuscript: which journal, and the date it was submitted._
