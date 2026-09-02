@@ -61,21 +61,64 @@ def gh(*args, check=True):
     return r.stdout.strip()
 
 
-def partner_states(repo):
+ISSUE_FIELDS = "number,title,labels,createdAt,state"
+
+
+def partner_record(issue):
+    labels = [l["name"] for l in issue.get("labels", [])]
+    status = next((l for l in labels if l.startswith("status:")), None)
+    return {"number": issue["number"],
+            "title": issue["title"].replace("Data partner — ", ""),
+            "status": status,
+            "labels": labels,
+            "created_at": issue.get("createdAt")}
+
+
+def merge_partners(listed, expected, fetch):
+    """Every open partner issue: the listing, plus any expected issue it missed.
+
+    GitHub's issue listing can lag a just-created issue by a second or so. The
+    sync that runs before this on a push creates issues and then names them,
+    and this fetches any of those the listing left out — by number, which does
+    not lag — so Gate 5 never reports two partners when the CSV has three.
+    fetch(number) returns the raw issue or None.
+    """
+    out = [partner_record(i) for i in listed]
+    seen = {p["number"] for p in out}
+    for number in expected:
+        if number in seen:
+            continue
+        issue = fetch(number)
+        if not issue or issue.get("state", "OPEN").upper() != "OPEN":
+            continue
+        if "partner" not in {l["name"] for l in issue.get("labels", [])}:
+            continue
+        out.append(partner_record(issue))
+        seen.add(number)
+    return out
+
+
+def partner_states(repo, expected=()):
     raw = gh("issue", "list", "--repo", repo, "--label", "partner",
              "--state", "open", "--limit", "200",
-             "--json", "number,title,labels,createdAt", check=False)
-    if not raw:
-        return []
+             "--json", ISSUE_FIELDS, check=False)
+    listed = json.loads(raw) if raw else []
+
+    def fetch(number):
+        raw = gh("issue", "view", str(number), "--repo", repo,
+                 "--json", ISSUE_FIELDS, check=False)
+        return json.loads(raw) if raw else None
+
+    return merge_partners(listed, expected, fetch)
+
+
+def parse_expected(text):
+    """'9,10,11' -> [9, 10, 11]; blanks and junk ignored."""
     out = []
-    for issue in json.loads(raw):
-        labels = [l["name"] for l in issue.get("labels", [])]
-        status = next((l for l in labels if l.startswith("status:")), None)
-        out.append({"number": issue["number"],
-                    "title": issue["title"].replace("Data partner — ", ""),
-                    "status": status,
-                    "labels": labels,
-                    "created_at": issue.get("createdAt")})
+    for piece in (text or "").split(","):
+        piece = piece.strip().lstrip("#")
+        if piece.isdigit():
+            out.append(int(piece))
     return out
 
 
@@ -193,7 +236,17 @@ def main():
     ap.add_argument("--state-dir", default=".github/data/state")
     ap.add_argument("--study", default="", help="limit to one study repo")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--expect", default="",
+                    help="comma-separated partner issue numbers that must be "
+                         "included even if the listing has not caught up "
+                         "(only meaningful with --study)")
+    ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
+
+    expected = parse_expected(args.expect)
 
     gates_config = json.loads(GATES.read_text(encoding="utf-8"))
     derived = [g for g in gates_config["gates"]
@@ -224,7 +277,7 @@ def main():
             print(f"  {repo}: {change}")
         dirty = bool(closure_changes)
 
-        partners = partner_states(repo)
+        partners = partner_states(repo, expected if args.study else ())
         if partners:
             # A lead may have dragged a card on the board or changed a label.
             # Bring the two into step before reading either, so the gates are
@@ -305,6 +358,59 @@ def main():
         with open(out, "a", encoding="utf-8") as fh:
             fh.write(("changed=true" if changed else "changed=false") + NEWLINE)
             fh.write("changed_studies=" + ",".join(changed) + NEWLINE)
+    return 0
+
+
+def self_test():
+    def issue(n, title, labels, state="OPEN"):
+        return {"number": n, "title": f"Data partner — {title}",
+                "labels": [{"name": l} for l in labels],
+                "createdAt": "2026-09-02T13:15:18Z", "state": state}
+
+    store = {
+        9: issue(9, "Sugar Man University", ["partner", "status:not-contacted"]),
+        10: issue(10, "Candyland", ["partner", "status:not-contacted"]),
+        11: issue(11, "Cape Town University", ["partner", "status:not-contacted"]),
+        12: issue(12, "Closed U", ["partner", "status:declined"], state="CLOSED"),
+        13: issue(13, "Not a partner", ["work-item"]),
+    }
+    fetched = []
+
+    def fetch(n):
+        fetched.append(n)
+        return store.get(n)
+
+    # The listing missed #11 (the case that produced "2 partner(s)" for 3).
+    got = merge_partners([store[9], store[10]], [9, 10, 11], fetch)
+    assert [p["number"] for p in got] == [9, 10, 11], got
+    assert got[2]["title"] == "Cape Town University"
+    assert got[2]["status"] == "status:not-contacted"
+    assert fetched == [11], fetched  # listed issues are not re-fetched
+
+    # Nothing expected: plain listing, no fetches.
+    fetched.clear()
+    got = merge_partners([store[9]], [], fetch)
+    assert [p["number"] for p in got] == [9] and fetched == []
+
+    # Expected but closed, unlabelled, or gone: left out, not crashed on.
+    got = merge_partners([], [12, 13, 99], fetch)
+    assert got == [], got
+
+    # Listing empty and everything expected: all fetched.
+    got = merge_partners([], [9, 10, 11], fetch)
+    assert [p["number"] for p in got] == [9, 10, 11]
+
+    assert parse_expected("9,10,11") == [9, 10, 11]
+    assert parse_expected(" #9, ,x,11 ") == [9, 11]
+    assert parse_expected("") == []
+
+    # Gate 5 reads three partners as three.
+    rules = {"in_progress_when": "any_partner", "ready_when": "minimum_committed",
+             "minimum_partners": 3}
+    status, reason = gate_state(rules, got)
+    assert status == IN_PROGRESS and reason.startswith("3 partner(s)"), reason
+
+    print("derive_partner_gates self-test passed")
     return 0
 
 
