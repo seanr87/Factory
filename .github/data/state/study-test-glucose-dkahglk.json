@@ -4,8 +4,8 @@
   "factory_issue": 188,
   "study_project_id": "PVT_kwDOCQMYQc4BiOrc",
   "default_branch": "main",
-  "current_gate": 2,
-  "gate_entered_at": "2026-09-02T13:02:41+00:00",
+  "current_gate": 3,
+  "gate_entered_at": "2026-09-02T13:09:36+00:00",
   "stall_threshold_days": 21,
   "start_date": "2026-09-02",
   "target_date": "2027-01-01",
@@ -107,10 +107,12 @@
       "ready_at": "2026-09-02T13:02:41+00:00"
     },
     "3": {
-      "status": "in_progress",
+      "status": "ready_for_review",
       "entered_at": "2026-09-02T13:08:01+00:00",
       "issue": 4,
-      "evidenced_by": [],
+      "evidenced_by": [
+        "inst/Cohorts.csv"
+      ],
       "outstanding": [
         "inst/Cohorts.csv"
       ],
@@ -136,8 +138,20 @@
             "inst/cohorts/31.json"
           ],
           "removed": []
+        },
+        {
+          "sha": "2fdc85a5a4621390506842aa5fa71d650426d5eb",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/2fdc85a5a4621390506842aa5fa71d650426d5eb",
+          "at": "2026-09-02T13:09:18+00:00",
+          "author": "seanr87",
+          "message": "Update Cohorts.csv",
+          "paths": [
+            "inst/Cohorts.csv"
+          ],
+          "removed": []
         }
-      ]
+      ],
+      "ready_at": "2026-09-02T13:09:36+00:00"
     },
     "4": {
       "status": "not_started",
@@ -200,6 +214,15 @@
       "commit": "e2de4f0b4ce8e4fab38f84df3d300bc1512cc0f3",
       "evidence": [
         "Documents/Protocol.Rmd"
+      ]
+    },
+    {
+      "at": "2026-09-02T13:09:36+00:00",
+      "from_gate": 2,
+      "to_gate": 3,
+      "commit": "2fdc85a5a4621390506842aa5fa71d650426d5eb",
+      "evidence": [
+        "inst/Cohorts.csv"
       ]
     }
   ]
