@@ -16,11 +16,13 @@ every job that learns something about a study calls it:
 What it shows, and where each part comes from:
 
   Progress        the study's state file: current gate, time in it, last push
-  Study history   every gate with its status and the date it got there. Gates are
-                  named by what they are for, not their number — the number is a
-                  Factory detail, the name is what a person asks about. A gate
-                  whose issue a human has closed shows as closed, on that date,
-                  because closing is the one thing the state file cannot see.
+  Study history   every gate with its status now and the dates it reached In
+                  progress, Ready for review, and Closed — three separate
+                  columns, so the record can be studied later. Gates are named
+                  by what they are for, not their number: the number is a
+                  Factory detail, the name is what a person asks about. Closed
+                  comes from the gate issue itself, because closing is the one
+                  thing the state file cannot see.
   Study team      TEAM.md in the study repository: name, institution, role,
                   GitHub username
   Data partners   the partner issues: institution, status, contact, and how long
@@ -256,19 +258,15 @@ def gate_name(title):
     return GATE_PREFIX.sub("", title)
 
 
-def reached_at(state, number, rec):
-    """When the gate got to where it is.
+def advanced_at(state, number):
+    """When the study advanced to this gate, from the state's history."""
+    stamps = [h["at"] for h in state.get("history", [])
+              if h.get("to_gate") == number and h.get("at")]
+    return stamps[-1] if stamps else None
 
-    Ready for review is dated by the advance that produced it, not by
-    `entered_at`, which is set when work is first seen and never moved — a gate
-    that spent a month In progress would otherwise show the wrong date.
-    """
-    if rec.get("status") in (READY, DONE):
-        advances = [h["at"] for h in state.get("history", [])
-                    if h.get("to_gate") == number and h.get("at")]
-        if advances:
-            return advances[-1]
-    return rec.get("entered_at")
+
+def _day(stamp):
+    return (stamp or "")[:10] or "—"
 
 
 def gate_issue_states(repo, gate_issues):
@@ -293,6 +291,15 @@ def gate_issue_states(repo, gate_issues):
 
 
 def history_rows(state, gates_config, closed=None):
+    """One row per gate: its status now, and when it reached each status.
+
+    Three dates, kept apart so the record can be studied later: when work was
+    first seen, when Factory saw enough to propose review, and when a human
+    closed the issue. Ready for review is dated by the advance that produced
+    it, not by `entered_at`, which is set at first sight and never moved. A
+    gate that went straight to Ready for review was never In progress, and
+    says so rather than repeating the same date twice.
+    """
     closed = closed or {}
     rows = []
     for gate in sorted(gates_config["gates"], key=lambda g: g["gate"]):
@@ -300,15 +307,20 @@ def history_rows(state, gates_config, closed=None):
         rec = state.get("gates", {}).get(str(n), {})
         issue = state.get("gate_issues", {}).get(str(n)) or rec.get("issue")
         status = rec.get("status", NOT_STARTED)
-        date = reached_at(state, n, rec)
+        entered = rec.get("entered_at")
+        ready = (advanced_at(state, n) or entered) if status in (READY, DONE) else None
+        in_progress = entered if entered and (not ready or entered < ready) else None
+        closed_at = closed.get(issue) if issue in closed else None
         if issue in closed:
-            status, date = DONE, closed[issue] or date
+            status = DONE
         rows.append({
             "gate": n,
             "name": gate_name(gate["title"]),
             "status": status,
             "status_text": STATUS_TEXT.get(status, status),
-            "date": (date or "")[:10] or "—",
+            "in_progress": _day(in_progress),
+            "ready": _day(ready),
+            "closed": _day(closed_at),
             "issue": issue,
         })
     return rows
@@ -361,18 +373,23 @@ def activity_line(activity, previous):
 
 
 def legacy_dates(body):
-    """Start and target dates from the table already on the issue.
+    """Start and target dates from whatever is already on the issue.
 
     Studies provisioned before the state file carried these have them only in
-    the issue body — the v1 two-column table, or this renderer's own table
-    after the first migration. Matching both means the dates survive
-    indefinitely without anybody having to backfill state files.
+    the issue body: the v1 two-column table, the three-column table this
+    renderer wrote at first, or the Progress line it writes now. Matching all
+    three means the dates survive indefinitely without anybody backfilling
+    state files.
     """
-    def find(label):
-        m = re.search(r"\|\s*\*\*" + label + r"\*\*\s*\|(?:\s*\|)?\s*"
-                      r"(\d{4}-\d{2}-\d{2})", body or "", re.I)
-        return m.group(1) if m else None
-    return find("Study start"), find("Target completion")
+    def find(line_label, table_label):
+        for pattern in (r"\*\*" + line_label + r":\*\*\s*(\d{4}-\d{2}-\d{2})",
+                        r"\|\s*\*\*" + table_label + r"\*\*\s*\|(?:\s*\|)?\s*"
+                        r"(\d{4}-\d{2}-\d{2})"):
+            m = re.search(pattern, body or "", re.I)
+            if m:
+                return m.group(1)
+        return None
+    return find("Started", "Study start"), find("Target completion", "Target completion")
 
 
 def render(state, gates_config, team, partners, now, threshold,
@@ -391,6 +408,7 @@ def render(state, gates_config, team, partners, now, threshold,
         "### Progress",
         f"**Gate:** {title or 'Not started'}",
         f"**Time in gate:** {alarm(state, threshold, now)}",
+        f"**Started:** {start or '—'} · **Target completion:** {target or '—'}",
     ]
     if last:
         lines.append(f"**Last activity:** {last}")
@@ -398,15 +416,14 @@ def render(state, gates_config, team, partners, now, threshold,
         f"**Partners:** {partner_line(partners, threshold)}",
         "",
         "### Study history",
-        "| Gate | Status | Date |",
-        "|---|---|---|",
-        f"| **Study start** | | {start or '—'} |",
+        "| Gate | Status | In progress | Ready for review | Closed |",
+        "|---|---|---|---|---|",
     ]
     for r in history_rows(state, gates_config, closed):
         name = (f"[{r['name']}](https://github.com/{study}/issues/{r['issue']})"
                 if r["issue"] else r["name"])
-        lines.append(f"| {name} | {r['status_text']} | {r['date']} |")
-    lines.append(f"| **Target completion** | | {target or '—'} |")
+        lines.append(f"| {name} | {r['status_text']} | {r['in_progress']} "
+                     f"| {r['ready']} | {r['closed']} |")
 
     lines += ["", "### Study team"]
     if team:
@@ -602,12 +619,23 @@ def _self_test():
 
     rows = history_rows(state, gates)
     check("Ready for review is dated by the advance, not first sight",
-          rows[0]["date"] == "2026-07-15")
-    check("In progress is dated by first sight", rows[1]["date"] == "2026-07-20")
-    check("not started has no date", rows[2]["date"] == "—")
+          rows[0]["ready"] == "2026-07-15")
+    check("  ...and In progress by first sight, when that came earlier",
+          rows[0]["in_progress"] == "2026-07-01" and rows[0]["closed"] == "—")
+    check("an In progress gate has only that date",
+          rows[1]["in_progress"] == "2026-07-20" and rows[1]["ready"] == "—")
+    check("not started has no dates",
+          (rows[2]["in_progress"], rows[2]["ready"], rows[2]["closed"]) == ("—",) * 3)
     rows = history_rows(state, gates, closed={1: "2026-08-02T10:00:00Z"})
-    check("a closed gate issue shows closed on its close date",
-          rows[0]["status"] == DONE and rows[0]["date"] == "2026-08-02")
+    check("a closed gate issue shows closed on its close date, keeping the rest",
+          rows[0]["status"] == DONE and rows[0]["closed"] == "2026-08-02"
+          and rows[0]["ready"] == "2026-07-15")
+    direct = {"gates": {"0": {"status": READY, "entered_at": "2026-07-15T00:00:00+00:00"}},
+              "gate_issues": {},
+              "history": [{"at": "2026-07-15T00:00:00+00:00", "to_gate": 0}]}
+    row = history_rows(direct, gates)[0]
+    check("a gate that went straight to Ready was never In progress",
+          row["in_progress"] == "—" and row["ready"] == "2026-07-15")
 
     v1 = ("## Study X\n\n**Repository:** https://github.com/org/study-x\n"
           "**Lead:** Sean (@seanr87)\n**Status:** 🟢 Active\n\n### Study History\n"
@@ -641,10 +669,17 @@ def _self_test():
                  activity={"commit_sha": "def5678abc", "commit_url": "u",
                            "author": "x", "pushed_at": "t"}))
     check("the dates survive migration",
-          "| **Study start** | | 2026-07-01 |" in block
-          and "| **Target completion** | | 2027-01-01 |" in block)
-    check("and are read back from the new table",
+          "**Started:** 2026-07-01 · **Target completion:** 2027-01-01" in block)
+    check("and are read back from the new line",
           legacy_dates(block) == ("2026-07-01", "2027-01-01"))
+    check("and from the first three-column table",
+          legacy_dates("| **Study start** | | 2026-07-01 |\n"
+                       "| **Target completion** | | 2027-01-01 |")
+          == ("2026-07-01", "2027-01-01"))
+    check("the history table has the three date columns",
+          "| Gate | Status | In progress | Ready for review | Closed |" in block
+          and "| [Get oriented in GitHub](https://github.com/org/study-x/issues/1) "
+              "| 🟡 Ready for review | 2026-07-01 | 2026-07-15 | — |" in block)
     check("the team shows role and handle", "| Parent1 | Home | Study Lead | @parent1 |" in block)
     check("a partner shows status, contact, handle, and quiet days",
           "| [Site A](https://github.com/org/study-x/issues/9) | Committed | Ann, PI | @ann | 🔴 30 days |"
