@@ -125,6 +125,17 @@
             "inst/cohorts/11.json"
           ],
           "removed": []
+        },
+        {
+          "sha": "e59f4a8671ba0dd8e61c808ed63cd445740dee35",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/e59f4a8671ba0dd8e61c808ed63cd445740dee35",
+          "at": "2026-09-02T13:08:16+00:00",
+          "author": "seanr87",
+          "message": "Update 31.json",
+          "paths": [
+            "inst/cohorts/31.json"
+          ],
+          "removed": []
         }
       ]
     },
