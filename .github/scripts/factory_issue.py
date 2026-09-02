@@ -272,8 +272,9 @@ def _day(stamp):
 def gate_issue_states(repo, gate_issues):
     """{issue number: closedAt} for every closed gate issue in the study repo.
 
-    Closing a gate is the one thing a human does that the state file does not
-    record, and it is exactly what "date complete" means.
+    None when the list could not be read — which is not the same as nothing
+    being closed, and callers must not treat it so. The closure sync writes
+    these into the state file; this is the live view between syncs.
     """
     wanted = {int(n) for n in gate_issues.values() if n}
     if not wanted:
@@ -282,12 +283,12 @@ def gate_issue_states(repo, gate_issues):
              "--state", "closed", "--limit", "50",
              "--json", "number,closedAt", check=False)
     if not raw:
-        return {}
+        return None
     try:
         return {i["number"]: i.get("closedAt")
                 for i in json.loads(raw) if i["number"] in wanted}
     except (ValueError, KeyError, TypeError):
-        return {}
+        return None
 
 
 def history_rows(state, gates_config, closed=None):
@@ -295,12 +296,16 @@ def history_rows(state, gates_config, closed=None):
 
     Three dates, kept apart so the record can be studied later: when work was
     first seen, when Factory saw enough to propose review, and when a human
-    closed the issue. Ready for review is dated by the advance that produced
-    it, not by `entered_at`, which is set at first sight and never moved. A
-    gate that went straight to Ready for review was never In progress, and
-    says so rather than repeating the same date twice.
+    closed the issue. Ready for review is the recorded `ready_at` where the
+    closure sync has written it, else the advance in the history — never
+    `entered_at`, which is first sight. A gate that went straight to Ready
+    for review was never In progress, and says so rather than repeating the
+    same date twice.
+
+    `closed` is the live view of the gate issues. When it is known it wins
+    over the state file, so a closure or a reopen shows before the next
+    sync; when it is None the state file is the best information there is.
     """
-    closed = closed or {}
     rows = []
     for gate in sorted(gates_config["gates"], key=lambda g: g["gate"]):
         n = gate["gate"]
@@ -308,11 +313,17 @@ def history_rows(state, gates_config, closed=None):
         issue = state.get("gate_issues", {}).get(str(n)) or rec.get("issue")
         status = rec.get("status", NOT_STARTED)
         entered = rec.get("entered_at")
-        ready = (advanced_at(state, n) or entered) if status in (READY, DONE) else None
+        ready = rec.get("ready_at") or (
+            (advanced_at(state, n) or entered) if status in (READY, DONE) else None)
         in_progress = entered if entered and (not ready or entered < ready) else None
-        closed_at = closed.get(issue) if issue in closed else None
-        if issue in closed:
-            status = DONE
+        if closed is None:
+            closed_at = rec.get("closed_at") if status == DONE else None
+        elif issue in closed:
+            status, closed_at = DONE, closed[issue]
+        elif status == DONE:
+            status, closed_at = READY, None  # reopened since the last sync
+        else:
+            closed_at = None
         rows.append({
             "gate": n,
             "name": gate_name(gate["title"]),
@@ -636,6 +647,17 @@ def _self_test():
     row = history_rows(direct, gates)[0]
     check("a gate that went straight to Ready was never In progress",
           row["in_progress"] == "—" and row["ready"] == "2026-07-15")
+    recorded = {"gates": {"0": {"status": DONE, "entered_at": "2026-07-01T00:00:00+00:00",
+                                "ready_at": "2026-07-12T00:00:00+00:00",
+                                "closed_at": "2026-07-30T00:00:00+00:00", "issue": 1}},
+                "gate_issues": {"0": 1}, "history": []}
+    row = history_rows(recorded, gates)[0]
+    check("recorded ready and closed dates are used when the live view is unknown",
+          row["ready"] == "2026-07-12" and row["closed"] == "2026-07-30"
+          and row["status"] == DONE)
+    row = history_rows(recorded, gates, closed={})[0]
+    check("a live view with the issue open shows it reopened, awaiting review",
+          row["status"] == READY and row["closed"] == "—")
 
     v1 = ("## Study X\n\n**Repository:** https://github.com/org/study-x\n"
           "**Lead:** Sean (@seanr87)\n**Status:** 🟢 Active\n\n### Study History\n"

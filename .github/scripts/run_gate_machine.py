@@ -485,6 +485,8 @@ def apply(payload, state, state_path, baseline, gates_config):
     if rec.get("status") != DONE:
         rec["status"] = READY
     rec["entered_at"] = rec.get("entered_at") or stamp
+    # Recorded outright, so the export never has to derive it from history.
+    rec["ready_at"] = rec.get("ready_at") or stamp
     rec["evidenced_by"] = decision.evidence
 
 

@@ -40,6 +40,7 @@ push
                                      partner-sync.yml  (hourly)
                                        ├─ board column ⇄ status label
                                        ├─ derive Gates 5 and 6
+                                       ├─ record closed gate issues in state
                                        └─ refresh the Factory issue
 
                                      stall-check.yml  (daily)
@@ -61,6 +62,28 @@ is called by each of the jobs above; it only writes when something changed.
 The study-side workflow is deliberately dumb: it reports which paths changed and
 nothing more. All gate logic lives in Factory, so gates can be redefined without
 editing ten study repositories.
+
+## Getting the data out
+
+The state files in [`.github/data/state/`](.github/data/state/) are the durable
+record. Each gate carries the dates it reached In progress (`entered_at`), Ready
+for review (`ready_at`), and Closed (`closed_at`), and `history` lists every
+advance with the commit that caused it. Closing a gate issue is recorded there by
+[`closures.py`](.github/scripts/closures.py) on every sweep, so the file does not
+depend on the issues still existing.
+
+To get it as tables, run Actions → **Export Portfolio Data** and download the
+artifact, or locally:
+
+```bash
+python .github/scripts/export_portfolio.py --out export/
+```
+
+That writes `studies.csv`, `gates.csv` (one row per study × gate, with the three
+dates and the days between them), `history.csv`, `team.csv`, `partners.csv`,
+`partner_status_history.csv` (every status label change, from the issues' own
+event log), and `portfolio.json` with everything. `--offline` skips the tables
+that need GitHub calls.
 
 ## The gates
 
