@@ -60,9 +60,6 @@
       "issue": 3,
       "evidenced_by": [],
       "outstanding": [
-        "Study Design",
-        "Data Sources",
-        "Study Population",
         "Outcomes",
         "Analysis",
         "Strengths and Limitations",
@@ -76,6 +73,17 @@
           "at": "2026-09-02T12:55:00+00:00",
           "author": "seanr87",
           "message": "Update rationale and study objectives in Protocol.Rmd",
+          "paths": [
+            "Documents/Protocol.Rmd"
+          ],
+          "removed": []
+        },
+        {
+          "sha": "33611202c9cd172553c1a3c0f164f731b33816dc",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/33611202c9cd172553c1a3c0f164f731b33816dc",
+          "at": "2026-09-02T12:59:53+00:00",
+          "author": "seanr87",
+          "message": "Enhance clarity in study objectives and methods",
           "paths": [
             "Documents/Protocol.Rmd"
           ],
