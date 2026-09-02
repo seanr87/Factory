@@ -131,8 +131,10 @@ def comment_body(gate_title, status, reason, partners):
     lines += roster(partners)
     lines += [
         "",
-        "Factory read this from the partner issue labels, not from anything in "
-        "the repository — this phase happens outside GitHub entirely.",
+        "Factory read this from each partner's status — its column on the board's "
+        "Data partners view and the `status:` label on its issue, kept in step — "
+        "not from anything in the repository. This phase happens outside GitHub "
+        "entirely.",
     ]
     if status == READY:
         lines += [
