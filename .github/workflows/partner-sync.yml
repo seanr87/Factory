@@ -1,0 +1,82 @@
+# Keeps partner status moving between pushes.
+#
+# Gates 5 and 6 are derived from data partner status, and a lead changes that
+# by dragging a card on the study board or relabelling the partner issue —
+# neither of which produces a push, so nothing reaches Factory. The daily stall
+# check would pick it up the next morning; a lead who has just dragged a card
+# and sees nothing happen concludes the board is broken. So this runs hourly:
+# bring the board column and the label into step, then re-derive the gates.
+#
+# Deliberately small. The stall sweep and dashboard stay daily.
+
+name: Partner Sync
+
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+    inputs:
+      study_repo:
+        description: 'Limit to one study repo (owner/name)'
+        required: false
+        type: string
+
+permissions:
+  # write: partner-derived gate changes are committed to the state files
+  contents: write
+  issues: write
+
+concurrency:
+  group: partner-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      - name: Reconcile partner status and derive gates
+        id: derive
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          ARGS=()
+          if [[ -n "${{ inputs.study_repo }}" ]]; then
+            ARGS+=(--study "${{ inputs.study_repo }}")
+          fi
+          python3 .github/scripts/derive_partner_gates.py "${ARGS[@]}"
+
+      - name: Commit partner-derived gate changes
+        if: steps.derive.outputs.changed == 'true'
+        env:
+          STUDIES: ${{ steps.derive.outputs.changed_studies }}
+        run: |
+          set -euo pipefail
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "OHDSI Study Factory"
+          git add .github/data/state
+
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+
+          git commit -m "Update partner-derived gates: ${STUDIES}"
+
+          for attempt in 1 2 3; do
+            if git pull --rebase --quiet origin "${{ github.ref_name }}" \
+               && git push --quiet origin "HEAD:${{ github.ref_name }}"; then
+              echo "✅ Committed (attempt $attempt)"
+              exit 0
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::Could not commit partner-derived gate changes after 3 attempts"
+          exit 1

@@ -26,6 +26,10 @@ import pathlib
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from partnerlib import reconcile  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GATES = ROOT / ".github" / "data" / "gates.json"
 NEWLINE = chr(10)
@@ -54,16 +58,18 @@ def gh(*args, check=True):
 def partner_states(repo):
     raw = gh("issue", "list", "--repo", repo, "--label", "partner",
              "--state", "open", "--limit", "200",
-             "--json", "number,title,labels", check=False)
+             "--json", "number,title,labels,createdAt", check=False)
     if not raw:
         return []
     out = []
     for issue in json.loads(raw):
-        status = next((l["name"] for l in issue.get("labels", [])
-                       if l["name"].startswith("status:")), None)
+        labels = [l["name"] for l in issue.get("labels", [])]
+        status = next((l for l in labels if l.startswith("status:")), None)
         out.append({"number": issue["number"],
                     "title": issue["title"].replace("Data partner — ", ""),
-                    "status": status})
+                    "status": status,
+                    "labels": labels,
+                    "created_at": issue.get("createdAt")})
     return out
 
 
@@ -205,6 +211,13 @@ def main():
         if not partners:
             print(f"  {repo}: no partner issues")
             continue
+
+        # A lead may have dragged a card on the board or changed a label. Bring
+        # the two into step before reading either, so the gates are derived
+        # from whatever the lead most recently said.
+        for change in reconcile(repo, state.get("study_project_id"), partners,
+                                dry_run=args.dry_run):
+            print(f"  {repo}: {change}")
 
         dirty = False
         for gate in sorted(derived, key=lambda g: g["gate"]):
