@@ -51,10 +51,11 @@ there. Closing a gate is always a human decision, after a human has read the wor
 saw and where. Nothing changes silently. If something moves and you cannot tell why,
 that is a bug worth reporting.
 
-**Two gates are never automatic.** Gate 5 (recruiting data partners) and Gate 6
+**Two gates never move on a commit.** Gate 5 (recruiting data partners) and Gate 6
 (sites running your study) happen outside this repository entirely, on machines and
-in conversations Factory cannot see. Gate 6 moves when every committed partner's
-issue is marked as having returned results. Gate 5 is moved by hand.
+in conversations Factory cannot see. Both are read from your partner issues instead:
+Gate 5 reaches *Ready for review* once three partners are marked *Committed*, and
+Gate 6 once every committed partner is marked *Results received*.
 
 ## What it does *not* do
 
@@ -96,6 +97,11 @@ Commit a row to `partners.csv` and an issue is created for that partner.
 
 Those comment dates are how a partner going quiet gets noticed. Keep having your
 actual conversations by email and on calls — the issue is a log, not an inbox.
+
+**Moving a partner along.** Drag its card to the right column on the board's
+*Data partners* view, or change the `status:` label on its issue — whichever you
+find easier. Factory keeps the two in step and checks every hour, so Gates 5 and 6
+follow within the hour of you moving a partner.
 
 ## Going quiet
 

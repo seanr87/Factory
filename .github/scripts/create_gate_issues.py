@@ -174,23 +174,24 @@ def requirements(gate, study_repo, branch):
         minimum = detection.get("minimum_partners", 1)
         progress = {
             "any_partner": "any partner issue exists.",
-            "any_returned": "the first partner is labelled "
-                            "`status:results-received`.",
+            "any_returned": "the first partner is marked *Results received*.",
         }.get(detection.get("in_progress_when"))
         ready = {
-            "minimum_committed": f"{minimum} partners are labelled "
-                                 "`status:committed` or further along.",
-            "any_committed": "one partner is labelled `status:committed` or "
-                             "further along.",
-            "all_committed_returned": "every committed partner is labelled "
-                                      "`status:results-received`, and there are "
-                                      f"at least {minimum} of them.",
+            "minimum_committed": f"{minimum} partners are marked *Committed* "
+                                 "or further along.",
+            "any_committed": "one partner is marked *Committed* or further along.",
+            "all_committed_returned": "every committed partner is marked "
+                                      "*Results received*, and there are at "
+                                      f"least {minimum} of them.",
         }.get(detection.get("ready_when"))
         lines = [
             head, "",
-            "- **No file moves this gate.** Factory reads it from the `status:` "
-            "labels on the partner issues in this repository, so keep those "
-            "labels current.",
+            "- **No file moves this gate.** Factory reads each partner's status "
+            "from its issue in this repository.",
+            "- **To mark a partner:** drag its card to the right column on the "
+            "board's *Data partners* view, or set the `status:` label on its "
+            "issue — either works. Factory keeps the two in step and checks "
+            "every hour.",
         ]
         if paths:
             lines.append(f"- **Partner issues come from** {_join(L(p) for p in paths)}: "
@@ -459,14 +460,16 @@ def _self_test():
     check("a derived gate says no file moves it", "No file moves this gate" in text)
     check("  ...links the file that creates partner issues",
           f"{base}/blob/main/partners.csv" in text)
+    check("  ...says a card or a label both work",
+          "drag its card" in text and "`status:` label" in text)
     check("  ...and states both thresholds",
-          "**In progress when:**" in text and "3 partners are labelled" in text)
+          "**In progress when:**" in text and "3 partners are marked" in text)
     text = requirements({"detection": {"event": "derived_from_partners",
                                        "in_progress_when": "any_returned",
                                        "ready_when": "all_committed_returned",
                                        "minimum_partners": 3}}, repo, br)
-    check("a pathless derived gate still states its labels",
-          "`status:results-received`" in text and "at least 3" in text
+    check("a pathless derived gate still states its thresholds",
+          "*Results received*" in text and "at least 3" in text
           and "Partner issues come from" not in text)
 
     body = build_body({"body": "See `TEAM.md`.", "initial_status": "in_progress",

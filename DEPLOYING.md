@@ -178,7 +178,8 @@ Three scheduled workflows, all in UTC. Change the crons to suit your timezone:
 | Workflow | Default | Does |
 |---|---|---|
 | `path-contract-check.yml` | 07:00 daily | verifies detection paths still exist upstream |
-| `stall-check.yml` | 07:30 daily | derives Gate 6, finds what has gone quiet |
+| `stall-check.yml` | 07:30 daily | derives Gates 5-6, finds what has gone quiet |
+| `partner-sync.yml` | hourly | keeps the board's Data Partner Status and the `status:` labels in step, derives Gates 5-6 |
 
 The stall threshold defaults to 21 days. Change `stall_threshold_days` in the partner
 template's front matter and regenerate, or override per study in its state file.

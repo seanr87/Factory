@@ -127,24 +127,44 @@ jobs:
           python3 .github/scripts/sync_partners.py \
             --repo "$STUDY" --ref "$SHA" --project-id "$PROJECT"
 
-      - name: Commit gate state
-        if: steps.apply.outputs.advanced == 'true'
+      # A lead moves a partner by dragging its card or changing its label, and
+      # neither produces a push. Re-derive Gates 5 and 6 whenever the study talks
+      # to Factory for any reason, so the board catches up at the next push
+      # rather than the next morning; partner-sync.yml covers the hours between.
+      - name: Derive partner gates
+        id: partners
         env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          STUDY=$(python3 -c "import json;print(json.load(open('payload.json'))['study_repo'])")
+          python3 .github/scripts/derive_partner_gates.py --study "$STUDY"
+
+      - name: Commit gate state
+        if: steps.apply.outputs.advanced == 'true' || steps.partners.outputs.changed == 'true'
+        env:
+          ADVANCED: ${{ steps.apply.outputs.advanced }}
           STATE_PATH: ${{ steps.apply.outputs.state_path }}
           TO_GATE: ${{ steps.apply.outputs.to_gate }}
+          PARTNER_STUDIES: ${{ steps.partners.outputs.changed_studies }}
         run: |
           set -euo pipefail
 
           git config --local user.email "action@github.com"
           git config --local user.name "OHDSI Study Factory"
-          git add "$STATE_PATH"
+          git add .github/data/state
 
           if git diff --staged --quiet; then
             echo "No state change to commit"
             exit 0
           fi
 
-          git commit -m "Advance $(basename "$STATE_PATH" .json) to gate ${TO_GATE}"
+          if [[ "${ADVANCED:-}" == "true" ]]; then
+            git commit -m "Advance $(basename "$STATE_PATH" .json) to gate ${TO_GATE}"
+          else
+            git commit -m "Update partner-derived gates: ${PARTNER_STUDIES}"
+          fi
 
           # Another study's dispatch may have landed while this one ran. Rebase
           # and retry rather than failing: losing a gate advance is worse than

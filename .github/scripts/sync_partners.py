@@ -26,15 +26,14 @@ import argparse
 import csv
 import io
 import json
+import pathlib
 import subprocess
 import sys
 
-STATUS_LABELS = [
-    "status:not-contacted", "status:contacted", "status:interested",
-    "status:committed", "status:package-running", "status:results-received",
-    "status:declined",
-]
-DEFAULT_STATUS = "status:not-contacted"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from partnerlib import (DEFAULT_STATUS, OPTION_FOR_LABEL, STATUS_LABELS,  # noqa: E402
+                        partner_board, set_board_status)
 
 # Column aliases, so a lead editing the header by hand does not break the sync.
 ALIASES = {
@@ -157,6 +156,10 @@ def main():
                              "--json", "number,title,labels,body") or "[]")
     by_title = {i["title"]: i for i in existing}
 
+    # A card with no Data Partner Status sits in a nameless column on the
+    # board's Data partners view, which is where every partner used to land.
+    board = partner_board(args.project_id) if args.project_id else None
+
     created = updated = 0
     for p in partners:
         title = title_for(p["institution"])
@@ -173,10 +176,13 @@ def main():
 
             if args.project_id:
                 node = gh("api", f"repos/{args.repo}/issues/{number}", "--jq", ".node_id")
-                gh("api", "graphql", "-f",
-                   "query=mutation($p:ID!,$c:ID!){addProjectV2ItemById("
-                   "input:{projectId:$p,contentId:$c}){item{id}}}",
-                   "-f", f"p={args.project_id}", "-f", f"c={node}", check=False)
+                item = gh("api", "graphql", "-f",
+                          "query=mutation($p:ID!,$c:ID!){addProjectV2ItemById("
+                          "input:{projectId:$p,contentId:$c}){item{id}}}",
+                          "-f", f"p={args.project_id}", "-f", f"c={node}",
+                          "--jq", ".data.addProjectV2ItemById.item.id", check=False)
+                if board and item:
+                    set_board_status(board, item, OPTION_FOR_LABEL[DEFAULT_STATUS])
             continue
 
         # Existing partner: refresh the body from the CSV but keep whatever status

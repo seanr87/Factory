@@ -56,8 +56,8 @@ editing ten study repositories.
 | 2 | Protocol drafted | `Documents/Protocol.Rmd` |
 | 3 | Cohort definitions committed | `inst/cohorts/`, `inst/Cohorts.csv`, `inst/sql/sql_server/` |
 | 4 | Analysis specification built | `inst/analysisSpecifications.json`, the spec script |
-| 5 | Data partners recruited | manual — partner issues are the record |
-| 6 | Study executed across partners | derived from partner issue status |
+| 5 | Data partners recruited | derived from partner status: three committed |
+| 6 | Study executed across partners | derived from partner status: all committed returned |
 | 7 | Results synthesised and shared | `Documents/results-summary.md` |
 
 Gate prose lives in [`.github/issue-templates/`](.github/issue-templates/) and is what
@@ -119,7 +119,8 @@ issue.
   workflows/
     provision-study.yml       create a study: repo, board, gate issues, overlay
     gate-state-machine.yml    receive study_push, advance gates, sync partners
-    stall-check.yml           daily: derive Gate 6, find what has gone quiet
+    stall-check.yml           daily: derive Gates 5-6, find what has gone quiet
+    partner-sync.yml          hourly: board column <-> status label, derive Gates 5-6
     path-contract-check.yml   daily: verify detection paths still exist upstream
   actions/                    composite actions used by provisioning
   scripts/
@@ -128,8 +129,9 @@ issue.
     run_gate_machine.py       I/O around a decision
     create_gate_issues.py     Gates 0-7 in a study repo, seeds its state
     sync_partners.py          partners.csv -> partner issues
+    partnerlib.py             board column <-> status label, kept in step
     stall_check.py            time-in-gate and partner quiet, dashboard
-    derive_partner_gates.py   Gate 6 from partner status
+    derive_partner_gates.py   Gates 5-6 from partner status
     build_gates.py            issue templates -> gates.json
   issue-templates/            gate prose; the source of truth for gate config
   overlay/                    Factory files pushed into each study repo
