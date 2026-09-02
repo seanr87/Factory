@@ -37,6 +37,13 @@ So the sequence is:
 4. A comment appears on that issue saying exactly which paths changed and in which
    commit.
 
+Separately from any of that, each gate issue keeps a log of the work on it. A
+table at the top lists every push that changed one of the files that gate
+watches — when, which files, and your commit message — including the pushes
+that moved nothing. It appears with your first such push, and your commit
+messages are what it shows, so a short line saying what you changed is worth
+writing.
+
 ## Four rules the automation follows
 
 **It only ever moves forward.** A gate is never moved backward. If you go back and

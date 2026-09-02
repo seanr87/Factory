@@ -15,6 +15,8 @@ Files written to --out:
   gates.csv                    one row per study x gate, with the three dates
                                and the durations between them
   history.csv                  every advance: study, from, to, when, commit
+  commits.csv                  every push logged against a gate: when, who,
+                               message, and the gate's files it changed
   team.csv                     one row per person per study          (online)
   partners.csv                 one row per data partner               (online)
   partner_status_history.csv   every partner status change            (online)
@@ -55,6 +57,8 @@ GATE_FIELDS = ["study_repo", "gate", "gate_name", "status", "in_progress_at",
                "ready_at", "closed_at", "reopened_at", "days_in_progress",
                "days_in_review", "issue", "evidenced_by"]
 HISTORY_FIELDS = ["study_repo", "at", "from_gate", "to_gate", "commit", "evidence"]
+COMMIT_FIELDS = ["study_repo", "gate", "gate_name", "at", "commit", "author",
+                 "message", "paths", "removed", "url"]
 TEAM_FIELDS = ["study_repo", "name", "institution", "role", "github"]
 PARTNER_FIELDS = ["study_repo", "institution", "status", "contact_name",
                   "contact_role", "contact_github", "issue", "url",
@@ -118,6 +122,32 @@ def history_rows(state):
         "commit": h.get("commit") or "",
         "evidence": "; ".join(h.get("evidence") or []),
     } for h in state.get("history", [])]
+
+
+def commit_rows(state, gates_config):
+    """One row per push per gate it touched, oldest first.
+
+    The same push appears once for each gate whose files it changed, so the
+    table answers "what was done on gate 3, and when" without a join.
+    """
+    rows = []
+    for gate in sorted(gates_config["gates"], key=lambda g: g["gate"]):
+        n = gate["gate"]
+        commits = state.get("gates", {}).get(str(n), {}).get("commits") or []
+        for c in sorted(commits, key=lambda c: c.get("at") or ""):
+            rows.append({
+                "study_repo": state["study_repo"],
+                "gate": n,
+                "gate_name": gate_name(gate["title"]),
+                "at": c.get("at") or "",
+                "commit": c.get("sha") or "",
+                "author": c.get("author") or "",
+                "message": c.get("message") or "",
+                "paths": "; ".join(c.get("paths") or []),
+                "removed": "; ".join(c.get("removed") or []),
+                "url": c.get("url") or "",
+            })
+    return rows
 
 
 def study_row(state, gates_config, now, header=None):
@@ -217,7 +247,7 @@ def export(out, offline=False, state_dir=None, now=None, gates_config=None):
     state_dir = state_dir or ROOT / ".github" / "data" / "state"
     files = sorted(state_dir.glob("*.json")) if state_dir.exists() else []
 
-    tables = {"studies": [], "gates": [], "history": [],
+    tables = {"studies": [], "gates": [], "history": [], "commits": [],
               "team": [], "partners": [], "partner_status_history": []}
 
     for path in files:
@@ -229,6 +259,7 @@ def export(out, offline=False, state_dir=None, now=None, gates_config=None):
         tables["studies"].append(study_row(state, gates_config, now, header))
         tables["gates"] += gate_rows(state, gates_config)
         tables["history"] += history_rows(state)
+        tables["commits"] += commit_rows(state, gates_config)
         if offline:
             continue
         for member in team_rows(repo, state.get("default_branch", "main")):
@@ -251,7 +282,7 @@ def export(out, offline=False, state_dir=None, now=None, gates_config=None):
 
     out.mkdir(parents=True, exist_ok=True)
     fields = {"studies": STUDY_FIELDS, "gates": GATE_FIELDS, "history": HISTORY_FIELDS,
-              "team": TEAM_FIELDS, "partners": PARTNER_FIELDS,
+              "commits": COMMIT_FIELDS, "team": TEAM_FIELDS, "partners": PARTNER_FIELDS,
               "partner_status_history": PARTNER_HISTORY_FIELDS}
     written = []
     for name, rows in tables.items():
@@ -290,7 +321,14 @@ def _self_test():
                   "ready_at": "2026-07-10T00:00:00+00:00",
                   "closed_at": "2026-07-20T00:00:00+00:00", "issue": 1,
                   "evidenced_by": ["TEAM.md"]},
-            "1": {"status": READY, "entered_at": "2026-07-15T00:00:00+00:00", "issue": 2},
+            "1": {"status": READY, "entered_at": "2026-07-15T00:00:00+00:00", "issue": 2,
+                  "commits": [
+                      {"sha": "def", "url": "https://x/c/def", "at": "2026-07-15T00:00:00+00:00",
+                       "author": "jokafor", "message": "Draft the question",
+                       "paths": ["Documents/research-question.md"], "removed": []},
+                      {"sha": "abc", "url": "https://x/c/abc", "at": "2026-07-12T00:00:00+00:00",
+                       "author": "", "message": "Start", "paths": ["Documents/research-question.md"],
+                       "removed": []}]},
             "2": {"status": "not_started", "entered_at": None, "issue": 3},
         },
         "gate_issues": {"0": 1, "1": 2, "2": 3},
@@ -334,6 +372,16 @@ def _self_test():
     h = history_rows(state)
     check("history rows are one per advance", len(h) == 2 and h[1]["commit"] == "def")
 
+    c = commit_rows(state, gates)
+    check("commit rows are one per push per gate, oldest first",
+          [r["commit"] for r in c] == ["abc", "def"] and c[0]["gate"] == 1)
+    check("  ...naming the gate and flattening the paths",
+          c[1]["gate_name"] == "Research question developed"
+          and c[1]["paths"] == "Documents/research-question.md"
+          and c[1]["author"] == "jokafor" and c[1]["message"] == "Draft the question")
+    check("a study with nothing logged has no commit rows",
+          commit_rows({"study_repo": "s", "gates": {}}, gates) == [])
+
     hdr = header_of("## X\n\n**Repository:** u\n**Lead:** Sean O'Reilly (@seanr87)\n\n"
                     "### Study History\n| Objective | Date Complete |\n|---|---|\n"
                     "| **Study Start** | 2026-07-01 |\n| **Target Completion** | 2027-01-01 |\n")
@@ -353,14 +401,17 @@ def _self_test():
                          gates_config=gates)
         names = dict(written)
         check("offline export writes the state-derived tables and the JSON",
-              set(names) == {"studies.csv", "gates.csv", "history.csv", "portfolio.json"})
+              set(names) == {"studies.csv", "gates.csv", "history.csv", "commits.csv",
+                             "portfolio.json"})
+        check("commits.csv carries the logged pushes", names["commits.csv"] == 2)
         text = (tmp / "out" / "gates.csv").read_text(encoding="utf-8")
         check("gates.csv has a header and one row per gate",
               text.startswith("study_repo,gate,gate_name,status,in_progress_at,")
               and text.count("org/study-x") == 3)
         doc = json.loads((tmp / "out" / "portfolio.json").read_text(encoding="utf-8"))
         check("the JSON carries every table", doc["offline"] is True
-              and len(doc["gates"]) == 3 and doc["studies"][0]["study_repo"] == "org/study-x")
+              and len(doc["gates"]) == 3 and doc["studies"][0]["study_repo"] == "org/study-x"
+              and len(doc["commits"]) == 2)
 
     failed = [n for n, ok in checks if not ok]
     if failed:

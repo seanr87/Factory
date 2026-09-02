@@ -291,12 +291,23 @@ def requirements(gate, study_repo, branch, lines=None):
     return "\n".join(lines)
 
 
+def history_note(gate, branch):
+    """How the issue will show the work, for gates a push can touch."""
+    if gate["detection"].get("event") != "content_changed":
+        return ""
+    return (f"\n\nEvery push to `{branch}` that changes one of these files is "
+            "listed in a table at the top of this issue — when, which files, "
+            "and the commit message — whether or not it moves the gate. The "
+            "table appears with the first such push.")
+
+
 def build_body(gate, factory_repo, factory_issue, study_repo, branch="main",
                lines=None):
     return (
         linkify(gate["body"], study_repo, branch)
         + "\n\n---\n\n"
         + requirements(gate, study_repo, branch, lines)
+        + history_note(gate, branch)
         + "\n\n<sub>Study: "
         + study_repo
         + " · Factory tracking: https://github.com/"
@@ -530,6 +541,11 @@ def _self_test():
     check("a gate that starts open says so", "starts in **In progress**" in body)
     check("the body ends with the reference block",
           "Factory tracking: https://github.com/org/Factory/issues/7" in body)
+    check("a push-detected gate says its pushes will be tabled at the top",
+          "listed in a table at the top of this issue" in body)
+    check("  ...and a derived gate does not",
+          "table at the top" not in build_body({"body": "x", "detection": derived["detection"]},
+                                               "org/Factory", 7, repo, br))
 
     real = json.loads(GATES.read_text(encoding="utf-8"))
     rendered = [build_body(g, "org/Factory", 1, repo, br) for g in real["gates"]]

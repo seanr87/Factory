@@ -89,6 +89,7 @@ jobs:
           python3 .github/scripts/sections.py
           python3 .github/scripts/factory_issue.py --self-test
           python3 .github/scripts/closures.py --self-test
+          python3 .github/scripts/issue_history.py --self-test
 
       - name: Evaluate and apply
         id: apply
@@ -144,10 +145,18 @@ jobs:
           STUDY=$(python3 -c "import json;print(json.load(open('payload.json'))['study_repo'])")
           python3 .github/scripts/derive_partner_gates.py --study "$STUDY"
 
+      # Three things can change the state file on a push: a gate advancing, the
+      # push being logged against the gates it touched, and partner-derived
+      # gates or closures catching up. Any of them is worth a commit.
       - name: Commit gate state
-        if: steps.apply.outputs.advanced == 'true' || steps.partners.outputs.changed == 'true'
+        if: >-
+          steps.apply.outputs.advanced == 'true'
+          || steps.apply.outputs.history == 'true'
+          || steps.partners.outputs.changed == 'true'
         env:
           ADVANCED: ${{ steps.apply.outputs.advanced }}
+          HISTORY: ${{ steps.apply.outputs.history }}
+          HISTORY_MESSAGE: ${{ steps.apply.outputs.history_message }}
           STATE_PATH: ${{ steps.apply.outputs.state_path }}
           TO_GATE: ${{ steps.apply.outputs.to_gate }}
           PARTNER_STUDIES: ${{ steps.partners.outputs.changed_studies }}
@@ -165,6 +174,8 @@ jobs:
 
           if [[ "${ADVANCED:-}" == "true" ]]; then
             git commit -m "Advance $(basename "$STATE_PATH" .json) to gate ${TO_GATE}"
+          elif [[ "${HISTORY:-}" == "true" ]]; then
+            git commit -m "${HISTORY_MESSAGE}"
           else
             git commit -m "Update gate state from partners and closures: ${PARTNER_STUDIES}"
           fi
