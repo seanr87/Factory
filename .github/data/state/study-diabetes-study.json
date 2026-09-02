@@ -13,7 +13,8 @@
       "issue": 1,
       "evidenced_by": [
         "TEAM.md"
-      ]
+      ],
+      "ready_at": "2026-09-01T19:38:56+00:00"
     },
     "1": {
       "status": "ready_for_review",
@@ -21,7 +22,8 @@
       "issue": 2,
       "evidenced_by": [
         "Documents/research-question.md"
-      ]
+      ],
+      "ready_at": "2026-09-01T19:40:56+00:00"
     },
     "2": {
       "status": "not_started",
@@ -35,7 +37,8 @@
       "issue": 4,
       "evidenced_by": [
         "inst/Cohorts.csv"
-      ]
+      ],
+      "ready_at": "2026-09-01T19:49:21+00:00"
     },
     "4": {
       "status": "ready_for_review",
@@ -43,7 +46,8 @@
       "issue": 5,
       "evidenced_by": [
         "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
-      ]
+      ],
+      "ready_at": "2026-09-01T20:03:11+00:00"
     },
     "5": {
       "status": "in_progress",

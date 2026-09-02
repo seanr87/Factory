@@ -13,7 +13,8 @@
       "issue": 1,
       "evidenced_by": [
         "TEAM.md"
-      ]
+      ],
+      "ready_at": "2026-09-01T23:22:31+00:00"
     },
     "1": {
       "status": "ready_for_review",
@@ -21,7 +22,8 @@
       "issue": 2,
       "evidenced_by": [
         "Documents/research-question.md"
-      ]
+      ],
+      "ready_at": "2026-09-01T23:24:07+00:00"
     },
     "2": {
       "status": "ready_for_review",
@@ -41,7 +43,8 @@
         "Strengths and Limitations",
         "Protection of Human Subjects",
         "Plans for Disseminating and Communicating Study Results"
-      ]
+      ],
+      "ready_at": "2026-09-01T23:28:24+00:00"
     },
     "3": {
       "status": "ready_for_review",
@@ -52,7 +55,8 @@
       ],
       "outstanding": [
         "inst/Cohorts.csv"
-      ]
+      ],
+      "ready_at": "2026-09-01T23:32:06+00:00"
     },
     "4": {
       "status": "ready_for_review",
@@ -63,7 +67,8 @@
       ],
       "outstanding": [
         "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
-      ]
+      ],
+      "ready_at": "2026-09-01T23:33:38+00:00"
     },
     "5": {
       "status": "in_progress",

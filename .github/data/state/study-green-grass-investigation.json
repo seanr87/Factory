@@ -13,7 +13,8 @@
       "issue": 1,
       "evidenced_by": [
         "TEAM.md"
-      ]
+      ],
+      "ready_at": "2026-09-01T20:30:47+00:00"
     },
     "1": {
       "status": "ready_for_review",
@@ -21,7 +22,8 @@
       "issue": 2,
       "evidenced_by": [
         "Documents/research-question.md"
-      ]
+      ],
+      "ready_at": "2026-09-01T20:34:03+00:00"
     },
     "2": {
       "status": "in_progress",
