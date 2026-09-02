@@ -107,10 +107,26 @@
       "ready_at": "2026-09-02T13:02:41+00:00"
     },
     "3": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-02T13:08:01+00:00",
       "issue": 4,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "inst/Cohorts.csv"
+      ],
+      "commits": [
+        {
+          "sha": "296b78ab3a1397cbe8c15ad3ad2938e0426df543",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/296b78ab3a1397cbe8c15ad3ad2938e0426df543",
+          "at": "2026-09-02T13:07:42+00:00",
+          "author": "seanr87",
+          "message": "Update ConceptSet id for Celecoxib",
+          "paths": [
+            "inst/cohorts/11.json"
+          ],
+          "removed": []
+        }
+      ]
     },
     "4": {
       "status": "not_started",
