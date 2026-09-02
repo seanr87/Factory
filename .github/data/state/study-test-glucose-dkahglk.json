@@ -4,8 +4,8 @@
   "factory_issue": 188,
   "study_project_id": "PVT_kwDOCQMYQc4BiOrc",
   "default_branch": "main",
-  "current_gate": 0,
-  "gate_entered_at": "2026-09-02T12:46:42+00:00",
+  "current_gate": 1,
+  "gate_entered_at": "2026-09-02T12:50:49+00:00",
   "stall_threshold_days": 21,
   "start_date": "2026-09-02",
   "target_date": "2027-01-01",
@@ -33,10 +33,26 @@
       ]
     },
     "1": {
-      "status": "in_progress",
+      "status": "ready_for_review",
       "entered_at": "2026-09-02T12:42:46+00:00",
       "issue": 2,
-      "evidenced_by": []
+      "evidenced_by": [
+        "Documents/research-question.md"
+      ],
+      "ready_at": "2026-09-02T12:50:49+00:00",
+      "commits": [
+        {
+          "sha": "171639d4b20ef5b13028fbbfd99211f9d2a6e2f7",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/171639d4b20ef5b13028fbbfd99211f9d2a6e2f7",
+          "at": "2026-09-02T12:50:26+00:00",
+          "author": "seanr87",
+          "message": "Revise research questions and feasibility notes",
+          "paths": [
+            "Documents/research-question.md"
+          ],
+          "removed": []
+        }
+      ]
     },
     "2": {
       "status": "not_started",
@@ -93,6 +109,15 @@
       "commit": "bf00ca2e9b9f9b3fe92c0b74939ee3a4d9ae2393",
       "evidence": [
         "TEAM.md"
+      ]
+    },
+    {
+      "at": "2026-09-02T12:50:49+00:00",
+      "from_gate": 0,
+      "to_gate": 1,
+      "commit": "171639d4b20ef5b13028fbbfd99211f9d2a6e2f7",
+      "evidence": [
+        "Documents/research-question.md"
       ]
     }
   ]
