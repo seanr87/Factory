@@ -21,6 +21,14 @@ inputs:
     description: 'Study project ID, to add the gate issues to'
     required: false
     default: ''
+  start_date:
+    description: 'Study start date, recorded in the state file'
+    required: false
+    default: ''
+  target_date:
+    description: 'Target completion date, recorded in the state file'
+    required: false
+    default: ''
   org_token:
     description: 'Organization admin token'
     required: true
@@ -48,4 +56,6 @@ runs:
           --repo "${{ inputs.repo_full_name }}" \
           --factory-repo "${{ github.repository }}" \
           --factory-issue "${{ inputs.factory_issue_number }}" \
-          --project-id "${{ inputs.project_id }}"
+          --project-id "${{ inputs.project_id }}" \
+          --start-date "${{ inputs.start_date }}" \
+          --target-date "${{ inputs.target_date }}"

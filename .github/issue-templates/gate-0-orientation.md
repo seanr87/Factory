@@ -18,7 +18,7 @@ initial_status: in_progress
 
 **What to produce**
 
-- Add yourself to `TEAM.md`: your name, institution, and your role on this study.
+- Add yourself to `TEAM.md`: your name, institution, your role on this study, and your GitHub username.
 
 The easiest route is entirely in your browser. Open `TEAM.md` from the file list, click the pencil icon at the top right, type your line, then click **Commit changes** at the bottom. That's it — no software to install, nothing to download.
 

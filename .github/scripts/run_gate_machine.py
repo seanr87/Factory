@@ -40,7 +40,8 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 
-from gate_machine import DONE, READY, evaluate
+from factory_issue import read_file, refresh  # noqa: E402
+from gate_machine import DONE, READY, evaluate  # noqa: E402
 from gatelib import gate_option  # noqa: E402
 from sections import heading_lines, normalise, outstanding_sections  # noqa: E402
 
@@ -120,21 +121,6 @@ def section_state(gates_config, baseline, study_repo, sha, branch="main"):
             for name in required if normalise(name) in lines
         }
     return out, links
-
-
-def read_file(repo, path, ref):
-    """File contents at a ref, or None if it is not there."""
-    if not repo:
-        return None
-    raw = gh("api", f"repos/{repo}/contents/{path}?ref={ref}",
-             "--jq", ".content", check=False)
-    if not raw:
-        return None
-    import base64
-    try:
-        return base64.b64decode(raw).decode("utf-8", errors="replace")
-    except Exception:
-        return None
 
 
 def comment(repo, issue, body):
@@ -228,45 +214,6 @@ def held_comment(decision, payload):
         lines += [f"- gate {g}: " + ", ".join(f"`{p}`" for p in ps)
                   for g, ps in decision.ignored]
     return "\n".join(lines)
-
-
-def update_factory_issue(state, gates_config, payload):
-    """Rewrite the Factory issue's status block. Body is current state."""
-    gate_no = state["current_gate"]
-    title = next((g["title"] for g in gates_config["gates"]
-                  if g["gate"] == gate_no), f"Gate {gate_no}")
-    entered = state["gate_entered_at"]
-    days = ""
-    if entered:
-        delta = dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(entered)
-        days = f" · {delta.days} day(s) in this gate"
-
-
-    block = (
-        "<!--factory:status-->\n"
-        f"**Current gate:** {title}\n"
-        f"**Entered:** {entered or '—'}{days}\n"
-        f"**Last activity:** [`{payload['commit_sha'][:7]}`]"
-        f"({payload['commit_url']}) on {payload['pushed_at']}\n"
-        "<!--/factory:status-->"
-    )
-
-
-    repo, num = state["factory_repo"], state["factory_issue"]
-
-    body = json.loads(gh("api", f"repos/{repo}/issues/{num}", "--jq", "{body:.body}"))["body"] or ""
-
-
-    start, end = "<!--factory:status-->", "<!--/factory:status-->"
-    if start in body and end in body:
-        body = body[:body.index(start)] + block + body[body.index(end) + len(end):]
-    else:
-        body = body.rstrip() + "\n\n" + block + "\n"
-
-
-    subprocess.run(["gh", "issue", "edit", str(num), "--repo", repo,
-
-                    "--body", body], check=False, capture_output=True, text=True)
 
 
 def update_study_board_status(state, gate_number, status_name="Ready for review"):
@@ -437,10 +384,20 @@ def main():
 
 
     state = json.loads(state_path.read_text(encoding="utf-8"))
-
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
 
+    code = apply(payload, state, state_path, baseline, gates_config)
 
+    # Every dispatch, not only an advance. A push that moves no gate can still
+    # be someone joining TEAM.md, and the Factory issue is where the
+    # coordinating team looks for who is on a study.
+    refresh(state, gates_config, activity=payload)
+    return code
+
+
+def apply(payload, state, state_path, baseline, gates_config):
+    """Evaluate one push against the study's state and act on the decision."""
+    study_repo = payload["study_repo"]
     paths = payload.get("paths", [])
 
     current_blobs = fetch_blobs(study_repo, payload["commit_sha"]) if paths else {}
@@ -557,7 +514,6 @@ def main():
 
 
     update_study_board_status(state, decision.to_gate)
-    update_factory_issue(state, gates_config, payload)
     update_portfolio_gate(state, gate_title,
                           subprocess.os.environ.get("FACTORY_PROJECT_NUMBER"))
     print(f"advanced {decision.from_gate} -> {decision.to_gate}")

@@ -315,6 +315,8 @@ def main():
     ap.add_argument("--factory-repo")
     ap.add_argument("--factory-issue", type=int)
     ap.add_argument("--project-id", default="")
+    ap.add_argument("--start-date", default="")
+    ap.add_argument("--target-date", default="")
     ap.add_argument("--branch", default="",
                     help="branch file links point at; default: the repo's default branch")
     ap.add_argument("--state-dir", default=".github/data/state")
@@ -383,6 +385,9 @@ def main():
         "current_gate": -1,
         "gate_entered_at": None,
         "stall_threshold_days": gates.get("stall_threshold_days", 21),
+        # Bracket the gates on the Factory issue's history table.
+        "start_date": args.start_date or None,
+        "target_date": args.target_date or None,
         "gates": state_gates,
         "gate_issues": gate_issues,
         "history": [],
