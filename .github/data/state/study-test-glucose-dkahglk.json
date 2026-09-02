@@ -55,10 +55,33 @@
       ]
     },
     "2": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-02T12:55:18+00:00",
       "issue": 3,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "Study Design",
+        "Data Sources",
+        "Study Population",
+        "Outcomes",
+        "Analysis",
+        "Strengths and Limitations",
+        "Protection of Human Subjects",
+        "Plans for Disseminating and Communicating Study Results"
+      ],
+      "commits": [
+        {
+          "sha": "74ff143d77cfbdff8ab6a5e323f30dd53c172a69",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/74ff143d77cfbdff8ab6a5e323f30dd53c172a69",
+          "at": "2026-09-02T12:55:00+00:00",
+          "author": "seanr87",
+          "message": "Update rationale and study objectives in Protocol.Rmd",
+          "paths": [
+            "Documents/Protocol.Rmd"
+          ],
+          "removed": []
+        }
+      ]
     },
     "3": {
       "status": "not_started",
