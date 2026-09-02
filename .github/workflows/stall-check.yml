@@ -71,7 +71,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Advance to gate 6 from partner status: ${STUDIES}"
+          git commit -m "Update gate state from partners and closures: ${STUDIES}"
 
           for attempt in 1 2 3; do
             if git pull --rebase --quiet origin "${{ github.ref_name }}" \

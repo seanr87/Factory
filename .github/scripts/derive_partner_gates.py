@@ -13,6 +13,10 @@ here, so changing when a gate moves is a template edit:
     in_progress_when: any_partner | any_returned
     ready_when:       any_committed | all_committed_returned
 
+This is also where gate closures are written into the state file (see
+closures.py): it is the one sweep that runs on every push, every hour, and
+every morning, and already commits what it changes.
+
 Like every other advance in this system these propose rather than conclude. A
 label records what somebody said; it cannot tell you a result set is complete, or
 that you have enough partners for the study to be worth running. Both of those
@@ -28,7 +32,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from factory_issue import refresh  # noqa: E402
+import closures  # noqa: E402
+from factory_issue import gate_issue_states, refresh  # noqa: E402
 from partnerlib import reconcile  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -210,19 +215,26 @@ def main():
         if args.study and repo != args.study:
             continue
 
-        partners = partner_states(repo)
-        if not partners:
-            print(f"  {repo}: no partner issues")
-            continue
-
-        # A lead may have dragged a card on the board or changed a label. Bring
-        # the two into step before reading either, so the gates are derived
-        # from whatever the lead most recently said.
-        for change in reconcile(repo, state.get("study_project_id"), partners,
-                                dry_run=args.dry_run):
+        # Closures first, so a gate a human has signed off is recorded — with
+        # its date — before anything below could propose it again. This is the
+        # one sweep that runs on every trigger, which is why it lives here.
+        closure_changes = closures.sync(state, gate_issue_states(
+            repo, state.get("gate_issues", {})))
+        for change in closure_changes:
             print(f"  {repo}: {change}")
+        dirty = bool(closure_changes)
 
-        dirty = False
+        partners = partner_states(repo)
+        if partners:
+            # A lead may have dragged a card on the board or changed a label.
+            # Bring the two into step before reading either, so the gates are
+            # derived from whatever the lead most recently said.
+            for change in reconcile(repo, state.get("study_project_id"), partners,
+                                    dry_run=args.dry_run):
+                print(f"  {repo}: {change}")
+        else:
+            print(f"  {repo}: no partner issues")
+
         for gate in sorted(derived, key=lambda g: g["gate"]):
             number = gate["gate"]
             status, reason = gate_state(gate["detection"], partners)
@@ -251,6 +263,8 @@ def main():
             rec["status"] = status
             rec["reason"] = reason
             rec["entered_at"] = rec.get("entered_at") or stamp
+            if status == READY:
+                rec["ready_at"] = rec.get("ready_at") or stamp
             rec["evidenced_by"] = [f"{p['title']}: {p['status']}" for p in partners]
             state["gates"][str(number)] = rec
             dirty = True
@@ -277,7 +291,7 @@ def main():
                      "--body", comment_body(gate["title"], status, reason, partners)],
                     check=False, capture_output=True, text=True)
 
-        if dirty:
+        if dirty and not args.dry_run:
             path.write_text(json.dumps(state, indent=2) + NEWLINE, encoding="utf-8")
             changed.append(repo)
 

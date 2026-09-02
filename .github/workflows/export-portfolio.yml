@@ -1,0 +1,49 @@
+# Exports everything Factory knows about its studies as CSV and JSON.
+#
+# The state files are the durable record — gate by gate, with the dates each
+# reached In progress, Ready for review, and Closed — but a directory of JSON
+# is not something anyone opens to answer a question. Run this, download the
+# artifact, and open the CSVs in a spreadsheet or R.
+#
+# Nothing here writes anywhere except the artifact.
+
+name: Export Portfolio Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      offline:
+        description: 'State files only — skip the team, partner, and partner history tables that need GitHub calls'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Export
+        env:
+          # The study repositories may be private; the org token can read them.
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/export_portfolio.py --self-test
+          ARGS=(--out export)
+          if [[ "${{ inputs.offline }}" == "true" ]]; then
+            ARGS+=(--offline)
+          fi
+          python3 .github/scripts/export_portfolio.py "${ARGS[@]}"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-export-${{ github.run_number }}
+          path: export/
+          retention-days: 90

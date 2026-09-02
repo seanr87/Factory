@@ -88,6 +88,7 @@ jobs:
           python3 .github/scripts/gate_machine.py
           python3 .github/scripts/sections.py
           python3 .github/scripts/factory_issue.py --self-test
+          python3 .github/scripts/closures.py --self-test
 
       - name: Evaluate and apply
         id: apply
@@ -128,11 +129,12 @@ jobs:
           python3 .github/scripts/sync_partners.py \
             --repo "$STUDY" --ref "$SHA" --project-id "$PROJECT"
 
-      # A lead moves a partner by dragging its card or changing its label, and
-      # neither produces a push. Re-derive Gates 5 and 6 whenever the study talks
-      # to Factory for any reason, so the board catches up at the next push
-      # rather than the next morning; partner-sync.yml covers the hours between.
-      - name: Derive partner gates
+      # A lead moves a partner by dragging its card or changing its label, or
+      # closes a gate issue, and none of that produces a push. Re-derive Gates 5
+      # and 6 and record closures whenever the study talks to Factory for any
+      # reason, so the record catches up at the next push rather than the next
+      # morning; partner-sync.yml covers the hours between.
+      - name: Derive partner gates and record closures
         id: partners
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
@@ -164,7 +166,7 @@ jobs:
           if [[ "${ADVANCED:-}" == "true" ]]; then
             git commit -m "Advance $(basename "$STATE_PATH" .json) to gate ${TO_GATE}"
           else
-            git commit -m "Update partner-derived gates: ${PARTNER_STUDIES}"
+            git commit -m "Update gate state from partners and closures: ${PARTNER_STUDIES}"
           fi
 
           # Another study's dispatch may have landed while this one ran. Rebase
