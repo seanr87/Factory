@@ -51,9 +51,10 @@ push
 
 The Factory issue is the page the coordinating team opens when a study needs help.
 Below its header it shows the current gate and time in it, every gate with its
-status and date, the study team from `TEAM.md` (name, institution, role, GitHub
-username), and every data partner with its status, contact, and how long since
-anything was logged on it. One script,
+status and the dates it reached In progress, Ready for review, and Closed, the
+study team from `TEAM.md` (name, institution, role, GitHub username), and every
+data partner with its status, contact, and how long since anything was logged on
+it. One script,
 [`factory_issue.py`](.github/scripts/factory_issue.py), renders all of that and
 is called by each of the jobs above; it only writes when something changed.
 
