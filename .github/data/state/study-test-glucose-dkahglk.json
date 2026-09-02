@@ -4,14 +4,14 @@
   "factory_issue": 188,
   "study_project_id": "PVT_kwDOCQMYQc4BiOrc",
   "default_branch": "main",
-  "current_gate": 1,
-  "gate_entered_at": "2026-09-02T12:50:49+00:00",
+  "current_gate": 2,
+  "gate_entered_at": "2026-09-02T13:02:41+00:00",
   "stall_threshold_days": 21,
   "start_date": "2026-09-02",
   "target_date": "2027-01-01",
   "gates": {
     "0": {
-      "status": "ready_for_review",
+      "status": "done",
       "entered_at": "2026-09-02T12:42:42+00:00",
       "issue": 1,
       "evidenced_by": [
@@ -30,7 +30,8 @@
           ],
           "removed": []
         }
-      ]
+      ],
+      "closed_at": "2026-09-02T13:00:36+00:00"
     },
     "1": {
       "status": "ready_for_review",
@@ -55,10 +56,12 @@
       ]
     },
     "2": {
-      "status": "in_progress",
+      "status": "ready_for_review",
       "entered_at": "2026-09-02T12:55:18+00:00",
       "issue": 3,
-      "evidenced_by": [],
+      "evidenced_by": [
+        "Documents/Protocol.Rmd"
+      ],
       "outstanding": [
         "Outcomes",
         "Analysis",
@@ -88,8 +91,20 @@
             "Documents/Protocol.Rmd"
           ],
           "removed": []
+        },
+        {
+          "sha": "e2de4f0b4ce8e4fab38f84df3d300bc1512cc0f3",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/e2de4f0b4ce8e4fab38f84df3d300bc1512cc0f3",
+          "at": "2026-09-02T13:02:19+00:00",
+          "author": "seanr87",
+          "message": "Update Protocol.Rmd",
+          "paths": [
+            "Documents/Protocol.Rmd"
+          ],
+          "removed": []
         }
-      ]
+      ],
+      "ready_at": "2026-09-02T13:02:41+00:00"
     },
     "3": {
       "status": "not_started",
@@ -149,6 +164,15 @@
       "commit": "171639d4b20ef5b13028fbbfd99211f9d2a6e2f7",
       "evidence": [
         "Documents/research-question.md"
+      ]
+    },
+    {
+      "at": "2026-09-02T13:02:41+00:00",
+      "from_gate": 1,
+      "to_gate": 2,
+      "commit": "e2de4f0b4ce8e4fab38f84df3d300bc1512cc0f3",
+      "evidence": [
+        "Documents/Protocol.Rmd"
       ]
     }
   ]
