@@ -90,6 +90,7 @@ jobs:
           python3 .github/scripts/factory_issue.py --self-test
           python3 .github/scripts/closures.py --self-test
           python3 .github/scripts/issue_history.py --self-test
+          python3 .github/scripts/derive_partner_gates.py --self-test
 
       - name: Evaluate and apply
         id: apply
@@ -103,6 +104,7 @@ jobs:
       # as having recruited anyone — but the issues it creates are what Gate 6 and
       # the stall roll-up read.
       - name: Sync data partners
+        id: sync
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: |
@@ -135,15 +137,21 @@ jobs:
       # and 6 and record closures whenever the study talks to Factory for any
       # reason, so the record catches up at the next push rather than the next
       # morning; partner-sync.yml covers the hours between.
+      #
+      # The sync above names the issues it just created or refreshed. Listing
+      # issues by label can lag a creation by a second, which once left the
+      # third of three new partners out of the Gate 5 comment; anything named
+      # here that the listing misses is fetched by number instead.
       - name: Derive partner gates and record closures
         id: partners
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+          EXPECT: ${{ steps.sync.outputs.partner_issues }}
         run: |
           set -euo pipefail
 
           STUDY=$(python3 -c "import json;print(json.load(open('payload.json'))['study_repo'])")
-          python3 .github/scripts/derive_partner_gates.py --study "$STUDY"
+          python3 .github/scripts/derive_partner_gates.py --study "$STUDY" --expect "${EXPECT:-}"
 
       # Three things can change the state file on a push: a gate advancing, the
       # push being logged against the gates it touched, and partner-derived

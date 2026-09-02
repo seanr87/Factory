@@ -26,6 +26,7 @@ import argparse
 import csv
 import io
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -161,6 +162,7 @@ def main():
     board = partner_board(args.project_id) if args.project_id else None
 
     created = updated = 0
+    numbers = []  # every issue the CSV maps to, for the gate derivation
     for p in partners:
         title = title_for(p["institution"])
         issue = by_title.get(title)
@@ -171,6 +173,7 @@ def main():
                      "--body", body, "--label", "partner", "--label", "work-item",
                      "--label", DEFAULT_STATUS)
             number = int(url.rstrip("/").split("/")[-1])
+            numbers.append(number)
             created += 1
             print(f"  created #{number}  {p['institution']}")
 
@@ -188,6 +191,7 @@ def main():
         # Existing partner: refresh the body from the CSV but keep whatever status
         # label a human has set. v1 found existing issues and then did nothing,
         # so a corrected contact never reached the issue.
+        numbers.append(issue["number"])
         current_status = next(
             (l["name"] for l in issue["labels"] if l["name"] in STATUS_LABELS),
             DEFAULT_STATUS)
@@ -211,6 +215,15 @@ def main():
               + ", ".join(f"#{i['number']}" for i in orphans))
 
     print(f"  partners: {created} created, {updated} updated, {len(partners)} in CSV")
+
+    # Tell the gate derivation which issues exist now. Listing issues by label
+    # right after creating one can miss it — the list lagged the last of three
+    # new partners by under a second once, and Gate 5 reported two — so the
+    # derivation fetches anything named here that the list leaves out.
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as fh:
+            fh.write("partner_issues=" + ",".join(str(n) for n in numbers) + chr(10))
     return 0
 
 
