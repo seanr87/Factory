@@ -193,6 +193,14 @@ issue.
     state/<study>.json        current gate, entry time, issue map, history
 ```
 
+## Seeing it work
+
+[DEMO.md](DEMO.md) is a fifteen-minute browser walkthrough that exercises every moving
+part: a gate advancing on a commit, the refusal to move backwards, the baseline check that
+stops the template's own files counting as work, partners appearing from a spreadsheet,
+Gate 6 derived from partner labels, stall detection, and the contract check catching a
+simulated upstream restructure.
+
 ## Setup
 
 **Deploying this in your own organisation: [DEPLOYING.md](DEPLOYING.md).** It covers the
