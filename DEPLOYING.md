@@ -145,8 +145,9 @@ Check, in order:
 - it has `TEAM.md`, `partners.csv`, `Documents/research-question.md`,
   `Documents/results-summary.md`, and `.github/workflows/notify-factory.yml`
 - its board has all three views, with Gate 0 and Gate 1 already in *In progress*
-- Factory has a tracking issue, and `.github/data/baselines/` and
-  `.github/data/state/` each gained a file
+- Factory has a tracking issue listing every gate as not started, with no team
+  and no partners yet, and `.github/data/baselines/` and `.github/data/state/`
+  each gained a file
 
 Then edit `TEAM.md` in the browser. Within a minute or two, Gate 0 should move to
 *Ready for review* with a comment naming the commit. **That is the whole system working.**

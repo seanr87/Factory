@@ -32,6 +32,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+from factory_issue import partner_rows, refresh  # noqa: E402
 from gatelib import gate_option  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -56,34 +57,6 @@ def parse_ts(value):
 def days_since(value, now):
     ts = parse_ts(value)
     return None if ts is None else (now - ts).days
-
-
-def partner_activity(repo, now):
-    """Per-partner days since the last sign of life."""
-    raw = gh("issue", "list", "--repo", repo, "--label", "partner",
-             "--state", "open", "--limit", "200",
-             "--json", "number,title,updatedAt,labels,comments", check=False)
-    if not raw:
-        return []
-
-    out = []
-    for issue in json.loads(raw):
-        comments = issue.get("comments") or []
-        last_comment = max((c.get("createdAt") for c in comments if c.get("createdAt")),
-                           default=None)
-        # Later of the two: a body rewrite is real work even with no comment.
-        marks = [m for m in (last_comment, issue.get("updatedAt")) if m]
-        last = max(marks) if marks else None
-        status = next((l["name"] for l in issue.get("labels", [])
-                       if l["name"].startswith("status:")), "status:unknown")
-        out.append({
-            "number": issue["number"],
-            "title": issue["title"],
-            "status": status.replace("status:", "").replace("-", " "),
-            "days_quiet": days_since(last, now),
-            "last_activity": last,
-        })
-    return out
 
 
 def roll_up(state, partners, threshold, now):
@@ -121,48 +94,6 @@ def partner_line(summary):
     if summary["stalled_partners"] == 0:
         return f"{summary['partner_count']} partners, none stalled"
     return f"{summary['partner_count']} partners, {summary['stalled_partners']} stalled"
-
-
-def update_factory_issue(summary, gates_config, now):
-    """Rewrite the roll-up block on the study's Factory issue."""
-    num = summary["factory_issue"]
-    if not num or not summary.get("factory_repo"):
-        return
-
-    if summary["never_started"]:
-        alarm = "⚪ not started"
-    elif summary["stalled"]:
-        alarm = f"🔴 **stalled — {summary['days_in_gate']} days in this gate**"
-    else:
-        alarm = f"🟢 {summary['days_in_gate']} days in this gate"
-
-    block = (
-        "<!--factory:rollup-->\n"
-        f"**Gate:** {gate_name(gates_config, summary['current_gate'])}\n"
-        f"**Time in gate:** {alarm}\n"
-        f"**Partners:** {partner_line(summary)}\n"
-        f"<sub>Threshold {summary['threshold']} days · checked "
-        f"{now.date().isoformat()}</sub>\n"
-        "<!--/factory:rollup-->"
-    )
-
-    # Read the Factory repo from the study's own state, never rebuild it from the
-    # study's owner plus a literal "Factory". That only worked because this install
-    # happens to be named Factory and to own its studies; a fork under any other
-    # name, or studies living in a different org, would have written the roll-up to
-    # a repository that does not exist.
-    repo = summary["factory_repo"]
-    body = json.loads(gh("api", f"repos/{repo}/issues/{num}",
-                         "--jq", "{body:.body}"))["body"] or ""
-
-    start, end = "<!--factory:rollup-->", "<!--/factory:rollup-->"
-    if start in body and end in body:
-        body = body[:body.index(start)] + block + body[body.index(end) + len(end):]
-    else:
-        body = body.rstrip() + "\n\n" + block + "\n"
-
-    subprocess.run(["gh", "issue", "edit", str(num), "--repo", repo, "--body", body],
-                   check=False, capture_output=True, text=True)
 
 
 def dashboard(summaries, gates_config, factory_repo, now):
@@ -322,7 +253,7 @@ def main():
         state = json.loads(path.read_text(encoding="utf-8"))
         threshold = (args.threshold if args.threshold is not None
                      else state.get("stall_threshold_days", global_threshold))
-        partners = partner_activity(state["study_repo"], now)
+        partners = partner_rows(state["study_repo"], now)
         summary = roll_up(state, partners, threshold, now)
         summaries.append(summary)
 
@@ -333,7 +264,7 @@ def main():
               f"{summary['days_in_gate']} day(s)  {partner_line(summary)}")
 
         if not args.dry_run:
-            update_factory_issue(summary, gates_config, now)
+            refresh(state, gates_config, now=now, threshold=threshold)
             update_portfolio_fields(summary, gates_config,
                                     os.environ.get("FACTORY_PROJECT_NUMBER"), now)
 

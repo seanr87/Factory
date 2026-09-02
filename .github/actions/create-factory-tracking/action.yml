@@ -58,28 +58,19 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.org_token }}
       run: |
-        # Create tracking issue in Factory repo
+        # The header is the only part of the body written here. Everything
+        # between the markers — progress, the gate-by-gate history, the study
+        # team, the data partners — is rendered by factory_issue.py once the
+        # gate issues and state file exist, and kept current from then on.
         ISSUE_BODY=$(cat <<EOF
         ## ${{ inputs.study_title }}
         
         **Repository:** ${{ inputs.repo_url }}
         **Lead:** ${{ inputs.lead_name }} (@${{ inputs.lead_github }})
-        **Status:** 🟢 Active
         
-        ### Study History
-        | Objective | Date Complete |
-        |-----------|---------------|
-        | **Study Start** | ${{ inputs.start_date }} |
-        | Analysis Package Prototype | — |
-        | Network Execution | — |
-        | Journal Submission | — |
-        | **Target Completion** | ${{ inputs.target_date }} |
-        
-        ### Activity
-        Last updated: $(date -u +"%Y-%m-%d %H:%M UTC")
-        
-        ---
-        *This issue tracks the study progress. Updates are automated.*
+        <!--factory:body-->
+        _Factory fills this in once the study's gate issues exist._
+        <!--/factory:body-->
         EOF
         )
         

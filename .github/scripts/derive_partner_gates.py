@@ -28,6 +28,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+from factory_issue import refresh  # noqa: E402
 from partnerlib import reconcile  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -279,6 +280,11 @@ def main():
         if dirty:
             path.write_text(json.dumps(state, indent=2) + NEWLINE, encoding="utf-8")
             changed.append(repo)
+
+        # The Factory issue lists every partner with its status, so a card a
+        # lead dragged shows there within the hour even when no gate moved.
+        if not args.dry_run:
+            refresh(state, gates_config)
 
     out = subprocess.os.environ.get("GITHUB_OUTPUT")
     if out:

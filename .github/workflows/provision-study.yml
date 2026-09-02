@@ -172,6 +172,8 @@ jobs:
           repo_full_name: ${{ steps.repo.outputs.repo_full_name }}
           factory_issue_number: ${{ steps.extract_issue_number.outputs.issue_number }}
           project_id: ${{ steps.project.outputs.project_id }}
+          start_date: ${{ steps.validate.outputs.start_date }}
+          target_date: ${{ steps.validate.outputs.target_date }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
 
       - name: Populate study template files
@@ -233,6 +235,14 @@ jobs:
           repo_full_name: ${{ steps.repo.outputs.repo_full_name }}
           factory_repo: ${{ github.repository }}
           org_token: ${{ secrets.ORG_ADMIN_TOKEN }}
+
+      # The tracking issue was created with only its header. Now that the gate
+      # issues, the state file, TEAM.md and partners.csv all exist, fill in the
+      # rest, so the issue is complete from the day the study is.
+      - name: Fill in the Factory issue
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: python3 .github/scripts/factory_issue.py --study "${{ steps.repo.outputs.repo_full_name }}"
 
       # Factory owns the baselines, not the study repos — a lead cannot edit what they
       # cannot see, and gate logic stays in one place. Written by create-study-repository

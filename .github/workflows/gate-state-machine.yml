@@ -87,6 +87,7 @@ jobs:
           python3 .github/scripts/gatelib.py
           python3 .github/scripts/gate_machine.py
           python3 .github/scripts/sections.py
+          python3 .github/scripts/factory_issue.py --self-test
 
       - name: Evaluate and apply
         id: apply

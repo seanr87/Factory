@@ -37,11 +37,25 @@ push
                                        ├─ update the Factory issue
                                        └─ commit state
 
+                                     partner-sync.yml  (hourly)
+                                       ├─ board column ⇄ status label
+                                       ├─ derive Gates 5 and 6
+                                       └─ refresh the Factory issue
+
                                      stall-check.yml  (daily)
                                        ├─ derive Gate 6 from partner status
                                        ├─ days in gate, days since partner activity
+                                       ├─ refresh the Factory issue
                                        └─ rewrite the portfolio dashboard
 ```
+
+The Factory issue is the page the coordinating team opens when a study needs help.
+Below its header it shows the current gate and time in it, every gate with its
+status and date, the study team from `TEAM.md` (name, institution, role, GitHub
+username), and every data partner with its status, contact, and how long since
+anything was logged on it. One script,
+[`factory_issue.py`](.github/scripts/factory_issue.py), renders all of that and
+is called by each of the jobs above; it only writes when something changed.
 
 The study-side workflow is deliberately dumb: it reports which paths changed and
 nothing more. All gate logic lives in Factory, so gates can be redefined without
