@@ -28,7 +28,7 @@ sys.path.insert(0, __file__.rsplit("/", 1)[0] if "/" in __file__ else ".")
 
 from gatelib import matches  # noqa: E402
 
-__all__ = ["evaluate", "Decision"]
+__all__ = ["evaluate", "touched_gates", "Decision"]
 
 READY = "ready_for_review"
 DONE = "done"
@@ -119,6 +119,27 @@ def _unsatisfied(gate, baseline_blobs, current_blobs):
                    for p in known):
             out.append(pattern)
     return out
+
+
+def touched_gates(gates_config, baseline, changed_paths, current_blobs):
+    """{gate: [paths]} for every push-detected gate whose files changed.
+
+    Required and supporting paths alike, and only where the blob differs from
+    the template baseline — the same test evaluate() applies before anything
+    counts as evidence. It lives here so that "this push was work on gate 3"
+    means one thing everywhere in Factory, whether the answer moves the gate
+    or is only written down on its issue.
+    """
+    baseline_blobs = baseline.get("blobs", {})
+    out = {}
+    for path in changed_paths:
+        if not _changed(path, baseline_blobs, current_blobs):
+            continue
+        for key in ("paths", "supporting_paths"):
+            for gate_no, _p in _gates_for_path(gates_config, path, key):
+                if path not in out.setdefault(gate_no, []):
+                    out[gate_no].append(path)
+    return {g: sorted(ps) for g, ps in sorted(out.items())}
 
 
 def evaluate(gates_config, baseline, state, changed_paths, current_blobs,
@@ -346,6 +367,24 @@ def _self_test():
     d = evaluate(cfg, base4, part, ["spec.json"],
                  full(**{"spec.json": "j1", "spec.R": "r1"}))
     check("completing the pair later advances", d.advance and d.to_gate == 4)
+
+    # touched_gates — what a push was work on, whether or not it moved anything.
+    t = touched_gates(cfg, base4, ["spec.R", "negativeControls.csv", "README.md"],
+                      full(**{"spec.R": "r1", "negativeControls.csv": "n1",
+                              "README.md": "x"}))
+    check("touched gates list required and supporting paths, nothing else",
+          t == {4: ["negativeControls.csv", "spec.R"]})
+    check("a template file still identical to the baseline touches nothing",
+          touched_gates(cfg, base, ["Documents/Protocol.Rmd"],
+                        {"Documents/Protocol.Rmd": "aaa"}) == {})
+    check("a push spanning gates touches each of them",
+          touched_gates(cfg, base, ["TEAM.md", "inst/cohorts/11.json"],
+                        {"TEAM.md": "x", "inst/cohorts/11.json": "changed"})
+          == {0: ["TEAM.md"], 3: ["inst/cohorts/11.json"]})
+    check("a manual gate is never touched by a push",
+          touched_gates(cfg, base, ["partners.csv"], {"partners.csv": "x"}) == {})
+    check("a deleted template file touches its gate",
+          touched_gates(cfg, base, ["inst/Cohorts.csv"], {}) == {3: ["inst/Cohorts.csv"]})
 
     failed = [n for n, ok in checks if not ok]
     if failed:

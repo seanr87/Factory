@@ -63,6 +63,7 @@ jobs:
           python3 .github/scripts/partnerlib.py
           python3 .github/scripts/factory_issue.py --self-test
           python3 .github/scripts/closures.py --self-test
+          python3 .github/scripts/issue_history.py --self-test
           python3 .github/scripts/export_portfolio.py --self-test
 
       - name: Check detection paths against upstream

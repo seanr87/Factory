@@ -43,6 +43,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from factory_issue import read_file, refresh  # noqa: E402
 from gate_machine import DONE, READY, evaluate  # noqa: E402
 from gatelib import gate_option  # noqa: E402
+from issue_history import record as record_history  # noqa: E402
+from issue_history import refresh as refresh_history  # noqa: E402
 from sections import heading_lines, normalise, outstanding_sections  # noqa: E402
 
 
@@ -386,7 +388,14 @@ def main():
     state = json.loads(state_path.read_text(encoding="utf-8"))
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
 
-    code = apply(payload, state, state_path, baseline, gates_config)
+    current_blobs = (fetch_blobs(study_repo, payload["commit_sha"])
+                     if payload.get("paths") else {})
+
+    code = apply(payload, state, state_path, baseline, gates_config, current_blobs)
+
+    # Whether or not anything moved. The gate issue is where a reviewer looks
+    # for what has been done on it, and most pushes move nothing.
+    log_history(payload, state, state_path, baseline, gates_config, current_blobs)
 
     # Every dispatch, not only an advance. A push that moves no gate can still
     # be someone joining TEAM.md, and the Factory issue is where the
@@ -395,13 +404,39 @@ def main():
     return code
 
 
-def apply(payload, state, state_path, baseline, gates_config):
+def log_history(payload, state, state_path, baseline, gates_config, current_blobs):
+    """Write this push into the record of every gate it touched, and show it.
+
+    The state file is the record and is written first; the table at the top
+    of each gate issue is the view of it and is best-effort. The workflow
+    commits the state whenever this logged something, so the record survives
+    even when an issue could not be edited.
+    """
+    logged = record_history(state, gates_config, baseline, payload, current_blobs)
+    if not logged:
+        print("history: no gate files changed")
+        return
+    state_path.write_text(json.dumps(state, indent=2) + NEWLINE, encoding="utf-8")
+    for gate_no in logged:
+        refresh_history(state, gate_no)
+
+    short = payload["commit_sha"][:7]
+    slug = payload["study_repo"].split("/")[-1]
+    gates = ", ".join(str(g) for g in logged)
+    print(f"history: logged {short} against gate(s) {gates}")
+    output = subprocess.os.environ.get("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a", encoding="utf-8") as fh:
+            fh.write("history=true" + NEWLINE)
+            fh.write(f"history_message=Record {short} on {slug} against "
+                     f"gate{'s' if len(logged) > 1 else ''} {gates}" + NEWLINE)
+            fh.write(f"state_path={state_path.relative_to(ROOT).as_posix()}" + NEWLINE)
+
+
+def apply(payload, state, state_path, baseline, gates_config, current_blobs):
     """Evaluate one push against the study's state and act on the decision."""
     study_repo = payload["study_repo"]
     paths = payload.get("paths", [])
-
-    current_blobs = fetch_blobs(study_repo, payload["commit_sha"]) if paths else {}
-
 
     sections, section_links = section_state(gates_config, baseline, study_repo,
                                             payload["commit_sha"],

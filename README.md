@@ -34,6 +34,7 @@ push
                                        ├─ compare against template baseline
                                        ├─ decide (advance only, never retreat)
                                        ├─ comment on the gate issue
+                                       ├─ log the push on each gate issue it touched
                                        ├─ update the Factory issue
                                        └─ commit state
 
@@ -59,6 +60,16 @@ it. One script,
 [`factory_issue.py`](.github/scripts/factory_issue.py), renders all of that and
 is called by each of the jobs above; it only writes when something changed.
 
+Each gate issue in the study repository carries its own history. A table at the
+top lists every push that changed a file the gate watches — when, which files,
+the commit message, and who — whether or not the push moved the gate, so a
+reviewer sees the work on the issue itself rather than in the commit log. A
+push counts by the same rule as evidence does: the file must differ from the
+template baseline. [`issue_history.py`](.github/scripts/issue_history.py)
+records each push in the state file and rewrites the table from it; the table
+appears with the first such push, so an untouched gate keeps the issue as
+provisioning wrote it.
+
 The study-side workflow is deliberately dumb: it reports which paths changed and
 nothing more. All gate logic lives in Factory, so gates can be redefined without
 editing ten study repositories.
@@ -67,8 +78,9 @@ editing ten study repositories.
 
 The state files in [`.github/data/state/`](.github/data/state/) are the durable
 record. Each gate carries the dates it reached In progress (`entered_at`), Ready
-for review (`ready_at`), and Closed (`closed_at`), and `history` lists every
-advance with the commit that caused it. Closing a gate issue is recorded there by
+for review (`ready_at`), and Closed (`closed_at`), `commits` lists every push
+that changed one of its files, and `history` lists every advance with the
+commit that caused it. Closing a gate issue is recorded there by
 [`closures.py`](.github/scripts/closures.py) on every sweep, so the file does not
 depend on the issues still existing.
 
@@ -80,7 +92,8 @@ python .github/scripts/export_portfolio.py --out export/
 ```
 
 That writes `studies.csv`, `gates.csv` (one row per study × gate, with the three
-dates and the days between them), `history.csv`, `team.csv`, `partners.csv`,
+dates and the days between them), `history.csv`, `commits.csv` (one row per push
+per gate it touched), `team.csv`, `partners.csv`,
 `partner_status_history.csv` (every status label change, from the issues' own
 event log), and `portfolio.json` with everything. `--offline` skips the tables
 that need GitHub calls.
@@ -165,6 +178,7 @@ issue.
     gatelib.py                path matching, shared by everything that matches
     gate_machine.py           the decision rules, with a self-test
     run_gate_machine.py       I/O around a decision
+    issue_history.py          the push log at the top of each gate issue
     create_gate_issues.py     Gates 0-7 in a study repo, seeds its state
     sync_partners.py          partners.csv -> partner issues
     partnerlib.py             board column <-> status label, kept in step
