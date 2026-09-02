@@ -123,6 +123,22 @@ runs:
           echo "::warning::The copied board has no views. Check the template project."
         fi
 
+        # The Data partners view only works as a board columned by Data Partner
+        # Status: that is what lets a lead mark a partner by dragging its card,
+        # and what partner-sync reads back. A view columned by Status (the
+        # default for any new board view) parks every partner in Todo and
+        # nobody notices until Gate 5 never moves. Views cannot be edited
+        # through the API, so this can only warn; the fix is on the template.
+        PARTNER_COLUMNS=$(gh api graphql \
+          -f query='query($p:ID!){node(id:$p){... on ProjectV2{views(first:20){nodes{name layout verticalGroupByFields(first:5){nodes{... on ProjectV2SingleSelectField{name}}}}}}}}' \
+          -f p="$PROJECT_ID" \
+          --jq '.data.node.views.nodes[] | select(.name == "Data partners") | "\(.layout):\([.verticalGroupByFields.nodes[].name] | join(","))"' \
+          2>/dev/null || true)
+        if [[ -n "$PARTNER_COLUMNS" && "$PARTNER_COLUMNS" != "BOARD_LAYOUT:Data Partner Status" ]]; then
+          echo "::warning::The Data partners view is '$PARTNER_COLUMNS', not a board columned by Data Partner Status."
+          echo "::warning::Open the template project, Data partners view -> Column by -> Data Partner Status; every study copied afterwards gets the fix."
+        fi
+
         FIELDS=$(gh api graphql \
           -f query='query($p:ID!){node(id:$p){... on ProjectV2{fields(first:30){nodes{... on ProjectV2SingleSelectField{name}}}}}}' \
           -f p="$PROJECT_ID" --jq '[.data.node.fields.nodes[]|select(.name)|.name]|join(", ")')

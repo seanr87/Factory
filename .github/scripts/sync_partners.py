@@ -105,7 +105,9 @@ def read_partners(repo, ref):
 
 
 def build_body(p, status_label):
-    status = status_label.replace("status:", "").replace("-", " ").capitalize()
+    # The same words the board column uses, so the body and the card agree.
+    status = OPTION_FOR_LABEL.get(
+        status_label, status_label.replace("status:", "").replace("-", " ").capitalize())
     contact = p["contact_name"] or "—"
     if p["contact_role"]:
         contact += f", {p['contact_role']}"
@@ -127,7 +129,7 @@ spot a partner going quiet.*
 
 *Have the conversations wherever you normally would. This issue is a log, not an inbox.*
 
-**Status values:** Not yet contacted · Contacted · Interested · Committed · Package running · \
+**Status values:** Not yet contacted · Contacted · Interested · Package running · \
 Results received · Declined
 
 <sub>Managed by Factory from `partners.csv`. Editing the fields above is fine; the institution \

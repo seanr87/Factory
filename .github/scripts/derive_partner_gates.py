@@ -10,8 +10,9 @@ status label on each partner issue.
 Each gate declares its own rules in front matter rather than having them written
 here, so changing when a gate moves is a template edit:
 
-    in_progress_when: any_partner | any_returned
-    ready_when:       any_committed | all_committed_returned
+    in_progress_when: minimum_partners | any_running
+    ready_when:       minimum_interested | minimum_returned
+    minimum_partners: 3
 
 This is also where gate closures are written into the state file (see
 closures.py): it is the one sweep that runs on every push, every hour, and
@@ -45,11 +46,12 @@ IN_PROGRESS = "in_progress"
 DONE = "done"
 
 RETURNED = "status:results-received"
-# Anyone who agreed to run it. A site that has returned results was committed
-# whether or not anybody moved its label through every intermediate state.
-COMMITTED = {"status:committed", "status:package-running", RETURNED}
-# A site that said no should not hold a study back.
-INACTIVE = {"status:declined"}
+# Anyone running the package. A site that has returned results ran it, whether
+# or not anybody moved its label through the intermediate state.
+RUNNING = {"status:package-running", RETURNED}
+# Anyone who said yes. `status:committed` is no longer offered, but an issue
+# labelled with it before it was retired still counts as a yes.
+INTERESTED = {"status:interested", "status:committed"} | RUNNING
 
 BOARD_NAME = {READY: "Ready for review", IN_PROGRESS: "In progress"}
 
@@ -123,44 +125,42 @@ def parse_expected(text):
 
 
 def assess(partners):
-    active = [p for p in partners if p["status"] not in INACTIVE]
-    committed = [p for p in partners if p["status"] in COMMITTED]
+    interested = [p for p in partners if p["status"] in INTERESTED]
+    running = [p for p in partners if p["status"] in RUNNING]
     returned = [p for p in partners if p["status"] == RETURNED]
-    return active, committed, returned
+    return interested, running, returned
 
 
 def gate_state(rules, partners):
     """The state a partner-derived gate should be in, and why.
 
     Returns (status, reason). status is READY, IN_PROGRESS, or None meaning
-    leave the gate alone.
-    """
-    active, committed, returned = assess(partners)
+    leave the gate alone. Every threshold is the gate's `minimum_partners`:
+    the number of sites that makes a study a network study.
 
+      in_progress_when: minimum_partners   that many partner issues exist
+                        any_running        one site is running the package
+      ready_when:       minimum_interested that many sites have said yes
+                        minimum_returned   that many sites have returned results
+    """
+    interested, running, returned = assess(partners)
     minimum = rules.get("minimum_partners", 1)
 
-    if rules.get("ready_when") == "all_committed_returned":
-        if committed and len(returned) == len(committed) and len(returned) >= minimum:
-            return READY, (f"all {len(committed)} committed partner(s) have "
-                           f"returned results")
-    elif rules.get("ready_when") == "minimum_committed":
-        if len(committed) >= minimum:
-            return READY, (f"{len(committed)} partner(s) have committed to "
-                           f"running the study")
-    elif rules.get("ready_when") == "any_committed":
-        if committed:
-            return READY, (f"{len(committed)} partner(s) have committed to "
+    if rules.get("ready_when") == "minimum_returned":
+        if len(returned) >= minimum:
+            return READY, f"{len(returned)} partner(s) have returned results"
+    elif rules.get("ready_when") == "minimum_interested":
+        if len(interested) >= minimum:
+            return READY, (f"{len(interested)} partner(s) are interested in "
                            f"running the study")
 
-    if rules.get("in_progress_when") == "any_returned" and returned:
-        short = (f", {minimum} needed for a network study"
-                 if len(returned) < minimum else "")
-        return IN_PROGRESS, (f"{len(returned)} of {len(committed)} committed "
-                             f"partner(s) have returned results{short}")
-    if rules.get("in_progress_when") == "any_partner" and active:
-        detail = (f"{len(committed)} committed of {minimum} needed"
-                  if committed else "none committed yet")
-        return IN_PROGRESS, (f"{len(active)} partner(s) being tracked, {detail}")
+    if rules.get("in_progress_when") == "any_running" and running:
+        return IN_PROGRESS, (f"{len(running)} partner(s) running the package, "
+                             f"{len(returned)} returned of {minimum} needed")
+    if rules.get("in_progress_when") == "minimum_partners" and len(partners) >= minimum:
+        detail = (f"{len(interested)} interested of {minimum} needed"
+                  if interested else "none interested yet")
+        return IN_PROGRESS, (f"{len(partners)} partner(s) being tracked, {detail}")
 
     return None, "nothing to report"
 
@@ -404,11 +404,48 @@ def self_test():
     assert parse_expected(" #9, ,x,11 ") == [9, 11]
     assert parse_expected("") == []
 
-    # Gate 5 reads three partners as three.
-    rules = {"in_progress_when": "any_partner", "ready_when": "minimum_committed",
-             "minimum_partners": 3}
-    status, reason = gate_state(rules, got)
+    def partners(*statuses):
+        return [partner_record(issue(n, f"Site {n}", ["partner", s]))
+                for n, s in enumerate(statuses, start=1)]
+
+    # Gate 5: In progress once three partners are tracked; Ready for review
+    # once three have said yes. Anything past Interested is still a yes.
+    gate5 = {"in_progress_when": "minimum_partners",
+             "ready_when": "minimum_interested", "minimum_partners": 3}
+    status, reason = gate_state(gate5, got)
     assert status == IN_PROGRESS and reason.startswith("3 partner(s)"), reason
+    assert gate_state(gate5, partners("status:not-contacted",
+                                      "status:contacted")) == (None, "nothing to report")
+    status, reason = gate_state(gate5, partners(
+        "status:interested", "status:interested", "status:contacted"))
+    assert status == IN_PROGRESS and "2 interested of 3 needed" in reason, reason
+    status, reason = gate_state(gate5, partners(
+        "status:interested", "status:package-running", "status:results-received"))
+    assert status == READY and reason.startswith("3 partner(s) are interested"), reason
+    status, _ = gate_state(gate5, partners(
+        "status:interested", "status:interested", "status:committed"))
+    assert status == READY, "a legacy committed label still counts as a yes"
+    status, _ = gate_state(gate5, partners(
+        "status:interested", "status:interested", "status:declined",
+        "status:interested"))
+    assert status == READY, "a declined partner does not block the others"
+
+    # Gate 6: In progress once one site is running the package; Ready for
+    # review once three have returned results.
+    gate6 = {"in_progress_when": "any_running",
+             "ready_when": "minimum_returned", "minimum_partners": 3}
+    assert gate_state(gate6, partners(
+        "status:interested", "status:interested", "status:interested"))[0] is None
+    status, reason = gate_state(gate6, partners(
+        "status:package-running", "status:interested", "status:interested"))
+    assert status == IN_PROGRESS and reason.startswith("1 partner(s) running"), reason
+    status, reason = gate_state(gate6, partners(
+        "status:results-received", "status:results-received", "status:interested"))
+    assert status == IN_PROGRESS and "2 returned of 3 needed" in reason, reason
+    status, reason = gate_state(gate6, partners(
+        "status:results-received", "status:results-received",
+        "status:results-received", "status:package-running"))
+    assert status == READY and reason.startswith("3 partner(s) have returned"), reason
 
     print("derive_partner_gates self-test passed")
     return 0

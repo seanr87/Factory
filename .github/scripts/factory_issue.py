@@ -671,8 +671,8 @@ def _self_test():
     check("v1 dates are read", legacy_dates(v1) == ("2026-07-01", "2027-01-01"))
 
     partners = [{"number": 9, "title": "Data partner — Site A", "institution": "Site A",
-                 "url": "https://github.com/org/study-x/issues/9", "label": "status:committed",
-                 "status": "committed", "status_text": "Committed",
+                 "url": "https://github.com/org/study-x/issues/9", "label": "status:interested",
+                 "status": "interested", "status_text": "Interested",
                  "contact_name": "Ann", "contact_role": "PI", "contact_github": "ann",
                  "days_quiet": 30, "last_activity": None}]
     team = [{"name": "Parent1", "institution": "Home", "role": "Study Lead",
@@ -704,7 +704,7 @@ def _self_test():
               "| 🟡 Ready for review | 2026-07-01 | 2026-07-15 | — |" in block)
     check("the team shows role and handle", "| Parent1 | Home | Study Lead | @parent1 |" in block)
     check("a partner shows status, contact, handle, and quiet days",
-          "| [Site A](https://github.com/org/study-x/issues/9) | Committed | Ann, PI | @ann | 🔴 30 days |"
+          "| [Site A](https://github.com/org/study-x/issues/9) | Interested | Ann, PI | @ann | 🔴 30 days |"
           in block)
     check("a quiet partner is counted", "**Partners:** 1 partner, 1 stalled" in block)
     check("a stalled study is flagged", "🔴 **stalled — 31 days in this gate**" in block)

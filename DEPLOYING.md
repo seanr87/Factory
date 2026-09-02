@@ -76,22 +76,31 @@ can be retuned centrally.
 2. Name it something like `[TEMPLATE] Study Board`.
 3. Add three views:
 
-   | View | Layout | Filter |
-   |---|---|---|
-   | Milestones | Board, grouped by Status | `label:milestone` |
-   | Work items | Table | `label:work-item -label:partner` |
-   | Data partners | Board, grouped by Data Partner Status | `label:partner` |
+   | View | Layout | Column by | Filter |
+   |---|---|---|---|
+   | Milestones | Board | Status | `label:milestone` |
+   | Work items | Table | — | `label:work-item -label:partner` |
+   | Data partners | Board | Data Partner Status | `label:partner` |
+
+   *Column by* is the board's own setting (view menu → **Column by**). A new board
+   view defaults to columning by Status, which for the Data partners view means every
+   card sits in Todo forever: the columns must be the partner statuses, so dragging a
+   card is how a lead marks a partner. Provisioning warns when a copied board's Data
+   partners view is columned by anything else.
 
 4. Delete the default "View 1", or every study inherits a stray empty view.
 5. On the **Status** field, add a `Ready for review` option and drag it **between
    In Progress and Done**. This is the column that makes "automation proposes, a human
    closes" visible; if it sits after Done the board reads backwards.
 6. Add a single-select field named exactly **`Data Partner Status`** with these options,
-   in order: `Not yet contacted`, `Contacted`, `Interested`, `Committed`,
-   `Package running`, `Results received`, `Declined`.
+   in order: `Not yet contacted`, `Contacted`, `Interested`, `Package running`,
+   `Results received`, `Declined`. Do this before step 3's Data partners view, or
+   come back and set its *Column by* afterwards.
 
-   The names matter. Gate 6 advances when every committed partner is at
-   *Results received*, and partner status labels are derived from these.
+   The names matter. Gate 5 advances when three partners are at *Interested* or
+   further along, Gate 6 when three are at *Results received*, and partner status
+   labels are derived from these. (`Committed` was an option once; if your template
+   still has it, delete it — nothing reads it any more.)
 
 7. Mark it as a template: **⋯ → Make template**.
 8. Get its node ID:

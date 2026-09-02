@@ -61,8 +61,10 @@ that is a bug worth reporting.
 **Two gates never move on a commit.** Gate 5 (recruiting data partners) and Gate 6
 (sites running your study) happen outside this repository entirely, on machines and
 in conversations Factory cannot see. Both are read from your partner issues instead:
-Gate 5 reaches *Ready for review* once three partners are marked *Committed*, and
-Gate 6 once every committed partner is marked *Results received*.
+Gate 5 moves to *In progress* once three partner issues exist and reaches *Ready for
+review* once three partners are marked *Interested* or further along. Gate 6 moves to
+*In progress* once one partner is marked *Package running* and reaches *Ready for
+review* once three partners are marked *Results received*.
 
 ## What it does *not* do
 
