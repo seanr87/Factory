@@ -66,10 +66,15 @@
       ]
     },
     "5": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-02T00:05:39+00:00",
       "issue": 6,
-      "evidenced_by": []
+      "evidenced_by": [
+        "place3: status:not-contacted",
+        "place2: status:not-contacted",
+        "place: status:not-contacted"
+      ],
+      "reason": "3 partner(s) being tracked, none committed yet"
     },
     "6": {
       "status": "not_started",
