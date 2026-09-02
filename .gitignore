@@ -236,3 +236,7 @@ IMPLEMENTATION_PLAN.md
 /temp/
 /local/
 /dev/
+
+# Local pulls of the portfolio data (see data/README.md). Snapshots worth keeping
+# are a job, not a commit by hand.
+/data/export/
