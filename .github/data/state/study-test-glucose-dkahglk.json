@@ -34,7 +34,7 @@
       "closed_at": "2026-09-02T13:00:36+00:00"
     },
     "1": {
-      "status": "ready_for_review",
+      "status": "done",
       "entered_at": "2026-09-02T12:42:46+00:00",
       "issue": 2,
       "evidenced_by": [
@@ -53,10 +53,11 @@
           ],
           "removed": []
         }
-      ]
+      ],
+      "closed_at": "2026-09-02T13:10:36+00:00"
     },
     "2": {
-      "status": "ready_for_review",
+      "status": "done",
       "entered_at": "2026-09-02T12:55:18+00:00",
       "issue": 3,
       "evidenced_by": [
@@ -104,7 +105,8 @@
           "removed": []
         }
       ],
-      "ready_at": "2026-09-02T13:02:41+00:00"
+      "ready_at": "2026-09-02T13:02:41+00:00",
+      "closed_at": "2026-09-02T13:10:36+00:00"
     },
     "3": {
       "status": "ready_for_review",
@@ -154,10 +156,26 @@
       "ready_at": "2026-09-02T13:09:36+00:00"
     },
     "4": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-02T13:11:53+00:00",
       "issue": 5,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "inst/analysisSpecifications.json"
+      ],
+      "commits": [
+        {
+          "sha": "c85f228b92c9f93dfffbed0fbe3c97d93681d785",
+          "url": "https://github.com/OHDSI-JHU/study-test-glucose-dkahglk/commit/c85f228b92c9f93dfffbed0fbe3c97d93681d785",
+          "at": "2026-09-02T13:11:36+00:00",
+          "author": "seanr87",
+          "message": "Minor edit to CreateStrategusAnalysisSpecifications.R",
+          "paths": [
+            "scriptsForStudyDesigner/CreateStrategusAnalysisSpecifications.R"
+          ],
+          "removed": []
+        }
+      ]
     },
     "5": {
       "status": "not_started",
