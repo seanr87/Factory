@@ -42,7 +42,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from gate_machine import DONE, READY, evaluate
 from gatelib import gate_option  # noqa: E402
-from sections import outstanding_sections  # noqa: E402
+from sections import heading_lines, normalise, outstanding_sections  # noqa: E402
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -80,15 +80,19 @@ def fetch_blobs(repo, sha):
             if n["type"] == "blob"}
 
 
-def section_state(gates_config, baseline, study_repo, sha):
+def section_state(gates_config, baseline, study_repo, sha, branch="main"):
     """Outstanding sections per gate, for gates that measure completeness.
 
     Reads the study's file and the template's version of it at the commit the
     study was scaffolded from, so boilerplate the lead never touched does not
     count as written. A file that cannot be read is reported as fully
     outstanding rather than assumed complete.
+
+    Returns (outstanding, links): both keyed by gate number; `links` maps each
+    section name to the line of its heading in the live file, so the comment
+    can point at exactly where to write rather than just naming the section.
     """
-    out = {}
+    out, links = {}, {}
     upstream = baseline.get("upstream_template")
     upstream_sha = baseline.get("upstream_sha")
 
@@ -109,7 +113,13 @@ def section_state(gates_config, baseline, study_repo, sha):
             continue
         out[gate["gate"]] = outstanding_sections(study_text, template_text or "",
                                                   required)
-    return out
+        lines = heading_lines(study_text)
+        links[gate["gate"]] = {
+            name: f"https://github.com/{study_repo}/blob/{branch}/{path}"
+                  f"?plain=1#L{lines[normalise(name)]}"
+            for name in required if normalise(name) in lines
+        }
+    return out, links
 
 
 def read_file(repo, path, ref):
@@ -136,7 +146,15 @@ def comment(repo, issue, body):
         check=False, capture_output=True, text=True)
 
 
-def evidence_comment(decision, payload, gate_title):
+def section_items(decision, links):
+    """Outstanding items as list lines; sections link to their line in the file."""
+    if not decision.section_mode:
+        return [f"- `{p}`" for p in decision.outstanding]
+    return [f"- [{s}]({links[s]})" if s in (links or {}) else f"- {s}"
+            for s in decision.outstanding]
+
+
+def evidence_comment(decision, payload, gate_title, links=None):
     short = payload["commit_sha"][:7]
     lines = [
         f"**Moved to Ready for review** — {gate_title}",
@@ -163,7 +181,7 @@ def evidence_comment(decision, payload, gate_title):
                    "review this:") if decision.section_mode else
                   ("Still identical to the Strategus template, in case that "
                    "matters when you review this:")]
-        lines += [f"- `{p}`" for p in decision.outstanding]
+        lines += section_items(decision, links)
     if decision.ignored:
         lines += ["", "Also changed, for gates already passed:"]
         lines += [f"- gate {g}: " + ", ".join(f"`{p}`" for p in ps)
@@ -171,7 +189,7 @@ def evidence_comment(decision, payload, gate_title):
     return "\n".join(lines)
 
 
-def progress_comment(decision, payload, gate_title):
+def progress_comment(decision, payload, gate_title, links=None):
     """A gate that needs several files, with only some of them done."""
     short = payload["commit_sha"][:7]
     lines = [
@@ -192,7 +210,7 @@ def progress_comment(decision, payload, gate_title):
         f"Still outstanding:",
         "",
     ]
-    lines += [f"- `{p}`" for p in decision.outstanding]
+    lines += section_items(decision, links)
     return NEWLINE.join(lines)
 
 
@@ -428,8 +446,9 @@ def main():
     current_blobs = fetch_blobs(study_repo, payload["commit_sha"]) if paths else {}
 
 
-    sections = section_state(gates_config, baseline, study_repo,
-                             payload["commit_sha"])
+    sections, section_links = section_state(gates_config, baseline, study_repo,
+                                            payload["commit_sha"],
+                                            state.get("default_branch", "main"))
     decision = evaluate(gates_config, baseline, state, paths, current_blobs,
                         section_outstanding=sections)
 
@@ -468,7 +487,8 @@ def main():
             issue_no = state["gate_issues"].get(target)
             if issue_no and not (already and same):
                 comment(study_repo, issue_no,
-                        progress_comment(decision, payload, gate_title))
+                        progress_comment(decision, payload, gate_title,
+                                         section_links.get(decision.partial_gate)))
 
 
             with open(subprocess.os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
@@ -529,7 +549,9 @@ def main():
 
     if gate_issue:
 
-        comment(study_repo, gate_issue, evidence_comment(decision, payload, gate_title))
+        comment(study_repo, gate_issue,
+                evidence_comment(decision, payload, gate_title,
+                                 section_links.get(decision.to_gate)))
 
         print(f"commented on {study_repo}#{gate_issue}")
 

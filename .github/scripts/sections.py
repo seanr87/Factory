@@ -16,7 +16,7 @@ means boilerplate left untouched never counts as work.
 
 import re
 
-__all__ = ["split_sections", "outstanding_sections", "normalise"]
+__all__ = ["split_sections", "outstanding_sections", "heading_lines", "normalise"]
 
 # `# Outcomes {#outcomes}` and `## Analysis` alike. The trailing {#anchor} is
 # pandoc's cross-reference syntax and is not part of the section's name.
@@ -62,6 +62,21 @@ def split_sections(text):
                 lines.append(line)
     close(0)
     return sections
+
+
+def heading_lines(text):
+    """{section name: 1-based line of its heading}, first occurrence wins.
+
+    So an issue or a comment can point at the exact line to write under —
+    `Protocol.Rmd?plain=1#L180` — rather than naming a heading and leaving the
+    lead to search a 200-line file for it.
+    """
+    out = {}
+    for number, line in enumerate((text or "").split(chr(10)), start=1):
+        m = HEADING.match(line)
+        if m:
+            out.setdefault(normalise(m.group(2)), number)
+    return out
 
 
 def outstanding_sections(study_text, template_text, required):
@@ -130,6 +145,13 @@ def _self_test():
          "Study Objectives" not in nested and "Study Design" not in nested),
         ("a section still ends at the next heading of its own level",
          "Data Sources" in nested),
+        ("heading lines are 1-based and anchors are stripped",
+         heading_lines(template) == {"Rationale and Background": 1,
+                                     "Study Objectives": 3, "Research Methods": 5,
+                                     "Study Design": 7, "Data Sources": 11,
+                                     "Outcomes": 13}),
+        ("a repeated heading keeps its first line",
+         heading_lines("# A\n# B\n# A") == {"A": 1, "B": 2}),
         ("a written section is not outstanding",
          "Rationale and Background" not in got),
         ("an empty section is outstanding",

@@ -45,7 +45,8 @@ import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from run_gate_machine import update_study_board_status  # noqa: E402
+from run_gate_machine import read_file, update_study_board_status  # noqa: E402
+from sections import heading_lines, normalise  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GATES = ROOT / ".github" / "data" / "gates.json"
@@ -135,6 +136,20 @@ def link(study_repo, path, branch):
     return f"[`{path}`]({repo_url(study_repo, path, branch)})"
 
 
+def line_url(study_repo, path, branch, line):
+    """The file's source view with one line highlighted.
+
+    `plain=1` matters: GitHub renders .Rmd and .md as Markdown by default, and
+    `#L` anchors only work on the source view.
+    """
+    return f"{repo_url(study_repo, path, branch)}?plain=1#L{line}"
+
+
+def section_lines(study_repo, path, branch):
+    """Line of each heading in the study's copy of `path`; {} if unreadable."""
+    return heading_lines(read_file(study_repo, path, branch) or "")
+
+
 def linkify(text, study_repo, branch):
     """Turn every backticked repository path in `text` into a link."""
     return REPO_PATH.sub(lambda m: link(study_repo, m.group(1), branch), text)
@@ -144,7 +159,7 @@ def _join(items):
     return ", ".join(items)
 
 
-def requirements(gate, study_repo, branch):
+def requirements(gate, study_repo, branch, lines=None):
     """The Technical requirements block: exactly what Factory needs to see.
 
     One shape per detection rule, so the requirements match the machine:
@@ -154,15 +169,25 @@ def requirements(gate, study_repo, branch):
       content_changed, all_sections  one file, named sections written under
                                      headings kept word for word
       derived_from_partners          partner issue labels, never a push
+
+    `lines` maps heading name to line number in the study's file, so a
+    sections gate can link each heading to the exact line to write under.
     """
     detection = gate["detection"]
     event = detection.get("event")
     paths = detection.get("paths") or []
     supporting = detection.get("supporting_paths") or []
     shipped = SHIPPED.get(detection.get("baseline"), SHIPPED_DEFAULT)
+    lines = lines or {}
 
     def L(path):
         return link(study_repo, path, branch)
+
+    def S(section):
+        n = lines.get(normalise(section))
+        if not n:
+            return section
+        return f"[{section}]({line_url(study_repo, paths[0], branch, n)})"
 
     head = ("**Technical requirements** — what Factory needs to see before it "
             "moves this gate:")
@@ -215,8 +240,9 @@ def requirements(gate, study_repo, branch):
             "edit it in place. Do not create a new file, rename it, or move it.",
             branch_req,
             "- **Headings to keep, word for word** — Factory finds each section "
-            "by its heading:",
-            *[f"  - {s}" for s in sections],
+            "by its heading. Each one links to its line in the file"
+            + (", as of when this issue was created" if lines else "") + ":",
+            *[f"  - {S(s)}" for s in sections],
             "- **What counts:** a section is written when the text under its "
             "heading, including any sub-headings you add, differs from "
             f"{shipped}. Text anywhere else in the file — the title block, the "
@@ -265,11 +291,12 @@ def requirements(gate, study_repo, branch):
     return "\n".join(lines)
 
 
-def build_body(gate, factory_repo, factory_issue, study_repo, branch="main"):
+def build_body(gate, factory_repo, factory_issue, study_repo, branch="main",
+               lines=None):
     return (
         linkify(gate["body"], study_repo, branch)
         + "\n\n---\n\n"
-        + requirements(gate, study_repo, branch)
+        + requirements(gate, study_repo, branch, lines)
         + "\n\n<sub>Study: "
         + study_repo
         + " · Factory tracking: https://github.com/"
@@ -309,8 +336,14 @@ def main():
 
     for gate in gates["gates"]:
         number = gate["gate"]
+        detection = gate["detection"]
+        lines = None
+        if detection.get("require") == "all_sections" and detection.get("paths"):
+            # The file is already there — it comes from the upstream template,
+            # which is scaffolded before the gate issues are created.
+            lines = section_lines(args.repo, detection["paths"][0], branch)
         body = build_body(gate, args.factory_repo, args.factory_issue, args.repo,
-                          branch)
+                          branch, lines)
 
         cmd = ["issue", "create", "--repo", args.repo,
                "--title", gate["title"], "--body", body]
@@ -345,6 +378,8 @@ def main():
         "factory_repo": args.factory_repo,
         "factory_issue": args.factory_issue,
         "study_project_id": args.project_id or None,
+        # So later comments can link into the live file without an API call.
+        "default_branch": branch,
         "current_gate": -1,
         "gate_entered_at": None,
         "stall_threshold_days": gates.get("stall_threshold_days", 21),
@@ -450,6 +485,18 @@ def _self_test():
           "Headings to keep, word for word" in text)
     check("  ...says sub-headings count", "including any sub-headings you add" in text)
     check("  ...and says what does not count", "the abstract" in text)
+    check("  ...and lists headings as plain text when lines are unknown",
+          "  - Study Objectives\n" in text and "#L" not in text)
+    text = requirements(sections_gate, repo, br,
+                        lines={"Study Objectives": 182, "Analysis": 198})
+    check("with lines known, each heading links to its line in the source view",
+          f"  - [Study Objectives]({base}/blob/main/Documents/Protocol.Rmd?plain=1#L182)"
+          in text and "?plain=1#L198)" in text)
+    check("  ...and says the lines date from issue creation",
+          "as of when this issue was created" in text)
+    check("a heading with no known line stays plain text",
+          "  - Analysis\n" in requirements(sections_gate, repo, br,
+                                           lines={"Study Objectives": 182}))
 
     derived = {"detection": {"event": "derived_from_partners",
                              "paths": ["partners.csv"],
