@@ -5,19 +5,18 @@ labels: ["gate", "milestone"]
 detection:
   event: derived_from_partners
   derived_from: partner_issue_status
-  # One site returning results means execution has started. All of them means it
-  # is done — as far as a label can tell, which is why a human still confirms the
-  # result sets are complete before closing.
-  in_progress_when: any_returned
-  ready_when: all_committed_returned
-  # An OHDSI network study is a network. Two sites returning results is a pilot,
-  # so every committed partner returning is necessary but not sufficient.
+  # One site running the package means execution has started. Enough sites
+  # returning results means it is done — as far as a label can tell, which is
+  # why a human still confirms the result sets are complete before closing.
+  in_progress_when: any_running
+  ready_when: minimum_returned
+  # An OHDSI network study is a network. Two sites returning results is a pilot.
   minimum_partners: 3
   note: "Not detectable from repository activity. Execution happens on machines Factory never sees; the partner issue labels are the only trace that reaches GitHub."
 advance_rule: derived_manual_close
 ---
 
-**What this gate means.** Partners have run your study package on their data and returned aggregate results to you. This gate tracks how many have, out of how many committed.
+**What this gate means.** Partners have run your study package on their data and returned aggregate results to you. This gate tracks how many have, out of how many are running it.
 
 **Why it matters.** This is the one phase that happens outside this repository entirely — on machines you'll never see, on data you'll never touch. Only aggregate results ever leave a partner site, which is the point of the whole federated model. What that means practically is that nothing here updates itself: if a site hits an error running your package, the only way you'll find out is that they tell you, or that you ask.
 
@@ -31,7 +30,7 @@ Expect errors. A package that runs cleanly on our data will still fail somewhere
 
 **What good looks like** — check these yourself before you consider it done:
 
-- Every committed partner has either returned results or has a live, dated reason in their issue explaining why not.
+- Every partner running the package has either returned results or has a live, dated reason in their issue explaining why not.
 - No partner has been silent for three weeks without a chase logged.
 - You've confirmed each result set is complete before counting it as received, rather than assuming.
 

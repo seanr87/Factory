@@ -141,9 +141,9 @@ Every table above in one document, plus `exported_at` and `offline`.
 - **Stalls.** Studies where now minus `gate_entered_at` exceeds `stall_threshold_days`,
   and which gate they are stalled in.
 - **Partner funnel.** From `partner_status_history.csv`: how many partners reach
-  *contacted*, *interested*, *committed*, *package running*, *results received*,
-  *declined*; days between each step; how many partners a study needs to approach to
-  get three commitments.
+  *contacted*, *interested*, *package running*, *results received*, *declined*; days
+  between each step; how many partners a study needs to approach to get three
+  interested.
 - **Partner responsiveness.** `days_quiet` distribution, and how it relates to status.
 - **Team shape.** Team size, roles, and number of institutions per study from `team.csv`.
 - **What evidences a gate.** `evidenced_by` in `gates.csv`: which files leads actually

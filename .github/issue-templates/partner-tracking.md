@@ -6,7 +6,6 @@ status_labels:
   - "status:not-contacted"
   - "status:contacted"
   - "status:interested"
-  - "status:committed"
   - "status:package-running"
   - "status:results-received"
   - "status:declined"
@@ -25,4 +24,4 @@ stall_threshold_days: 21
 
 *Have the conversations wherever you normally would. This issue is a log, not an inbox.*
 
-**Status values:** Not yet contacted · Contacted · Interested · Committed · Package running · Results received · Declined
+**Status values:** Not yet contacted · Contacted · Interested · Package running · Results received · Declined

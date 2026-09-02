@@ -198,16 +198,14 @@ def requirements(gate, study_repo, branch, lines=None):
     if event == "derived_from_partners":
         minimum = detection.get("minimum_partners", 1)
         progress = {
-            "any_partner": "any partner issue exists.",
-            "any_returned": "the first partner is marked *Results received*.",
+            "minimum_partners": f"{minimum} partner issues exist.",
+            "any_running": "the first partner is marked *Package running* "
+                           "or further along.",
         }.get(detection.get("in_progress_when"))
         ready = {
-            "minimum_committed": f"{minimum} partners are marked *Committed* "
-                                 "or further along.",
-            "any_committed": "one partner is marked *Committed* or further along.",
-            "all_committed_returned": "every committed partner is marked "
-                                      "*Results received*, and there are at "
-                                      f"least {minimum} of them.",
+            "minimum_interested": f"{minimum} partners are marked *Interested* "
+                                  "or further along.",
+            "minimum_returned": f"{minimum} partners are marked *Results received*.",
         }.get(detection.get("ready_when"))
         lines = [
             head, "",
@@ -516,8 +514,8 @@ def _self_test():
 
     derived = {"detection": {"event": "derived_from_partners",
                              "paths": ["partners.csv"],
-                             "in_progress_when": "any_partner",
-                             "ready_when": "minimum_committed",
+                             "in_progress_when": "minimum_partners",
+                             "ready_when": "minimum_interested",
                              "minimum_partners": 3}}
     text = requirements(derived, repo, br)
     check("a derived gate says no file moves it", "No file moves this gate" in text)
@@ -526,13 +524,14 @@ def _self_test():
     check("  ...says a card or a label both work",
           "drag its card" in text and "`status:` label" in text)
     check("  ...and states both thresholds",
-          "**In progress when:**" in text and "3 partners are marked" in text)
+          "**In progress when:** 3 partner issues exist." in text
+          and "3 partners are marked *Interested*" in text)
     text = requirements({"detection": {"event": "derived_from_partners",
-                                       "in_progress_when": "any_returned",
-                                       "ready_when": "all_committed_returned",
+                                       "in_progress_when": "any_running",
+                                       "ready_when": "minimum_returned",
                                        "minimum_partners": 3}}, repo, br)
     check("a pathless derived gate still states its thresholds",
-          "*Results received*" in text and "at least 3" in text
+          "*Package running*" in text and "3 partners are marked *Results received*" in text
           and "Partner issues come from" not in text)
 
     body = build_body({"body": "See `TEAM.md`.", "initial_status": "in_progress",
