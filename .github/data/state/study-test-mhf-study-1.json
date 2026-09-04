@@ -4,17 +4,33 @@
   "factory_issue": 192,
   "study_project_id": "PVT_kwDOCQMYQc4Bids1",
   "default_branch": "main",
-  "current_gate": -1,
-  "gate_entered_at": null,
+  "current_gate": 0,
+  "gate_entered_at": "2026-09-04T15:22:33+00:00",
   "stall_threshold_days": 21,
   "start_date": "2026-09-04",
   "target_date": "2027-09-01",
   "gates": {
     "0": {
-      "status": "in_progress",
+      "status": "ready_for_review",
       "entered_at": "2026-09-04T15:20:30+00:00",
       "issue": 1,
-      "evidenced_by": []
+      "evidenced_by": [
+        "TEAM.md"
+      ],
+      "ready_at": "2026-09-04T15:22:33+00:00",
+      "commits": [
+        {
+          "sha": "e1cd64de8bd227bc663636fc70fe76bd69807452",
+          "url": "https://github.com/OHDSI-JHU/study-test-mhf-study-1/commit/e1cd64de8bd227bc663636fc70fe76bd69807452",
+          "at": "2026-09-04T15:22:14+00:00",
+          "author": "seanr87",
+          "message": "Update TEAM.md with new team member details",
+          "paths": [
+            "TEAM.md"
+          ],
+          "removed": []
+        }
+      ]
     },
     "1": {
       "status": "in_progress",
@@ -69,5 +85,15 @@
     "6": 7,
     "7": 8
   },
-  "history": []
+  "history": [
+    {
+      "at": "2026-09-04T15:22:33+00:00",
+      "from_gate": -1,
+      "to_gate": 0,
+      "commit": "e1cd64de8bd227bc663636fc70fe76bd69807452",
+      "evidence": [
+        "TEAM.md"
+      ]
+    }
+  ]
 }
