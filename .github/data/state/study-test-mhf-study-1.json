@@ -55,10 +55,35 @@
       ]
     },
     "2": {
-      "status": "not_started",
-      "entered_at": null,
+      "status": "in_progress",
+      "entered_at": "2026-09-04T16:06:44+00:00",
       "issue": 3,
-      "evidenced_by": []
+      "evidenced_by": [],
+      "outstanding": [
+        "Rationale and Background",
+        "Study Objectives",
+        "Study Design",
+        "Data Sources",
+        "Study Population",
+        "Outcomes",
+        "Analysis",
+        "Strengths and Limitations",
+        "Protection of Human Subjects",
+        "Plans for Disseminating and Communicating Study Results"
+      ],
+      "commits": [
+        {
+          "sha": "a8205cd3d5e2928f32ab1b70ddb865b96a3953f8",
+          "url": "https://github.com/OHDSI-JHU/study-test-mhf-study-1/commit/a8205cd3d5e2928f32ab1b70ddb865b96a3953f8",
+          "at": "2026-09-04T16:06:24+00:00",
+          "author": "seanr87",
+          "message": "Update Protocol.Rmd",
+          "paths": [
+            "Documents/Protocol.Rmd"
+          ],
+          "removed": []
+        }
+      ]
     },
     "3": {
       "status": "not_started",
